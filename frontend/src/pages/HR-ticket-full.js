@@ -3,7 +3,7 @@ import HRTicketsForm from "../componenets/HR-ticket/HRTicketsForm";
 import PendingTickets from "../componenets/HR-ticket/PendingTickets";
 import HRDirectory from "../componenets/HR-ticket/HRDirectory";
 
-function App() {
+function HRTicketFull() {
   return (
     <div className="min-h-screen bg-white">
       {/* Top bar */}
@@ -49,4 +49,4 @@ function App() {
   );
 }
 
-export default App;
+export default HRTicketFull;

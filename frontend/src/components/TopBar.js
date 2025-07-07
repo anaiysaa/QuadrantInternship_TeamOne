@@ -5,7 +5,7 @@ const Topbar = () => {
   return (
     <nav className="topbar">
       <ul className="links">
-        <li><a href="#">My Dashboard</a></li>
+        <li><a href="#dashboard">My Dashboard</a></li>
         <li><a href="#">My Timesheet</a></li>
         <li><a href="#">Careers</a></li>
       </ul>

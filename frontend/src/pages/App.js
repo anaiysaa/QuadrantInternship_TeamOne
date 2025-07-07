@@ -1,6 +1,7 @@
 import '../css/App.css';
-import TopBar from '../componenets/TopBar';
+import TopBar from '../components/TopBar';
 import TopBackground from '../assets/TopBackground.jpg';  //change immage asset link if needed
+import Dashboard from './Dashboard';
 
 function App() {
   return (
@@ -9,6 +10,10 @@ function App() {
         <img src={TopBackground} alt="Top Background" />
       </div>
       <TopBar />
+
+      <section id="dashboard">
+        <Dashboard />
+      </section>
     </div>
   );
 }
