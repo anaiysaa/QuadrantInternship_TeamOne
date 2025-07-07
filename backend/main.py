@@ -22,18 +22,22 @@ def get_leave_requests():
 def get_timesheets():
     return fetch_all("Timesheets")
 
-@app.route("/tickets", methods=["GET"])
-def get_tickets():
-    return fetch_all("Tickets")
+@app.route("/hr_tickets", methods=["GET"])
+def get_hrtickets():
+    return fetch_all("hr_Tickets")
+
+@app.route("/it_tickets", methods=["GET"])
+def get_ittickets():
+    return fetch_all("it_Tickets")
 
 
-@app.route("/troubleshootingdocs", methods=["GET"])
+@app.route("/it_troubleshootingdocs", methods=["GET"])
 def get_troubleshooting_docs():
-    return fetch_all("TroubleshootingDocs")
+    return fetch_all("it_troubleshootingdocs")
 
-@app.route("/assets", methods=["GET"])
+@app.route("/it_assets", methods=["GET"])
 def get_assets():
-    return fetch_all("Assets")
+    return fetch_all("it_Assets")
 
 def fetch_all(table):
     try:
