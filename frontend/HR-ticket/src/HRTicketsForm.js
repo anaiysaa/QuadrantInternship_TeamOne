@@ -15,11 +15,28 @@ function HRTicketsForm() {
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert("Ticket submitted! (This is a stub)");
-    setForm({ employeeId: "", department: "", issue: "", description: "" });
-  };
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const response = await fetch("http://localhost:8000/hr_tickets", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+ 
+    if (response.ok) {
+      alert("Ticket submitted successfully!");
+      setForm({ employeeId: "", department: "", issue: "", description: "" });
+    } else {
+      const data = await response.json();
+      alert("Submission failed: " + (data.error || "Unknown error"));
+    }
+  } catch (error) {
+    alert("Submission failed: " + error.message);
+  }
+};
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow max-w-md border border-gray-200">
