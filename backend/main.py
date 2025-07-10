@@ -1,5 +1,5 @@
 # backend/main.py
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from db import get_connection
 
@@ -29,6 +29,50 @@ def get_hrtickets():
 @app.route("/it_tickets", methods=["GET"])
 def get_ittickets():
     return fetch_all("it_Tickets")
+
+@app.route("/it_tickets", methods=["POST"])
+def post_it_ticket():
+    try:
+        data = request.json
+        employee_id = data.get("employeeId")
+        department = data.get("department")
+        issue = data.get("issue")
+        description = data.get("description")
+        # Add other fields as needed
+ 
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO IT_Tickets (EmployeeID, Department, Issue, Description) VALUES (?, ?, ?, ?)",
+            (employee_id, department, issue, description)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/hr_tickets", methods=["POST"])
+def post_hr_ticket():
+    try:
+        data = request.json
+        employee_id = data.get("employeeId")
+        department = data.get("department")
+        issue = data.get("issue")
+        description = data.get("description")
+        # Add other fields as needed
+ 
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO IT_Tickets (EmployeeID, Department, Issue, Description) VALUES (?, ?, ?, ?)",
+            (employee_id, department, issue, description)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/it_troubleshootingdocs", methods=["GET"])
