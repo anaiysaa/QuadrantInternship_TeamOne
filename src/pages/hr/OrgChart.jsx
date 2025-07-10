@@ -1,15 +1,20 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 export default function OrgChart() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (orgData and all helper functions)
   const orgData = {
     ceo: {
       id: 'CEO',
@@ -144,10 +149,6 @@ export default function OrgChart() {
     }
   };
 
-  const getLevelIndentation = (level) => {
-    return `ml-${(level - 1) * 8}`;
-  };
-
   const getInitials = (name) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -159,6 +160,20 @@ export default function OrgChart() {
     { title: 'Direct Reports Avg', value: (allEmployees.reduce((acc, e) => acc + e.directReports, 0) / allEmployees.filter(e => e.directReports > 0).length).toFixed(1), color: 'bg-accent' },
   ];
 
+  const handleExportChart = () => {
+    toast({
+      title: "Export Chart",
+      description: "Organization chart is being exported...",
+    });
+  };
+
+  const handleEditStructure = () => {
+    toast({
+      title: "Edit Structure",
+      description: "Opening organization structure editor...",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -168,8 +183,8 @@ export default function OrgChart() {
             <p className="text-muted-foreground">View company organization structure</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Export Chart</Button>
-            <Button>Edit Structure</Button>
+            <Button variant="outline" onClick={handleExportChart}>Export Chart</Button>
+            <Button onClick={handleEditStructure}>Edit Structure</Button>
           </div>
         </div>
 

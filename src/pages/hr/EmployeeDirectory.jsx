@@ -1,11 +1,13 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -17,8 +19,10 @@ import {
 
 export default function EmployeeDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  // Mock employee data - in a real app this would come from an API
+  // ... keep existing code (employees data array)
   const employees = [
     {
       id: 'EMP001',
@@ -88,6 +92,7 @@ export default function EmployeeDirectory() {
     }
   ];
 
+  // ... keep existing code (filteredEmployees, getInitials, getDepartmentColor)
   const filteredEmployees = employees.filter(employee =>
     employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -109,6 +114,41 @@ export default function EmployeeDirectory() {
     }
   };
 
+  const handleAddEmployee = () => {
+    toast({
+      title: "Add Employee",
+      description: "Opening new employee form...",
+    });
+  };
+
+  const handleView = (employeeId) => {
+    toast({
+      title: "View Employee",
+      description: `Opening profile for employee ${employeeId}`,
+    });
+  };
+
+  const handleEdit = (employeeId) => {
+    toast({
+      title: "Edit Employee",
+      description: `Opening edit form for employee ${employeeId}`,
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the directory.",
+    });
+  };
+
+  const handleExport = () => {
+    toast({
+      title: "Export Directory",
+      description: "Employee directory is being exported...",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -117,7 +157,7 @@ export default function EmployeeDirectory() {
             <h1 className="text-2xl font-bold">Employee Directory</h1>
             <p className="text-muted-foreground">Browse all company employees</p>
           </div>
-          <Button>Add Employee</Button>
+          <Button onClick={handleAddEmployee}>Add Employee</Button>
         </div>
 
         {/* Stats Cards */}
@@ -173,8 +213,8 @@ export default function EmployeeDirectory() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
-              <Button variant="outline">Export</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
+              <Button variant="outline" onClick={handleExport}>Export</Button>
             </div>
           </CardContent>
         </Card>
@@ -229,8 +269,8 @@ export default function EmployeeDirectory() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm">View</Button>
-                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleView(employee.id)}>View</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleEdit(employee.id)}>Edit</Button>
                       </div>
                     </TableCell>
                   </TableRow>

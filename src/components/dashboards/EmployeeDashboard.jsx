@@ -2,15 +2,56 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const currentTasks = [
+    { 
+      id: 1, 
+      title: 'Complete Q4 Performance Review', 
+      description: 'Submit self-assessment and goal planning for next quarter',
+      dueDate: '2024-12-15',
+      priority: 'High',
+      status: 'In Progress',
+      category: 'HR'
+    },
+    { 
+      id: 2, 
+      title: 'Submit Weekly Timesheet', 
+      description: 'Log hours for week ending December 8th',
+      dueDate: '2024-12-09',
+      priority: 'Medium',
+      status: 'Pending',
+      category: 'Admin'
+    },
+    { 
+      id: 3, 
+      title: 'Complete Cybersecurity Training', 
+      description: 'Mandatory annual security awareness training',
+      dueDate: '2024-12-20',
+      priority: 'Medium',
+      status: 'Not Started',
+      category: 'Training'
+    },
+    { 
+      id: 4, 
+      title: 'Update Emergency Contact Information', 
+      description: 'Verify and update contact details in HR system',
+      dueDate: '2024-12-31',
+      priority: 'Low',
+      status: 'Not Started',
+      category: 'HR'
+    }
+  ];
 
   const quickStats = [
     { title: 'Leave Balance', value: '15 days', subtitle: 'Available this year', color: 'bg-success' },
     { title: 'Hours This Month', value: '168h', subtitle: '40h this week', color: 'bg-primary' },
     { title: 'Open Tickets', value: '2', subtitle: '1 pending response', color: 'bg-warning' },
-    { title: 'Applications', value: '1', subtitle: 'In review', color: 'bg-accent' },
+    { title: 'Pending Tasks', value: `${currentTasks.filter(t => t.status !== 'Completed').length}`, subtitle: '2 due this week', color: 'bg-accent' },
   ];
 
   const recentActivities = [
@@ -23,9 +64,35 @@ export function EmployeeDashboard() {
   const quickActions = [
     { title: 'Apply for Leave', description: 'Request time off', path: '/leave' },
     { title: 'Log Hours', description: 'Submit timesheet', path: '/timesheet' },
-    { title: 'View Payslips', description: 'Download pay stubs', path: '/payroll' },
+    { title: 'View Profile', description: 'Update information', path: '/profile' },
     { title: 'Submit Feedback', description: 'Share your thoughts', path: '/feedback' },
   ];
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'High': return 'bg-destructive text-destructive-foreground';
+      case 'Medium': return 'bg-warning text-warning-foreground';
+      case 'Low': return 'bg-muted text-muted-foreground';
+      default: return 'bg-primary text-primary-foreground';
+    }
+  };
+
+  const handleTaskAction = (task) => {
+    // Navigate based on task category
+    switch (task.category) {
+      case 'HR':
+        navigate('/profile');
+        break;
+      case 'Admin':
+        navigate('/timesheet');
+        break;
+      case 'Training':
+        navigate('/lms');
+        break;
+      default:
+        navigate('/dashboard');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -42,10 +109,54 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
+      {/* Current Tasks Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Current Tasks & To-Do</CardTitle>
+          <Badge variant="outline">{currentTasks.filter(t => t.status !== 'Completed').length} Pending</Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {currentTasks.slice(0, 4).map((task) => (
+              <div key={task.id} className="flex items-center justify-between p-4 bg-accent/50 rounded-lg border">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h4 className="font-medium">{task.title}</h4>
+                    <Badge className={getPriorityColor(task.priority)} size="sm">
+                      {task.priority}
+                    </Badge>
+                    <Badge variant="outline" size="sm">{task.category}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                  <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                    <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                    <span>Status: {task.status}</span>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  {task.status === 'Not Started' && (
+                    <Button size="sm" variant="outline" onClick={() => handleTaskAction(task)}>Start</Button>
+                  )}
+                  {task.status === 'In Progress' && (
+                    <Button size="sm" onClick={() => handleTaskAction(task)}>Continue</Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => handleTaskAction(task)}>View</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {quickStats.map((stat, index) => (
-          <Card key={index}>
+          <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+            if (stat.title === 'Leave Balance') navigate('/leave');
+            if (stat.title === 'Hours This Month') navigate('/timesheet');
+            if (stat.title === 'Open Tickets') navigate('/tickets');
+            if (stat.title === 'Pending Tasks') navigate('/dashboard');
+          }}>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2">
                 <div className={`w-3 h-3 rounded-full ${stat.color}`}></div>
@@ -70,6 +181,7 @@ export function EmployeeDashboard() {
                 key={index}
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-start space-y-2"
+                onClick={() => navigate(action.path)}
               >
                 <span className="font-medium text-sm">{action.title}</span>
                 <span className="text-xs text-muted-foreground">{action.description}</span>
@@ -104,18 +216,18 @@ export function EmployeeDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>My Support Tickets</CardTitle>
-          <Button variant="outline" size="sm">View All</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/tickets')}>View All</Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-accent rounded-lg cursor-pointer hover:bg-accent/80" onClick={() => navigate('/tickets')}>
               <div>
                 <p className="font-medium">Laptop running slowly</p>
                 <p className="text-sm text-muted-foreground">IT Support • Ticket #1234</p>
               </div>
               <Badge variant="outline">In Progress</Badge>
             </div>
-            <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-accent rounded-lg cursor-pointer hover:bg-accent/80" onClick={() => navigate('/tickets')}>
               <div>
                 <p className="font-medium">Request new software license</p>
                 <p className="text-sm text-muted-foreground">IT Support • Ticket #1235</p>

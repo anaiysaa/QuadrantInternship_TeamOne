@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function HRFeedbackCenter() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (feedbackData array and all helper functions)
   const feedbackData = [
     {
       id: 'FB001',
@@ -138,6 +143,41 @@ export default function HRFeedbackCenter() {
     { title: 'Avg Rating', value: (feedbackData.reduce((acc, f) => acc + f.rating, 0) / feedbackData.length).toFixed(1), color: 'bg-accent' },
   ];
 
+  const handleExportReport = () => {
+    toast({
+      title: "Export Report",
+      description: "Feedback report is being exported...",
+    });
+  };
+
+  const handleSendSurvey = () => {
+    toast({
+      title: "Send Survey",
+      description: "Opening survey creation interface...",
+    });
+  };
+
+  const handleView = (feedbackId) => {
+    toast({
+      title: "View Feedback",
+      description: `Opening detailed view for feedback ${feedbackId}`,
+    });
+  };
+
+  const handleRespond = (feedbackId) => {
+    toast({
+      title: "Respond to Feedback",
+      description: `Opening response form for feedback ${feedbackId}`,
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the feedback.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -147,8 +187,8 @@ export default function HRFeedbackCenter() {
             <p className="text-muted-foreground">Review employee feedback</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Export Report</Button>
-            <Button>Send Survey</Button>
+            <Button variant="outline" onClick={handleExportReport}>Export Report</Button>
+            <Button onClick={handleSendSurvey}>Send Survey</Button>
           </div>
         </div>
 
@@ -180,7 +220,7 @@ export default function HRFeedbackCenter() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
             </div>
           </CardContent>
         </Card>
@@ -233,9 +273,9 @@ export default function HRFeedbackCenter() {
                     <TableCell>{getStatusBadge(feedback.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline">View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(feedback.id)}>View</Button>
                         {feedback.status !== 'Addressed' && (
-                          <Button size="sm" variant="default">Respond</Button>
+                          <Button size="sm" variant="default" onClick={() => handleRespond(feedback.id)}>Respond</Button>
                         )}
                       </div>
                     </TableCell>

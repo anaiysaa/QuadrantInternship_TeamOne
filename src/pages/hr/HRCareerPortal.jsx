@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function HRCareerPortal() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (jobPostings and applications arrays, and all helper functions)
   const jobPostings = [
     {
       id: 'JP001',
@@ -176,6 +181,55 @@ export default function HRCareerPortal() {
     { title: 'Offers Extended', value: applications.filter(a => a.status === 'Offer Extended').length, color: 'bg-accent' },
   ];
 
+  const handleJobTemplates = () => {
+    toast({
+      title: "Job Templates",
+      description: "Opening job template management interface...",
+    });
+  };
+
+  const handlePostNewJob = () => {
+    toast({
+      title: "Post New Job",
+      description: "Opening new job posting form...",
+    });
+  };
+
+  const handleEdit = (jobId) => {
+    toast({
+      title: "Edit Job",
+      description: `Opening edit form for job ${jobId}`,
+    });
+  };
+
+  const handleViewApps = (jobId) => {
+    toast({
+      title: "View Applications",
+      description: `Opening applications list for job ${jobId}`,
+    });
+  };
+
+  const handleReview = (appId) => {
+    toast({
+      title: "Review Application",
+      description: `Opening application review for ${appId}`,
+    });
+  };
+
+  const handleSchedule = (appId) => {
+    toast({
+      title: "Schedule Interview",
+      description: `Opening interview scheduler for ${appId}`,
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the job postings.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -185,8 +239,8 @@ export default function HRCareerPortal() {
             <p className="text-muted-foreground">Manage career opportunities</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Job Templates</Button>
-            <Button>Post New Job</Button>
+            <Button variant="outline" onClick={handleJobTemplates}>Job Templates</Button>
+            <Button onClick={handlePostNewJob}>Post New Job</Button>
           </div>
         </div>
 
@@ -218,7 +272,7 @@ export default function HRCareerPortal() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
             </div>
           </CardContent>
         </Card>
@@ -268,8 +322,8 @@ export default function HRCareerPortal() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline">Edit</Button>
-                        <Button size="sm" variant="default">View Apps</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(job.id)}>Edit</Button>
+                        <Button size="sm" variant="default" onClick={() => handleViewApps(job.id)}>View Apps</Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -319,8 +373,8 @@ export default function HRCareerPortal() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline">Review</Button>
-                        <Button size="sm" variant="default">Schedule</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleReview(app.id)}>Review</Button>
+                        <Button size="sm" variant="default" onClick={() => handleSchedule(app.id)}>Schedule</Button>
                       </div>
                     </TableCell>
                   </TableRow>

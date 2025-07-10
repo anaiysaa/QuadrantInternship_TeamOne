@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function HRLeaveRequests() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (leaveRequests data array)
   const leaveRequests = [
     {
       id: 'LR001',
@@ -85,6 +90,7 @@ export default function HRLeaveRequests() {
     }
   ];
 
+  // ... keep existing code (filteredRequests, getStatusBadge, getTypeBadge, stats)
   const filteredRequests = leaveRequests.filter(request =>
     request.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
     request.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -123,6 +129,41 @@ export default function HRLeaveRequests() {
     { title: 'Urgent', value: leaveRequests.filter(r => r.urgent).length, color: 'bg-destructive' },
   ];
 
+  const handleApprove = (requestId) => {
+    toast({
+      title: "Leave Request Approved",
+      description: `Request ${requestId} has been approved successfully.`,
+    });
+  };
+
+  const handleReject = (requestId) => {
+    toast({
+      title: "Leave Request Rejected",
+      description: `Request ${requestId} has been rejected.`,
+    });
+  };
+
+  const handleView = (requestId) => {
+    toast({
+      title: "View Request",
+      description: `Opening detailed view for request ${requestId}`,
+    });
+  };
+
+  const handleExportReport = () => {
+    toast({
+      title: "Report Export",
+      description: "Leave requests report is being exported...",
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the list.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -131,7 +172,7 @@ export default function HRLeaveRequests() {
             <h1 className="text-2xl font-bold">Leave Requests</h1>
             <p className="text-muted-foreground">Manage employee leave requests</p>
           </div>
-          <Button>Export Report</Button>
+          <Button onClick={handleExportReport}>Export Report</Button>
         </div>
 
         {/* Stats Cards */}
@@ -162,7 +203,7 @@ export default function HRLeaveRequests() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
             </div>
           </CardContent>
         </Card>
@@ -215,11 +256,11 @@ export default function HRLeaveRequests() {
                       <div className="flex items-center space-x-2">
                         {request.status === 'Pending' && (
                           <>
-                            <Button size="sm" variant="default">Approve</Button>
-                            <Button size="sm" variant="outline">Reject</Button>
+                            <Button size="sm" variant="default" onClick={() => handleApprove(request.id)}>Approve</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReject(request.id)}>Reject</Button>
                           </>
                         )}
-                        <Button size="sm" variant="outline">View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(request.id)}>View</Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function HRTickets() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (hrTickets data array)
   const hrTickets = [
     {
       id: 'HR001',
@@ -85,6 +90,7 @@ export default function HRTickets() {
     }
   ];
 
+  // ... keep existing code (filteredTickets, getStatusBadge, getPriorityBadge, getCategoryColor, stats)
   const filteredTickets = hrTickets.filter(ticket =>
     ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ticket.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,6 +147,41 @@ export default function HRTickets() {
     { title: 'Critical', value: hrTickets.filter(t => t.priority === 'Critical').length, color: 'bg-destructive' },
   ];
 
+  const handleCreateTicket = () => {
+    toast({
+      title: "Create Ticket",
+      description: "Opening new ticket creation form...",
+    });
+  };
+
+  const handleBulkActions = () => {
+    toast({
+      title: "Bulk Actions",
+      description: "Opening bulk actions panel...",
+    });
+  };
+
+  const handleView = (ticketId) => {
+    toast({
+      title: "View Ticket",
+      description: `Opening detailed view for ticket ${ticketId}`,
+    });
+  };
+
+  const handleUpdate = (ticketId) => {
+    toast({
+      title: "Update Ticket",
+      description: `Opening update form for ticket ${ticketId}`,
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the tickets.",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -150,8 +191,8 @@ export default function HRTickets() {
             <p className="text-muted-foreground">Manage HR support tickets</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Create Ticket</Button>
-            <Button>Bulk Actions</Button>
+            <Button variant="outline" onClick={handleCreateTicket}>Create Ticket</Button>
+            <Button onClick={handleBulkActions}>Bulk Actions</Button>
           </div>
         </div>
 
@@ -183,7 +224,7 @@ export default function HRTickets() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
             </div>
           </CardContent>
         </Card>
@@ -236,9 +277,9 @@ export default function HRTickets() {
                     <TableCell className="text-sm">{ticket.assignedTo}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline">View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(ticket.id)}>View</Button>
                         {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && (
-                          <Button size="sm" variant="default">Update</Button>
+                          <Button size="sm" variant="default" onClick={() => handleUpdate(ticket.id)}>Update</Button>
                         )}
                       </div>
                     </TableCell>

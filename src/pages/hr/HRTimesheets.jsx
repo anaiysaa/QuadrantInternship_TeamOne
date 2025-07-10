@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function HRTimesheets() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (timesheets data array, filteredTimesheets, getStatusBadge, stats)
   const timesheets = [
     {
       id: 'TS001',
@@ -108,6 +113,48 @@ export default function HRTimesheets() {
     { title: 'Total Overtime', value: timesheets.reduce((acc, t) => acc + t.overtimeHours, 0), color: 'bg-accent' },
   ];
 
+  const handleApprove = (timesheetId) => {
+    toast({
+      title: "Timesheet Approved",
+      description: `Timesheet ${timesheetId} has been approved successfully.`,
+    });
+  };
+
+  const handleReject = (timesheetId) => {
+    toast({
+      title: "Timesheet Rejected",
+      description: `Timesheet ${timesheetId} has been rejected.`,
+    });
+  };
+
+  const handleView = (timesheetId) => {
+    toast({
+      title: "View Timesheet",
+      description: `Opening detailed view for timesheet ${timesheetId}`,
+    });
+  };
+
+  const handleBulkApprove = () => {
+    toast({
+      title: "Bulk Approve",
+      description: "Processing bulk approval for selected timesheets...",
+    });
+  };
+
+  const handleExportReport = () => {
+    toast({
+      title: "Report Export",
+      description: "Timesheets report is being exported...",
+    });
+  };
+
+  const handleFilterByWeek = () => {
+    toast({
+      title: "Week Filter",
+      description: "Filtering timesheets by week period...",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -117,8 +164,8 @@ export default function HRTimesheets() {
             <p className="text-muted-foreground">Review employee timesheets</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Bulk Approve</Button>
-            <Button>Export Report</Button>
+            <Button variant="outline" onClick={handleBulkApprove}>Bulk Approve</Button>
+            <Button onClick={handleExportReport}>Export Report</Button>
           </div>
         </div>
 
@@ -150,7 +197,7 @@ export default function HRTimesheets() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter by Week</Button>
+              <Button variant="outline" onClick={handleFilterByWeek}>Filter by Week</Button>
             </div>
           </CardContent>
         </Card>
@@ -206,11 +253,11 @@ export default function HRTimesheets() {
                       <div className="flex items-center space-x-2">
                         {(timesheet.status === 'Submitted' || timesheet.status === 'Pending Review') && (
                           <>
-                            <Button size="sm" variant="default">Approve</Button>
-                            <Button size="sm" variant="outline">Reject</Button>
+                            <Button size="sm" variant="default" onClick={() => handleApprove(timesheet.id)}>Approve</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReject(timesheet.id)}>Reject</Button>
                           </>
                         )}
-                        <Button size="sm" variant="outline">View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(timesheet.id)}>View</Button>
                       </div>
                     </TableCell>
                   </TableRow>

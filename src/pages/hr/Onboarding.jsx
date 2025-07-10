@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -16,7 +18,10 @@ import {
 
 export default function Onboarding() {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
+  // ... keep existing code (onboardingCandidates data array)
   const onboardingCandidates = [
     {
       id: 'ON001',
@@ -95,6 +100,7 @@ export default function Onboarding() {
     }
   ];
 
+  // ... keep existing code (filteredCandidates, getStatusBadge, getDepartmentColor, stats)
   const filteredCandidates = onboardingCandidates.filter(candidate =>
     candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     candidate.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -135,6 +141,62 @@ export default function Onboarding() {
     { title: 'Starting Soon', value: onboardingCandidates.filter(c => c.status === 'Pending' || c.status === 'Not Started').length, color: 'bg-accent' },
   ];
 
+  const handleCreateChecklist = () => {
+    toast({
+      title: "Create Checklist",
+      description: "Opening onboarding checklist creator...",
+    });
+  };
+
+  const handleAddNewHire = () => {
+    toast({
+      title: "Add New Hire",
+      description: "Opening new hire registration form...",
+    });
+  };
+
+  const handleView = (candidateId) => {
+    toast({
+      title: "View Candidate",
+      description: `Opening detailed view for candidate ${candidateId}`,
+    });
+  };
+
+  const handleManage = (candidateId) => {
+    toast({
+      title: "Manage Onboarding",
+      description: `Opening management interface for candidate ${candidateId}`,
+    });
+  };
+
+  const handleFilter = () => {
+    toast({
+      title: "Filter Applied",
+      description: "Advanced filters have been applied to the list.",
+    });
+  };
+
+  const handleOnboardingTemplates = () => {
+    toast({
+      title: "Onboarding Templates",
+      description: "Opening template management interface...",
+    });
+  };
+
+  const handleProgressReports = () => {
+    toast({
+      title: "Progress Reports",
+      description: "Generating detailed progress analytics...",
+    });
+  };
+
+  const handleSettings = () => {
+    toast({
+      title: "Onboarding Settings",
+      description: "Opening onboarding configuration panel...",
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -144,8 +206,8 @@ export default function Onboarding() {
             <p className="text-muted-foreground">Manage new employee onboarding</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Create Checklist</Button>
-            <Button>Add New Hire</Button>
+            <Button variant="outline" onClick={handleCreateChecklist}>Create Checklist</Button>
+            <Button onClick={handleAddNewHire}>Add New Hire</Button>
           </div>
         </div>
 
@@ -177,7 +239,7 @@ export default function Onboarding() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline">Filter</Button>
+              <Button variant="outline" onClick={handleFilter}>Filter</Button>
             </div>
           </CardContent>
         </Card>
@@ -238,9 +300,9 @@ export default function Onboarding() {
                     <TableCell>{getStatusBadge(candidate.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline">View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(candidate.id)}>View</Button>
                         {candidate.status !== 'Completed' && (
-                          <Button size="sm" variant="default">Manage</Button>
+                          <Button size="sm" variant="default" onClick={() => handleManage(candidate.id)}>Manage</Button>
                         )}
                       </div>
                     </TableCell>
@@ -253,7 +315,7 @@ export default function Onboarding() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleOnboardingTemplates}>
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">📋</div>
               <h3 className="font-semibold mb-1">Onboarding Templates</h3>
@@ -261,7 +323,7 @@ export default function Onboarding() {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleProgressReports}>
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">📊</div>
               <h3 className="font-semibold mb-1">Progress Reports</h3>
@@ -269,7 +331,7 @@ export default function Onboarding() {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleSettings}>
             <CardContent className="p-6 text-center">
               <div className="text-2xl mb-2">⚙️</div>
               <h3 className="font-semibold mb-1">Settings</h3>
