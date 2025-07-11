@@ -1,0 +1,396 @@
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { EditProfileDialog } from "@/components/dialogs/EditProfileDialog";
+
+export default function Profile() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("personal");
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+
+  const getInitials = (name) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case "hr":
+        return "bg-success text-success-foreground";
+      case "it":
+        return "bg-warning text-warning-foreground";
+      default:
+        return "bg-primary text-primary-foreground";
+    }
+  };
+
+  const certifications = [
+    {
+      id: 1,
+      name: "Cybersecurity Fundamentals",
+      issuer: "Company LMS",
+      date: "2024-02-10",
+      status: "Active",
+      credentialId: "CSF-2024-001",
+    },
+    {
+      id: 2,
+      name: "Advanced Excel Training",
+      issuer: "Company LMS",
+      date: "2024-01-15",
+      status: "Active",
+      credentialId: "AET-2024-002",
+    },
+    {
+      id: 3,
+      name: "Project Management Basics",
+      issuer: "Company LMS",
+      date: "2023-12-20",
+      status: "Active",
+      credentialId: "PMB-2023-045",
+    },
+  ];
+
+  const resumeData = {
+    summary:
+      "Dedicated professional with 5+ years of experience in software development and team leadership. Skilled in multiple programming languages and frameworks.",
+    experience: [
+      {
+        title: "Senior Software Developer",
+        company: "Current Company",
+        period: "2022 - Present",
+        description:
+          "Lead development team of 5 engineers, architected microservices solutions, improved system performance by 40%",
+      },
+      {
+        title: "Software Developer",
+        company: "Previous Company",
+        period: "2019 - 2022",
+        description:
+          "Developed full-stack applications, collaborated with cross-functional teams, mentored junior developers",
+      },
+    ],
+    education: [
+      {
+        degree: "Bachelor of Science in Computer Science",
+        institution: "State University",
+        year: "2019",
+      },
+    ],
+    skills: [
+      "JavaScript",
+      "React",
+      "Node.js",
+      "Python",
+      "SQL",
+      "AWS",
+      "Docker",
+      "Git",
+    ],
+  };
+
+  const tabs = [
+    { id: "personal", label: "Personal Info", icon: "👤" },
+    { id: "certifications", label: "Certifications", icon: "🏆" },
+    { id: "resume", label: "Resume", icon: "📄" },
+  ];
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">My Profile</h1>
+          <Button onClick={() => setEditProfileOpen(true)}>Edit Profile</Button>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* Profile Overview */}
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Profile Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col items-center space-y-4">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={user?.avatar} alt={user?.name} />
+                  <AvatarFallback className="text-xl">
+                    {user ? getInitials(user.name) : "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-semibold">{user?.name}</h3>
+                  <p className="text-muted-foreground">{user?.email}</p>
+                  <Badge className={getRoleColor(user?.role || "")}>
+                    {user?.role?.toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Employee ID
+                  </label>
+                  <p className="text-sm">{user?.employeeId}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Department
+                  </label>
+                  <p className="text-sm">{user?.department}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Manager
+                  </label>
+                  <p className="text-sm">{user?.manager || "Not assigned"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Join Date
+                  </label>
+                  <p className="text-sm">{user?.joinDate}</p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Quick Stats</h4>
+                <div className="grid gap-3">
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Certifications</span>
+                    <span className="text-sm font-bold">
+                      {certifications.length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Leave Balance</span>
+                    <span className="text-sm font-bold">18 days</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Performance</span>
+                    <span className="text-sm font-bold">95%</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Main Content */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <div className="flex space-x-4 border-b">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? "border-b-2 border-primary text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {activeTab === "personal" && (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Full Name
+                      </label>
+                      <p className="text-sm mt-1">{user?.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Email
+                      </label>
+                      <p className="text-sm mt-1">{user?.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Phone
+                      </label>
+                      <p className="text-sm mt-1">
+                        {user?.phone || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Location
+                      </label>
+                      <p className="text-sm mt-1">
+                        {user?.location || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Bio
+                    </label>
+                    <p className="text-sm mt-1 text-muted-foreground">
+                      {user?.bio ||
+                        "No bio provided yet. Click edit to add your professional summary."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "certifications" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">My Certifications</h3>
+                    <Badge variant="outline">
+                      {certifications.length} Active
+                    </Badge>
+                  </div>
+                  <div className="grid gap-4">
+                    {certifications.map((cert) => (
+                      <div key={cert.id} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{cert.name}</h4>
+                          <Badge
+                            variant="default"
+                            className="bg-success text-success-foreground"
+                          >
+                            {cert.status}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-2 text-sm text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span>Issued by:</span>
+                            <span>{cert.issuer}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Date:</span>
+                            <span>{cert.date}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Credential ID:</span>
+                            <span className="font-mono">
+                              {cert.credentialId}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-3">
+                          <Button variant="outline" size="sm">
+                            View Certificate
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            Download PDF
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "resume" && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">My Resume</h3>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm">
+                        Download PDF
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        Edit Resume
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Summary */}
+                    <div>
+                      <h4 className="font-medium mb-2">Professional Summary</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {resumeData.summary}
+                      </p>
+                    </div>
+
+                    {/* Experience */}
+                    <div>
+                      <h4 className="font-medium mb-3">Work Experience</h4>
+                      <div className="space-y-4">
+                        {resumeData.experience.map((exp, index) => (
+                          <div
+                            key={index}
+                            className="border-l-2 border-primary pl-4"
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <h5 className="font-medium">{exp.title}</h5>
+                              <span className="text-sm text-muted-foreground">
+                                {exp.period}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {exp.company}
+                            </p>
+                            <p className="text-sm">{exp.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Education */}
+                    <div>
+                      <h4 className="font-medium mb-3">Education</h4>
+                      <div className="space-y-2">
+                        {resumeData.education.map((edu, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-between items-center"
+                          >
+                            <div>
+                              <p className="font-medium">{edu.degree}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {edu.institution}
+                              </p>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {edu.year}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Skills */}
+                    <div>
+                      <h4 className="font-medium mb-3">Skills</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {resumeData.skills.map((skill, index) => (
+                          <Badge key={index} variant="outline">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <EditProfileDialog
+          open={editProfileOpen}
+          onOpenChange={setEditProfileOpen}
+        />
+      </div>
+    </DashboardLayout>
+  );
+}
