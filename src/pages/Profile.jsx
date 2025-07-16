@@ -172,28 +172,54 @@ export default function Profile() {
     });
   };
 
-  const handleUploadResume = (event) => {
+  const handleUploadResume = async (event) => {
     const file = event.target.files[0];
-    if (file) {
-      // Basic file validation
-      const validTypes = ['application/pdf', 'text/plain', 'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      if (!validTypes.includes(file.type)) {
+    if (!file) return;
+  
+    const validTypes = [
+      'application/pdf', 'text/plain', 'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a PDF, TXT, or Word document.",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append('resume', file);
+  
+    try {
+      const response = await fetch('http://localhost:5001/upload', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      const data = await response.json();
+      if (response.ok) {
         toast({
-          title: "Invalid File Type",
-          description: "Please upload a PDF, TXT, or Word document.",
+          title: "Resume Uploaded & Processed",
+          description: "Your resume has been extracted and processed successfully!",
+          variant: "success",
+        });
+        // TODO: Optionally refresh your resume info here if you want it to update instantly.
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: data.message || "There was an error processing your resume.",
           variant: "destructive",
         });
-        return;
       }
-
-      // In a real application, you would handle the file upload to a server here
-      // This is a mock implementation
+    } catch (err) {
       toast({
-        title: "Resume Uploaded",
-        description: `Successfully uploaded ${file.name}`,
+        title: "Upload Failed",
+        description: err.message,
+        variant: "destructive",
       });
-
+    } finally {
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
