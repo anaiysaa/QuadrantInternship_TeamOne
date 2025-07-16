@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { EditProfileDialog } from '@/components/dialogs/EditProfileDialog';
 import { EditSkillsDialog } from '@/components/dialogs/EditSkillsDialog';
 import { EditResumeDialog } from '@/components/dialogs/EditResumeDialog';
@@ -17,6 +17,7 @@ export default function Profile() {
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editSkillsOpen, setEditSkillsOpen] = useState(false);
   const [editResumeOpen, setEditResumeOpen] = useState(false);
+  const fileInputRef = useRef(null);
 
   const getInitials = (name) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -34,7 +35,6 @@ export default function Profile() {
     return status === 'active' ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground';
   };
 
-  // Calculate age from birthdate
   const calculateAge = (birthDate) => {
     if (!birthDate) return 'Not provided';
     const today = new Date();
@@ -47,7 +47,6 @@ export default function Profile() {
     return age;
   };
 
-  // Mock additional user data - in real app this would come from user profile
   const extendedUser = {
     ...user,
     nationality: user?.nationality || 'United States',
@@ -124,7 +123,6 @@ export default function Profile() {
     skills: ["JavaScript", "React", "Node.js", "Python", "SQL", "AWS", "Docker", "Git"]
   });
 
-  // Mock skills data - in real app this would come from user profile
   const userSkills = user?.skills || ["JavaScript", "React", "Node.js", "Python", "Project Management", "Team Leadership", "Agile", "SQL"];
 
   const tabs = [
@@ -174,6 +172,35 @@ export default function Profile() {
     });
   };
 
+  const handleUploadResume = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Basic file validation
+      const validTypes = ['application/pdf', 'text/plain', 'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a PDF, TXT, or Word document.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // In a real application, you would handle the file upload to a server here
+      // This is a mock implementation
+      toast({
+        title: "Resume Uploaded",
+        description: `Successfully uploaded ${file.name}`,
+      });
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSaveResume = (updatedResumeData) => {
     setResumeData(updatedResumeData);
   };
@@ -187,7 +214,6 @@ export default function Profile() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Profile Overview */}
           <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>Profile Overview</CardTitle>
@@ -249,7 +275,6 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Quick Stats */}
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3">Quick Stats</h4>
                 <div className="grid gap-3">
@@ -274,7 +299,6 @@ export default function Profile() {
             </CardContent>
           </Card>
 
-          {/* Main Content */}
           <Card className="md:col-span-2">
             <CardHeader>
               <div className="flex space-x-4 border-b">
@@ -476,6 +500,20 @@ export default function Profile() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">My Resume</h3>
                     <div className="flex space-x-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".pdf,.txt,.doc,.docx"
+                        onChange={handleUploadResume}
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fileInputRef.current.click()}
+                      >
+                        Upload Resume
+                      </Button>
                       <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
                         Download PDF
                       </Button>
@@ -486,13 +524,11 @@ export default function Profile() {
                   </div>
                   
                   <div className="space-y-6">
-                    {/* Summary */}
                     <div>
                       <h4 className="font-medium mb-2">Professional Summary</h4>
                       <p className="text-sm text-muted-foreground">{resumeData.summary}</p>
                     </div>
 
-                    {/* Experience */}
                     <div>
                       <h4 className="font-medium mb-3">Work Experience</h4>
                       <div className="space-y-4">
@@ -509,7 +545,6 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    {/* Education */}
                     <div>
                       <h4 className="font-medium mb-3">Education</h4>
                       <div className="space-y-2">
@@ -525,7 +560,6 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    {/* Skills */}
                     <div>
                       <h4 className="font-medium mb-3">Skills</h4>
                       <div className="flex flex-wrap gap-2">
