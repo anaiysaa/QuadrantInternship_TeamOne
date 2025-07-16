@@ -1,0 +1,31 @@
+{
+  "full_name": "John Smith",
+  "email": "john.smith@email.com",
+  "phone": "(555) 123-4567",
+  "address": "123 Main St, Los Angeles, CA 90024",
+  "education": [
+    {
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "institution": "UCLA",
+      "year": 2022
+    }
+  ],
+  "certifications": [
+    {
+      "cert": "AWS Certified Cloud Practitioner",
+      "year": 2023
+    }
+  ],
+  "skills_word_bank": [
+    "Software Engineer",
+    "Data Analytics",
+    "Python",
+    "SQL",
+    "Tableau",
+    "Java",
+    "Git",
+    "Data Analyst",
+    "Intern"
+  ]
+}

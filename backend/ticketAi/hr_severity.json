@@ -1,0 +1,89 @@
+{
+  "severity_levels": [
+    {
+      "severity": 1,
+      "name": "Critical Severity",
+      "description": "A widespread issue that completely disrupts core business functions or affects multiple users or systems. Includes legal risks, data breaches, or complete service outages. Requires immediate intervention.",
+      "resolve_within": "30 minutes - 1 hour",
+      "example_phrases": [
+        "Payroll was not processed for this month.",
+        "Employee data breach reported.",
+        "Harassment complaint needs immediate action.",
+        "All employees locked out of HR system.",
+        "Unauthorized access to payroll information."
+      ],
+      "keywords": [
+        "payroll", "breach", "leak", "harassment", "compliance",
+        "termination", "security", "access-denied", "data-loss", "hris-down"
+      ]
+    },
+    {
+      "severity": 2,
+      "name": "High Severity",
+      "description": "A serious problem impacting an individual’s ability to work or a major functionality failure affecting deadlines, customers, or security. Requires prompt escalation and rapid resolution. Resolve within 2-4 hours.",
+      "resolve_within": "2 - 4 hours",
+      "example_phrases": [
+        "New hire onboarding is blocked.",
+        "Urgent approval needed for PTO request.",
+        "Bonus payment missing from my salary.",
+        "Access was not revoked for a terminated employee.",
+        "Salary update error causing wrong payslip."
+      ],
+      "keywords": [
+        "salary-error", "bonus-missing", "overtime-missing", "benefits-error", "enrollment-fail",
+        "deadline", "onboarding-blocked", "access-revoke", "locked-account", "role-mismatch"
+      ]
+    },
+    {
+      "severity": 3,
+      "name": "Medium Severity",
+      "description": "A moderate disruption that limits productivity but does not halt work. Often isolated to a single user, workflow, or system function. Requires routine investigation and timely resolution.",
+      "resolve_within": "4 - 8 hours",
+      "example_phrases": [
+        "My leave approval request is stuck.",
+        "Job title is incorrect in my profile.",
+        "Training module does not launch.",
+        "Form submission returns validation error.",
+        "Files are not syncing properly."
+      ],
+      "keywords": [
+        "approval-stuck", "leave-pending", "workflow-delay", "title-mismatch", "org-chart",
+        "lms-error", "training-missing", "review-missing", "form-error", "validation"
+      ]
+    },
+    {
+      "severity": 4,
+      "name": "Low Severity",
+      "description": "A minor issue or inconvenience with no significant impact on workflow. Includes cosmetic bugs, non-urgent errors, or usability concerns. Resolution can occur as part of the regular support cycle.",
+      "resolve_within": "1 - 2 business days",
+      "example_phrases": [
+        "There is a typo on the profile page.",
+        "Link to policy document is broken.",
+        "Buttons not aligned properly.",
+        "Page scrolling is slow.",
+        "UI elements are misaligned on mobile."
+      ],
+      "keywords": [
+        "typo", "misaligned", "spacing", "font", "dark-mode",
+        "contrast", "theme", "broken-link", "outdated-link", "slow-load", "animation-lag"
+      ]
+    },
+    {
+      "severity": 5,
+      "name": "Informational Severity",
+      "description": "A general inquiry, feature request, or policy clarification. No action required beyond guidance or documentation. Can often be resolved with self-service or basic support follow-up.",
+      "resolve_within": "3 - 5 business days",
+      "example_phrases": [
+        "How do I request PTO?",
+        "Where can I find the employee handbook?",
+        "How to update my address?",
+        "How do I install Microsoft Teams?",
+        "Where can I find the software installation guide?"
+      ],
+      "keywords": [
+        "policy", "handbook", "holiday", "schedule", "contact-hr",
+        "pto", "faq", "benefits-info", "update-info", "address-change", "setup", "password-reset"
+      ]
+    }
+  ]
+}

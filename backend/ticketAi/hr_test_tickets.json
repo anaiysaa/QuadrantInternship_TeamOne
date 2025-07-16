@@ -1,0 +1,64 @@
+{
+  "tickets": [
+    {
+      "id": "1",
+      "text": "There’s a stray cat sitting outside the office window.",
+      "expected": "5"
+    },
+    {
+      "id": "2",
+      "text": "The lights in the parking lot are flickering at night.",
+      "expected": "4"
+    },
+    {
+      "id": "3",
+      "text": "I accidentally brought my personal laptop instead of my work one.",
+      "expected": "2"
+    },
+    {
+      "id": "4",
+      "text": "There’s a birthday cake in the break room fridge if anyone wants some.",
+      "expected": "5"
+    },
+    {
+      "id": "5",
+      "text": "A car alarm has been going off outside the building for over an hour.",
+      "expected": "3"
+    },
+    {
+      "id": "6",
+      "text": "Someone left a mysterious box by the reception desk.",
+      "expected": "1"
+    },
+    {
+      "id": "7",
+      "text": "I spilled coffee on my desk, now my keyboard isn't working.",
+      "expected": "2"
+    },
+    {
+      "id": "8",
+      "text": "There’s a weird smell coming from the supply closet.",
+      "expected": "3"
+    },
+    {
+      "id": "9",
+      "text": "I need to find out who owns the red umbrella in the lobby.",
+      "expected": "5"
+    },
+    {
+      "id": "10",
+      "text": "There’s loud construction noise outside making it hard to concentrate.",
+      "expected": "3"
+    },
+    {
+      "id": "11",
+      "text": "There’s a group of people protesting outside the building entrance.",
+      "expected": "1"
+    },
+    {
+      "id": "12",
+      "text": "Someone’s pet dog wandered into the office today.",
+      "expected": "3"
+    }
+  ]
+}
