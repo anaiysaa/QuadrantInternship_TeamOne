@@ -1,13 +1,18 @@
-
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ResourceDetailsDialog } from '@/components/dialogs/ResourceDetailsDialog';
+import { RequestResourceDialog } from '@/components/dialogs/RequestResourceDialog';
 import { useState } from 'react';
 
 export default function Resources() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [showResourceDialog, setShowResourceDialog] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
 
   const resources = [
     {
@@ -92,11 +97,15 @@ export default function Resources() {
     }
   ];
 
-  const filteredResources = resources.filter(resource =>
-    resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    resource.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    resource.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      resource.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      resource.type.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = !selectedCategory || resource.category === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   const getCategoryColor = (category) => {
     switch (category) {
@@ -119,6 +128,19 @@ export default function Resources() {
     }
   };
 
+  const handleViewResource = (resource) => {
+    setSelectedResource(resource);
+    setShowResourceDialog(true);
+  };
+
+  const handleCategoryFilter = (category) => {
+    setSelectedCategory(selectedCategory === category ? '' : category);
+  };
+
+  const getCategoryCount = (category) => {
+    return resources.filter(resource => resource.category === category).length;
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -127,7 +149,9 @@ export default function Resources() {
             <h1 className="text-2xl font-bold">Resources</h1>
             <p className="text-muted-foreground">Access manuals, guides, and documentation</p>
           </div>
-          <Button variant="outline">Request New Resource</Button>
+          <Button variant="outline" onClick={() => setShowRequestDialog(true)}>
+            Request New Resource
+          </Button>
         </div>
 
         {/* Search */}
@@ -136,43 +160,78 @@ export default function Resources() {
             <CardTitle>Search Resources</CardTitle>
           </CardHeader>
           <CardContent>
-            <Input
-              placeholder="Search by title, category, or type..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-md"
-            />
+            <div className="flex items-center space-x-4">
+              <Input
+                placeholder="Search by title, category, or type..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-md"
+              />
+              {selectedCategory && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedCategory('')}
+                >
+                  Clear Filter: {selectedCategory}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Resource Categories */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            className={`cursor-pointer hover:shadow-md transition-shadow ${selectedCategory === 'Hardware' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => handleCategoryFilter('Hardware')}
+          >
             <CardContent className="p-4 text-center">
               <div className="text-2xl mb-2">💻</div>
               <h3 className="font-semibold">Hardware</h3>
               <p className="text-sm text-muted-foreground">Device manuals & guides</p>
+              <Badge variant="secondary" className="mt-2">
+                {getCategoryCount('Hardware')} resources
+              </Badge>
             </CardContent>
           </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            className={`cursor-pointer hover:shadow-md transition-shadow ${selectedCategory === 'Software' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => handleCategoryFilter('Software')}
+          >
             <CardContent className="p-4 text-center">
               <div className="text-2xl mb-2">📱</div>
               <h3 className="font-semibold">Software</h3>
               <p className="text-sm text-muted-foreground">Application guides</p>
+              <Badge variant="secondary" className="mt-2">
+                {getCategoryCount('Software')} resources
+              </Badge>
             </CardContent>
           </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            className={`cursor-pointer hover:shadow-md transition-shadow ${selectedCategory === 'Security' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => handleCategoryFilter('Security')}
+          >
             <CardContent className="p-4 text-center">
               <div className="text-2xl mb-2">🔒</div>
               <h3 className="font-semibold">Security</h3>
               <p className="text-sm text-muted-foreground">Security policies</p>
+              <Badge variant="secondary" className="mt-2">
+                {getCategoryCount('Security')} resources
+              </Badge>
             </CardContent>
           </Card>
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          <Card 
+            className={`cursor-pointer hover:shadow-md transition-shadow ${selectedCategory === 'Network' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => handleCategoryFilter('Network')}
+          >
             <CardContent className="p-4 text-center">
               <div className="text-2xl mb-2">🌐</div>
               <h3 className="font-semibold">Network</h3>
               <p className="text-sm text-muted-foreground">Network setup guides</p>
+              <Badge variant="secondary" className="mt-2">
+                {getCategoryCount('Network')} resources
+              </Badge>
             </CardContent>
           </Card>
         </div>
@@ -180,7 +239,10 @@ export default function Resources() {
         {/* Resources List */}
         <Card>
           <CardHeader>
-            <CardTitle>Available Resources ({filteredResources.length})</CardTitle>
+            <CardTitle>
+              Available Resources ({filteredResources.length})
+              {selectedCategory && ` - ${selectedCategory}`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -205,7 +267,13 @@ export default function Resources() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">View</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewResource(resource)}
+                    >
+                      View
+                    </Button>
                     <Button size="sm">Download</Button>
                   </div>
                 </div>
@@ -213,6 +281,19 @@ export default function Resources() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Resource Details Dialog */}
+        <ResourceDetailsDialog
+          resource={selectedResource}
+          open={showResourceDialog}
+          onOpenChange={setShowResourceDialog}
+        />
+
+        {/* Request Resource Dialog */}
+        <RequestResourceDialog
+          open={showRequestDialog}
+          onOpenChange={setShowRequestDialog}
+        />
       </div>
     </DashboardLayout>
   );

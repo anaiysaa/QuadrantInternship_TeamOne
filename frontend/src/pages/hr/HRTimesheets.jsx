@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Eye, EyeOff } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -17,12 +20,11 @@ import {
 } from '@/components/ui/table';
 
 export default function HRTimesheets() {
+  const { currentPortal } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  // ... keep existing code (timesheets data array, filteredTimesheets, getStatusBadge, stats)
-  const timesheets = [
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [timesheets, setTimesheets] = useState([
     {
       id: 'TS001',
       employee: 'John Doe',
@@ -83,13 +85,51 @@ export default function HRTimesheets() {
       submittedDate: '2024-02-13',
       approvedBy: 'Emma Davis'
     }
-  ];
+  ]);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Auto-refresh when portal changes
+  useEffect(() => {
+    const handlePortalChange = () => {
+      console.log('Portal changed - refreshing HR Timesheets page');
+      setRefreshKey(prev => prev + 1);
+      // Reset any filters or state that should be refreshed
+      setSearchTerm('');
+      setShowAnalytics(false);
+    };
+
+    window.addEventListener('portalChanged', handlePortalChange);
+    return () => window.removeEventListener('portalChanged', handlePortalChange);
+  }, []);
 
   const filteredTimesheets = timesheets.filter(timesheet =>
     timesheet.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
     timesheet.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
     timesheet.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Analytics data
+  const hoursData = [
+    { employee: 'John Doe', regular: 40, overtime: 2 },
+    { employee: 'Sarah Johnson', regular: 38, overtime: 0 },
+    { employee: 'Mike Wilson', regular: 40, overtime: 5 },
+    { employee: 'Alex Brown', regular: 40, overtime: 0 },
+    { employee: 'Lisa Johnson', regular: 35, overtime: 0 },
+  ];
+
+  const statusDistribution = [
+    { name: 'Approved', value: timesheets.filter(t => t.status === 'Approved').length, color: '#22c55e' },
+    { name: 'Pending Review', value: timesheets.filter(t => t.status === 'Pending Review' || t.status === 'Submitted').length, color: '#f59e0b' },
+    { name: 'Rejected', value: timesheets.filter(t => t.status === 'Rejected').length, color: '#ef4444' },
+  ];
+
+  const weeklyTrend = [
+    { week: 'Week 1', submitted: 45, approved: 40, overtime: 8 },
+    { week: 'Week 2', submitted: 48, approved: 43, overtime: 12 },
+    { week: 'Week 3', submitted: 50, approved: 47, overtime: 15 },
+    { week: 'Week 4', submitted: 52, approved: 50, overtime: 10 },
+  ];
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -114,6 +154,13 @@ export default function HRTimesheets() {
   ];
 
   const handleApprove = (timesheetId) => {
+    setTimesheets(prevTimesheets =>
+      prevTimesheets.map(timesheet =>
+        timesheet.id === timesheetId
+          ? { ...timesheet, status: 'Approved', approvedBy: 'Emma Davis' }
+          : timesheet
+      )
+    );
     toast({
       title: "Timesheet Approved",
       description: `Timesheet ${timesheetId} has been approved successfully.`,
@@ -121,6 +168,13 @@ export default function HRTimesheets() {
   };
 
   const handleReject = (timesheetId) => {
+    setTimesheets(prevTimesheets =>
+      prevTimesheets.map(timesheet =>
+        timesheet.id === timesheetId
+          ? { ...timesheet, status: 'Rejected', approvedBy: 'Emma Davis' }
+          : timesheet
+      )
+    );
     toast({
       title: "Timesheet Rejected",
       description: `Timesheet ${timesheetId} has been rejected.`,
@@ -157,13 +211,21 @@ export default function HRTimesheets() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" key={`hr-timesheets-${refreshKey}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Timesheets</h1>
             <p className="text-muted-foreground">Review employee timesheets</p>
           </div>
           <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="flex items-center space-x-2"
+            >
+              {showAnalytics ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <span>{showAnalytics ? 'Hide' : 'Show'} Analytics</span>
+            </Button>
             <Button variant="outline" onClick={handleBulkApprove}>Bulk Approve</Button>
             <Button onClick={handleExportReport}>Export Report</Button>
           </div>
@@ -183,6 +245,80 @@ export default function HRTimesheets() {
             </Card>
           ))}
         </div>
+
+        {/* Analytics Section - Only show when toggled */}
+        {showAnalytics && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Hours Overview */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Hours Overview by Employee</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={hoursData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="employee" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="regular" stackId="a" fill="#3b82f6" name="Regular Hours" />
+                      <Bar dataKey="overtime" stackId="a" fill="#f59e0b" name="Overtime Hours" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Status Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Status Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={statusDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {statusDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Weekly Trend */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Weekly Timesheet Trends</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={weeklyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="submitted" stroke="#3b82f6" name="Submitted" />
+                    <Line type="monotone" dataKey="approved" stroke="#22c55e" name="Approved" />
+                    <Line type="monotone" dataKey="overtime" stroke="#f59e0b" name="Overtime Hours" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* Search */}
         <Card>

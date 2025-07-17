@@ -1,11 +1,12 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { ViewTimesheetDialog } from '@/components/dialogs/ViewTimesheetDialog';
 import {
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/table';
 
 export default function Timesheet() {
+  const { toast } = useToast();
   const [weekHours, setWeekHours] = useState({
     monday: 8,
     tuesday: 8,
@@ -27,6 +29,25 @@ export default function Timesheet() {
   });
 
   const [currentWeek] = useState('February 12 - 18, 2024');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [timesheetStatus, setTimesheetStatus] = useState('draft'); // draft, submitted, approved
+  const [selectedTimesheet, setSelectedTimesheet] = useState(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  // Load draft from localStorage on component mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(`timesheet-draft-${currentWeek}`);
+    if (savedDraft) {
+      try {
+        const parsedDraft = JSON.parse(savedDraft);
+        setWeekHours(parsedDraft.hours);
+        setTimesheetStatus(parsedDraft.status || 'draft');
+      } catch (error) {
+        console.error('Error loading draft:', error);
+      }
+    }
+  }, [currentWeek]);
 
   const timesheetHistory = [
     {
@@ -71,6 +92,131 @@ export default function Timesheet() {
     setWeekHours(prev => ({ ...prev, [day]: hours }));
   };
 
+  const saveDraft = async () => {
+    setIsSaving(true);
+    try {
+      // Save to localStorage
+      const draftData = {
+        hours: weekHours,
+        status: 'draft',
+        lastSaved: new Date().toISOString()
+      };
+      localStorage.setItem(`timesheet-draft-${currentWeek}`, JSON.stringify(draftData));
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setTimesheetStatus('draft');
+      toast({
+        title: "Draft Saved",
+        description: "Your timesheet has been saved as a draft.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save draft. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const submitTimesheet = async () => {
+    if (totalHours === 0) {
+      toast({
+        title: "Invalid Submission",
+        description: "Please enter hours before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulate API submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update status and clear draft
+      setTimesheetStatus('submitted');
+      localStorage.removeItem(`timesheet-draft-${currentWeek}`);
+      
+      toast({
+        title: "Timesheet Submitted",
+        description: `Your timesheet for ${currentWeek} has been submitted for approval.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Submission Failed",
+        description: "Failed to submit timesheet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetTimesheet = () => {
+    const resetHours = {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0
+    };
+    
+    setWeekHours(resetHours);
+    setTimesheetStatus('draft');
+    
+    // Clear saved draft
+    localStorage.removeItem(`timesheet-draft-${currentWeek}`);
+    
+    toast({
+      title: "Timesheet Reset",
+      description: "All hours have been cleared.",
+    });
+  };
+
+  const submitForApproval = async () => {
+    if (totalHours === 0) {
+      toast({
+        title: "Invalid Submission",
+        description: "Please enter hours before submitting for approval.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulate API submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setTimesheetStatus('submitted');
+      localStorage.removeItem(`timesheet-draft-${currentWeek}`);
+      
+      toast({
+        title: "Submitted for Approval",
+        description: `Your timesheet for ${currentWeek} has been submitted and is pending approval.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Submission Failed",
+        description: "Failed to submit for approval. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleViewDetails = (timesheet) => {
+    setSelectedTimesheet(timesheet);
+    setIsViewDialogOpen(true);
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Approved':
@@ -84,6 +230,8 @@ export default function Timesheet() {
     }
   };
 
+  const isDisabled = timesheetStatus === 'submitted' || isSubmitting || isSaving;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -93,8 +241,19 @@ export default function Timesheet() {
             <p className="text-muted-foreground">Track your working hours</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline">Save Draft</Button>
-            <Button>Submit Timesheet</Button>
+            <Button 
+              variant="outline" 
+              onClick={saveDraft}
+              disabled={isDisabled}
+            >
+              {isSaving ? 'Saving...' : 'Save Draft'}
+            </Button>
+            <Button 
+              onClick={submitTimesheet}
+              disabled={isDisabled}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Timesheet'}
+            </Button>
           </div>
         </div>
 
@@ -131,9 +290,9 @@ export default function Timesheet() {
             <CardContent className="p-4">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 rounded-full bg-accent"></div>
-                <h3 className="text-sm font-medium text-muted-foreground">Week</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
               </div>
-              <p className="text-sm font-medium mt-1">{currentWeek}</p>
+              <p className="text-sm font-medium mt-1 capitalize">{timesheetStatus}</p>
             </CardContent>
           </Card>
         </div>
@@ -159,18 +318,37 @@ export default function Timesheet() {
                     value={weekHours[day.key]}
                     onChange={(e) => handleHoursChange(day.key, e.target.value)}
                     className="w-full"
+                    disabled={isDisabled}
                   />
                 </div>
               ))}
             </div>
             <div className="mt-6 flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
-                Remember to submit your timesheet by end of day Sunday
+                {timesheetStatus === 'draft' && 'Remember to submit your timesheet by end of day Sunday'}
+                {timesheetStatus === 'submitted' && 'Your timesheet has been submitted and is pending approval'}
               </div>
               <div className="flex space-x-2">
-                <Button variant="outline">Reset</Button>
-                <Button variant="outline">Save Draft</Button>
-                <Button>Submit for Approval</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={resetTimesheet}
+                  disabled={isDisabled}
+                >
+                  Reset
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={saveDraft}
+                  disabled={isDisabled}
+                >
+                  {isSaving ? 'Saving...' : 'Save Draft'}
+                </Button>
+                <Button 
+                  onClick={submitForApproval}
+                  disabled={isDisabled}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -202,7 +380,13 @@ export default function Timesheet() {
                     <TableCell>{getStatusBadge(timesheet.status)}</TableCell>
                     <TableCell>{new Date(timesheet.submittedDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">View Details</Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewDetails(timesheet)}
+                      >
+                        View Details
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -211,6 +395,12 @@ export default function Timesheet() {
           </CardContent>
         </Card>
       </div>
+
+      <ViewTimesheetDialog 
+        timesheet={selectedTimesheet}
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+      />
     </DashboardLayout>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -15,14 +14,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CreateHRTicketDialog } from '@/components/dialogs/CreateHRTicketDialog';
+import { BulkActionsDialog } from '@/components/dialogs/BulkActionsDialog';
+import { ViewHRTicketDialog } from '@/components/dialogs/ViewHRTicketDialog';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function HRTickets() {
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  // ... keep existing code (hrTickets data array)
-  const hrTickets = [
+  const [showCreateTicketDialog, setShowCreateTicketDialog] = useState(false);
+  const [showBulkActionsDialog, setShowBulkActionsDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [hrTickets, setHrTickets] = useState([
     {
       id: 'HR001',
       title: 'Salary adjustment request',
@@ -88,9 +93,10 @@ export default function HRTickets() {
       assignedTo: 'Emma Davis',
       description: 'Disagreement with performance evaluation ratings'
     }
-  ];
+  ]);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  // ... keep existing code (filteredTickets, getStatusBadge, getPriorityBadge, getCategoryColor, stats)
   const filteredTickets = hrTickets.filter(ticket =>
     ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ticket.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -147,32 +153,87 @@ export default function HRTickets() {
     { title: 'Critical', value: hrTickets.filter(t => t.priority === 'Critical').length, color: 'bg-destructive' },
   ];
 
+  const categoryData = [
+    { name: 'Compensation', value: hrTickets.filter(t => t.category === 'Compensation').length },
+    { name: 'Policy', value: hrTickets.filter(t => t.category === 'Policy').length },
+    { name: 'Complaint', value: hrTickets.filter(t => t.category === 'Complaint').length },
+    { name: 'Benefits', value: hrTickets.filter(t => t.category === 'Benefits').length },
+    { name: 'Performance', value: hrTickets.filter(t => t.category === 'Performance').length },
+  ].filter(item => item.value > 0);
+
+  const priorityData = [
+    { name: 'Critical', value: hrTickets.filter(t => t.priority === 'Critical').length, color: '#ef4444' },
+    { name: 'High', value: hrTickets.filter(t => t.priority === 'High').length, color: '#f97316' },
+    { name: 'Medium', value: hrTickets.filter(t => t.priority === 'Medium').length, color: '#eab308' },
+    { name: 'Low', value: hrTickets.filter(t => t.priority === 'Low').length, color: '#22c55e' },
+  ].filter(item => item.value > 0);
+
+  const statusData = [
+    { name: 'Open', value: hrTickets.filter(t => t.status === 'Open').length },
+    { name: 'In Progress', value: hrTickets.filter(t => t.status === 'In Progress').length },
+    { name: 'Resolved', value: hrTickets.filter(t => t.status === 'Resolved').length },
+    { name: 'Closed', value: hrTickets.filter(t => t.status === 'Closed').length },
+  ].filter(item => item.value > 0);
+
+  const weeklyTrendData = [
+    { day: 'Mon', tickets: 2 },
+    { day: 'Tue', tickets: 1 },
+    { day: 'Wed', tickets: 3 },
+    { day: 'Thu', tickets: 2 },
+    { day: 'Fri', tickets: 1 },
+    { day: 'Sat', tickets: 0 },
+    { day: 'Sun', tickets: 0 },
+  ];
+
   const handleCreateTicket = () => {
-    toast({
-      title: "Create Ticket",
-      description: "Opening new ticket creation form...",
-    });
+    setShowCreateTicketDialog(true);
   };
 
   const handleBulkActions = () => {
-    toast({
-      title: "Bulk Actions",
-      description: "Opening bulk actions panel...",
-    });
+    setShowBulkActionsDialog(true);
   };
 
   const handleView = (ticketId) => {
-    toast({
-      title: "View Ticket",
-      description: `Opening detailed view for ticket ${ticketId}`,
-    });
+    const ticket = hrTickets.find(t => t.id === ticketId);
+    setSelectedTicket(ticket);
+    setShowViewDialog(true);
   };
 
   const handleUpdate = (ticketId) => {
-    toast({
-      title: "Update Ticket",
-      description: `Opening update form for ticket ${ticketId}`,
-    });
+    const ticket = hrTickets.find(t => t.id === ticketId);
+    if (ticket) {
+      // Update ticket status to In Progress if it's Open
+      if (ticket.status === 'Open') {
+        setHrTickets(prevTickets =>
+          prevTickets.map(t =>
+            t.id === ticketId
+              ? { ...t, status: 'In Progress', lastUpdate: new Date().toISOString().split('T')[0] }
+              : t
+          )
+        );
+        toast({
+          title: "Ticket Updated",
+          description: `Ticket ${ticketId} status updated to In Progress`,
+        });
+      } else if (ticket.status === 'In Progress') {
+        setHrTickets(prevTickets =>
+          prevTickets.map(t =>
+            t.id === ticketId
+              ? { ...t, status: 'Resolved', lastUpdate: new Date().toISOString().split('T')[0] }
+              : t
+          )
+        );
+        toast({
+          title: "Ticket Updated",
+          description: `Ticket ${ticketId} has been resolved`,
+        });
+      } else {
+        toast({
+          title: "Update Ticket",
+          description: `Opening update form for ticket ${ticketId}`,
+        });
+      }
+    }
   };
 
   const handleFilter = () => {
@@ -191,6 +252,14 @@ export default function HRTickets() {
             <p className="text-muted-foreground">Manage HR support tickets</p>
           </div>
           <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="flex items-center space-x-2"
+            >
+              {showAnalytics ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span>{showAnalytics ? 'Hide' : 'Show'} Analytics</span>
+            </Button>
             <Button variant="outline" onClick={handleCreateTicket}>Create Ticket</Button>
             <Button onClick={handleBulkActions}>Bulk Actions</Button>
           </div>
@@ -210,6 +279,86 @@ export default function HRTickets() {
             </Card>
           ))}
         </div>
+
+        {/* Analytics Section */}
+        {showAnalytics && (
+          <div className="space-y-6 animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle>HR Tickets Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Weekly Ticket Trend */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Weekly Ticket Trend</h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={weeklyTrendData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="day" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="tickets" stroke="#3b82f6" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Tickets by Category */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Tickets by Category</h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={categoryData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#3b82f6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Priority Distribution */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Priority Distribution</h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={priorityData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={60}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {priorityData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Status Distribution */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Status Distribution</h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={statusData} layout="horizontal">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" />
+                        <YAxis type="category" dataKey="name" width={80} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#22c55e" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Search */}
         <Card>
@@ -290,6 +439,11 @@ export default function HRTickets() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <CreateHRTicketDialog open={showCreateTicketDialog} onOpenChange={setShowCreateTicketDialog} />
+      <BulkActionsDialog open={showBulkActionsDialog} onOpenChange={setShowBulkActionsDialog} />
+      <ViewHRTicketDialog open={showViewDialog} onOpenChange={setShowViewDialog} ticket={selectedTicket} />
     </DashboardLayout>
   );
 }

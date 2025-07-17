@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -7,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { FeedbackDetailsDialog } from '@/components/dialogs/FeedbackDetailsDialog';
+import { FeedbackResponseDialog } from '@/components/dialogs/FeedbackResponseDialog';
+import { SurveyDialog } from '@/components/dialogs/SurveyDialog';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import {
   Table,
   TableBody,
@@ -18,10 +21,14 @@ import {
 
 export default function HRFeedbackCenter() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [showFeedbackDetails, setShowFeedbackDetails] = useState(false);
+  const [showFeedbackResponse, setShowFeedbackResponse] = useState(false);
+  const [showSurveyDialog, setShowSurveyDialog] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ... keep existing code (feedbackData array and all helper functions)
   const feedbackData = [
     {
       id: 'FB001',
@@ -85,6 +92,40 @@ export default function HRFeedbackCenter() {
       summary: 'Salary not competitive with market rates.',
       tags: ['salary', 'compensation']
     }
+  ];
+
+  // Analytics data
+  const feedbackTrendData = [
+    { month: 'Jan', total: 15, positive: 8, neutral: 4, negative: 3 },
+    { month: 'Feb', total: 22, positive: 12, neutral: 6, negative: 4 },
+    { month: 'Mar', total: 18, positive: 10, neutral: 5, negative: 3 },
+    { month: 'Apr', total: 25, positive: 14, neutral: 7, negative: 4 },
+    { month: 'May', total: 20, positive: 11, neutral: 6, negative: 3 },
+    { month: 'Jun', total: 28, positive: 16, neutral: 8, negative: 4 },
+  ];
+
+  const categoryDistributionData = [
+    { name: 'Management', value: 35, color: '#3b82f6' },
+    { name: 'Work Environment', value: 25, color: '#22c55e' },
+    { name: 'Benefits', value: 20, color: '#f59e0b' },
+    { name: 'Career Development', value: 15, color: '#ef4444' },
+    { name: 'Compensation', value: 5, color: '#8b5cf6' },
+  ];
+
+  const departmentFeedbackData = [
+    { department: 'Engineering', positive: 12, neutral: 6, negative: 3 },
+    { department: 'Marketing', positive: 8, neutral: 4, negative: 2 },
+    { department: 'Sales', positive: 10, neutral: 5, negative: 1 },
+    { department: 'Design', positive: 6, neutral: 3, negative: 2 },
+    { department: 'HR', positive: 4, neutral: 2, negative: 1 },
+  ];
+
+  const responseTimeData = [
+    { category: 'Management', avgDays: 2.1 },
+    { category: 'Work Environment', avgDays: 1.8 },
+    { category: 'Benefits', avgDays: 3.2 },
+    { category: 'Career Development', avgDays: 2.5 },
+    { category: 'Compensation', avgDays: 4.1 },
   ];
 
   const filteredFeedback = feedbackData.filter(feedback =>
@@ -151,24 +192,17 @@ export default function HRFeedbackCenter() {
   };
 
   const handleSendSurvey = () => {
-    toast({
-      title: "Send Survey",
-      description: "Opening survey creation interface...",
-    });
+    setShowSurveyDialog(true);
   };
 
-  const handleView = (feedbackId) => {
-    toast({
-      title: "View Feedback",
-      description: `Opening detailed view for feedback ${feedbackId}`,
-    });
+  const handleView = (feedback) => {
+    setSelectedFeedback(feedback);
+    setShowFeedbackDetails(true);
   };
 
-  const handleRespond = (feedbackId) => {
-    toast({
-      title: "Respond to Feedback",
-      description: `Opening response form for feedback ${feedbackId}`,
-    });
+  const handleRespond = (feedback) => {
+    setSelectedFeedback(feedback);
+    setShowFeedbackResponse(true);
   };
 
   const handleFilter = () => {
@@ -206,6 +240,110 @@ export default function HRFeedbackCenter() {
             </Card>
           ))}
         </div>
+
+        {/* Analytics Toggle Button */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Feedback Analytics</CardTitle>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAnalytics(!showAnalytics)}
+            >
+              {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+            </Button>
+          </CardHeader>
+          {showAnalytics && (
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Feedback Trends */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Feedback Trends</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={feedbackTrendData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="positive" stroke="#22c55e" name="Positive" />
+                        <Line type="monotone" dataKey="neutral" stroke="#f59e0b" name="Neutral" />
+                        <Line type="monotone" dataKey="negative" stroke="#ef4444" name="Negative" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Category Distribution */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Category Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={categoryDistributionData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {categoryDistributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Department Feedback */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Feedback by Department</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={departmentFeedbackData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="department" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="positive" fill="#22c55e" name="Positive" />
+                        <Bar dataKey="neutral" fill="#f59e0b" name="Neutral" />
+                        <Bar dataKey="negative" fill="#ef4444" name="Negative" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Response Time */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Avg Response Time by Category</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={responseTimeData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="category" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => [`${value} days`, 'Avg Response Time']} />
+                        <Bar dataKey="avgDays" fill="#3b82f6" name="Days" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          )}
+        </Card>
 
         {/* Search */}
         <Card>
@@ -273,9 +411,9 @@ export default function HRFeedbackCenter() {
                     <TableCell>{getStatusBadge(feedback.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleView(feedback.id)}>View</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleView(feedback)}>View</Button>
                         {feedback.status !== 'Addressed' && (
-                          <Button size="sm" variant="default" onClick={() => handleRespond(feedback.id)}>Respond</Button>
+                          <Button size="sm" variant="default" onClick={() => handleRespond(feedback)}>Respond</Button>
                         )}
                       </div>
                     </TableCell>
@@ -329,6 +467,22 @@ export default function HRFeedbackCenter() {
           </Card>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <FeedbackDetailsDialog
+        feedback={selectedFeedback}
+        open={showFeedbackDetails}
+        onOpenChange={setShowFeedbackDetails}
+      />
+      <FeedbackResponseDialog
+        feedback={selectedFeedback}
+        open={showFeedbackResponse}
+        onOpenChange={setShowFeedbackResponse}
+      />
+      <SurveyDialog
+        open={showSurveyDialog}
+        onOpenChange={setShowSurveyDialog}
+      />
     </DashboardLayout>
   );
 }

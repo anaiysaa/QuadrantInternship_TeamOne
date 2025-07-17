@@ -3,10 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { AnnouncementSection } from '@/components/announcements/AnnouncementSection';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [isAnnouncementsCollapsed, setIsAnnouncementsCollapsed] = useState(false);
+  const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
 
   const currentTasks = [
     { 
@@ -109,43 +114,85 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* Current Tasks Section */}
+      {/* Announcements Section with Collapsible */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Current Tasks & To-Do</CardTitle>
-          <Badge variant="outline">{currentTasks.filter(t => t.status !== 'Completed').length} Pending</Badge>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="flex items-center space-x-2">
+            <span>Company Announcements</span>
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsAnnouncementsCollapsed(!isAnnouncementsCollapsed)}
+            className="p-1 h-8 w-8"
+          >
+            {isAnnouncementsCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+          </Button>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {currentTasks.slice(0, 4).map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-4 bg-accent/50 rounded-lg border">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h4 className="font-medium">{task.title}</h4>
-                    <Badge className={getPriorityColor(task.priority)} size="sm">
-                      {task.priority}
-                    </Badge>
-                    <Badge variant="outline" size="sm">{task.category}</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
-                  <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                    <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                    <span>Status: {task.status}</span>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  {task.status === 'Not Started' && (
-                    <Button size="sm" variant="outline" onClick={() => handleTaskAction(task)}>Start</Button>
-                  )}
-                  {task.status === 'In Progress' && (
-                    <Button size="sm" onClick={() => handleTaskAction(task)}>Continue</Button>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={() => handleTaskAction(task)}>View</Button>
-                </div>
-              </div>
-            ))}
+        {!isAnnouncementsCollapsed && (
+          <CardContent className="pt-0">
+            <AnnouncementSection />
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Current Tasks Section with Collapsible */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle>Current Tasks & To-Do</CardTitle>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline">{currentTasks.filter(t => t.status !== 'Completed').length} Pending</Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTasksCollapsed(!isTasksCollapsed)}
+              className="p-1 h-8 w-8"
+            >
+              {isTasksCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </CardContent>
+        </CardHeader>
+        {!isTasksCollapsed && (
+          <CardContent className="pt-0">
+            <div className="space-y-4">
+              {currentTasks.slice(0, 4).map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-4 bg-accent/50 rounded-lg border">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="font-medium">{task.title}</h4>
+                      <Badge className={getPriorityColor(task.priority)} size="sm">
+                        {task.priority}
+                      </Badge>
+                      <Badge variant="outline" size="sm">{task.category}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                    <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                      <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                      <span>Status: {task.status}</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    {task.status === 'Not Started' && (
+                      <Button size="sm" variant="outline" onClick={() => handleTaskAction(task)}>Start</Button>
+                    )}
+                    {task.status === 'In Progress' && (
+                      <Button size="sm" onClick={() => handleTaskAction(task)}>Continue</Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => handleTaskAction(task)}>View</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Quick Stats */}

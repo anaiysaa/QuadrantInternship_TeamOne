@@ -1,106 +1,134 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
 const AuthContext = createContext(undefined);
-
-// Mock users for demonstration
-const mockUsers = [
-  {
-    id: '1',
-    email: 'john.employee@company.com',
-    name: 'John Doe',
-    role: 'employee',
-    employeeId: 'EMP001',
-    department: 'Engineering',
-    manager: 'Jane Smith',
-    phone: '+1 234 567 8901',
-    joinDate: '2023-01-15'
-  },
-  {
-    id: '2',
-    email: 'sarah.hr@company.com',
-    name: 'Sarah Wilson',
-    role: 'hr',
-    employeeId: 'HR001',
-    department: 'Human Resources',
-    phone: '+1 234 567 8902',
-    joinDate: '2022-03-10'
-  },
-  {
-    id: '3',
-    email: 'mike.it@company.com',
-    name: 'Mike Johnson',
-    role: 'it',
-    employeeId: 'IT001',
-    department: 'Information Technology',
-    phone: '+1 234 567 8903',
-    joinDate: '2021-09-05'
-  }
-];
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState({
     user: null,
     isAuthenticated: false,
-    isLoading: true
+    isLoading: true,
+    currentPortal: "Employee Portal"
   });
 
   useEffect(() => {
-    // Check for stored auth data on app start
-    const storedUser = localStorage.getItem('portalUser');
+    const storedUser = localStorage.getItem("portalUser");
+    const storedPortal = localStorage.getItem("currentPortal");
     if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        });
-      } catch {
-        localStorage.removeItem('portalUser');
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-      }
-    } else {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, []);
-
-  const login = async (email, password) => {
-    // Mock authentication - in real app, this would be an API call
-    const user = mockUsers.find(u => u.email === email);
-    
-    if (user && password === 'password123') {
-      localStorage.setItem('portalUser', JSON.stringify(user));
+      const user = JSON.parse(storedUser);
       setAuthState({
         user,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
+        currentPortal: storedPortal || "Employee Portal"
       });
-      return true;
+    } else {
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
     }
-    
-    return false;
+  }, []);
+
+  const login = async (username, password) => {
+    setAuthState((prev) => ({ ...prev, isLoading: true }));
+    try {
+      const res = await axios.post("/login", { username, password });
+      const user = res.data;
+      // Map backend response to expected shape
+      const transformedUser = {
+        ...user,
+        name: user.username,
+        email: user.username,
+        role: user.department?.toLowerCase(),
+        employeeId: user.employee_id
+      };
+      localStorage.setItem("portalUser", JSON.stringify(transformedUser));
+      let portals = ["Employee Portal"];
+      if (user.department === "Admin") {
+        portals = ["Admin Dashboard", "HR Portal", "IT Portal", "Employee Portal"];
+      } else if (user.department === "HR") {
+        portals.push("HR Portal");
+      } else if (user.department === "IT") {
+        portals.push("IT Portal");
+      }
+      const defaultPortal = portals[0];
+      localStorage.setItem("currentPortal", defaultPortal);
+      setAuthState({
+        user: transformedUser,
+        isAuthenticated: true,
+        isLoading: false,
+        currentPortal: defaultPortal,
+        portals
+      });
+      return { success: true };
+    } catch (err) {
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
+      return { success: false, error: err?.response?.data?.error || "Login failed" };
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('portalUser');
+    localStorage.removeItem("portalUser");
+    localStorage.removeItem("currentPortal");
     setAuthState({
       user: null,
       isAuthenticated: false,
-      isLoading: false
+      isLoading: false,
+      currentPortal: "Employee Portal"
     });
   };
 
-  const hasRole = (role) => {
-    return authState.user?.role === role;
+  const switchPortal = (portalName) => {
+    if (!canAccessPortal(portalName)) return false;
+    localStorage.setItem("currentPortal", portalName);
+    setAuthState((prev) => ({
+      ...prev,
+      currentPortal: portalName
+    }));
+    return true;
+  };
+
+  const canAccessPortal = (portalName) => {
+    if (!authState.user) return false;
+    if (authState.user.department === "Admin") return true;
+    if (portalName === "Employee Portal") return true;
+    if (portalName === "HR Portal" && authState.user.department === "HR") return true;
+    if (portalName === "IT Portal" && authState.user.department === "IT") return true;
+    if (portalName === "Admin Dashboard" && authState.user.department === "Admin") return true;
+    return false;
+  };
+
+  const getAvailablePortals = () => {
+    if (!authState.user) return ["Employee Portal"];
+    if (authState.user.department === "Admin")
+      return ["Admin Dashboard", "Employee Portal", "HR Portal", "IT Portal"];
+    const portals = ["Employee Portal"];
+    if (authState.user.department === "HR") portals.push("HR Portal");
+    if (authState.user.department === "IT") portals.push("IT Portal");
+    return portals;
+  };
+
+  // ADD THIS FUNCTION!
+  const canShowPortalToggle = () => {
+    if (!authState.user) return false;
+    const dept = authState.user.department;
+    return (
+      dept === "Admin" ||
+      dept === "HR" ||
+      dept === "IT"
+    );
   };
 
   return (
-    <AuthContext.Provider value={{
-      ...authState,
-      login,
-      logout,
-      hasRole
-    }}>
+    <AuthContext.Provider
+      value={{
+        ...authState,
+        login,
+        logout,
+        switchPortal,
+        canAccessPortal,
+        getAvailablePortals,
+        canShowPortalToggle // <-- Make sure this is included!
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -109,7 +137,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

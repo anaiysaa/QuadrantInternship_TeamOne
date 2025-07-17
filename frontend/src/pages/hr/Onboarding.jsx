@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -15,13 +14,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CreateChecklistDialog } from '@/components/dialogs/CreateChecklistDialog';
+import { AddNewHireDialog } from '@/components/dialogs/AddNewHireDialog';
+import { ViewOnboardingDialog } from '@/components/dialogs/ViewOnboardingDialog';
+import { ManageOnboardingDialog } from '@/components/dialogs/ManageOnboardingDialog';
+import { OnboardingProgressDialog } from '@/components/dialogs/OnboardingProgressDialog';
+import { OnboardingTemplatesDialog } from '@/components/dialogs/OnboardingTemplatesDialog';
+import { OnboardingSettingsDialog } from '@/components/dialogs/OnboardingSettingsDialog';
 
 export default function Onboarding() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateChecklistDialog, setShowCreateChecklistDialog] = useState(false);
+  const [showAddHireDialog, setShowAddHireDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showManageDialog, setShowManageDialog] = useState(false);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ... keep existing code (onboardingCandidates data array)
   const onboardingCandidates = [
     {
       id: 'ON001',
@@ -100,7 +113,6 @@ export default function Onboarding() {
     }
   ];
 
-  // ... keep existing code (filteredCandidates, getStatusBadge, getDepartmentColor, stats)
   const filteredCandidates = onboardingCandidates.filter(candidate =>
     candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     candidate.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,58 +154,41 @@ export default function Onboarding() {
   ];
 
   const handleCreateChecklist = () => {
-    toast({
-      title: "Create Checklist",
-      description: "Opening onboarding checklist creator...",
-    });
+    setShowCreateChecklistDialog(true);
   };
 
   const handleAddNewHire = () => {
-    toast({
-      title: "Add New Hire",
-      description: "Opening new hire registration form...",
-    });
+    setShowAddHireDialog(true);
   };
 
   const handleView = (candidateId) => {
-    toast({
-      title: "View Candidate",
-      description: `Opening detailed view for candidate ${candidateId}`,
-    });
+    const candidate = onboardingCandidates.find(c => c.id === candidateId);
+    setSelectedCandidate(candidate);
+    setShowViewDialog(true);
   };
 
   const handleManage = (candidateId) => {
-    toast({
-      title: "Manage Onboarding",
-      description: `Opening management interface for candidate ${candidateId}`,
-    });
+    const candidate = onboardingCandidates.find(c => c.id === candidateId);
+    setSelectedCandidate(candidate);
+    setShowManageDialog(true);
+  };
+
+  const handleProgressReports = () => {
+    setShowProgressDialog(true);
+  };
+
+  const handleOnboardingTemplates = () => {
+    setShowTemplatesDialog(true);
+  };
+
+  const handleSettings = () => {
+    setShowSettingsDialog(true);
   };
 
   const handleFilter = () => {
     toast({
       title: "Filter Applied",
       description: "Advanced filters have been applied to the list.",
-    });
-  };
-
-  const handleOnboardingTemplates = () => {
-    toast({
-      title: "Onboarding Templates",
-      description: "Opening template management interface...",
-    });
-  };
-
-  const handleProgressReports = () => {
-    toast({
-      title: "Progress Reports",
-      description: "Generating detailed progress analytics...",
-    });
-  };
-
-  const handleSettings = () => {
-    toast({
-      title: "Onboarding Settings",
-      description: "Opening onboarding configuration panel...",
     });
   };
 
@@ -340,6 +335,15 @@ export default function Onboarding() {
           </Card>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <CreateChecklistDialog open={showCreateChecklistDialog} onOpenChange={setShowCreateChecklistDialog} />
+      <AddNewHireDialog open={showAddHireDialog} onOpenChange={setShowAddHireDialog} />
+      <ViewOnboardingDialog open={showViewDialog} onOpenChange={setShowViewDialog} candidate={selectedCandidate} />
+      <ManageOnboardingDialog open={showManageDialog} onOpenChange={setShowManageDialog} candidate={selectedCandidate} />
+      <OnboardingProgressDialog open={showProgressDialog} onOpenChange={setShowProgressDialog} />
+      <OnboardingTemplatesDialog open={showTemplatesDialog} onOpenChange={setShowTemplatesDialog} />
+      <OnboardingSettingsDialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog} />
     </DashboardLayout>
   );
 }

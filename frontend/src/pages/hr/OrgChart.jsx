@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -7,14 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { ExportChartDialog } from '@/components/dialogs/ExportChartDialog';
+import { EditStructureDialog } from '@/components/dialogs/EditStructureDialog';
 
 export default function OrgChart() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ... keep existing code (orgData and all helper functions)
   const orgData = {
     ceo: {
       id: 'CEO',
@@ -161,17 +163,11 @@ export default function OrgChart() {
   ];
 
   const handleExportChart = () => {
-    toast({
-      title: "Export Chart",
-      description: "Organization chart is being exported...",
-    });
+    setShowExportDialog(true);
   };
 
   const handleEditStructure = () => {
-    toast({
-      title: "Edit Structure",
-      description: "Opening organization structure editor...",
-    });
+    setShowEditDialog(true);
   };
 
   return (
@@ -333,6 +329,16 @@ export default function OrgChart() {
           ))}
         </div>
       </div>
+
+      <ExportChartDialog 
+        open={showExportDialog} 
+        onOpenChange={setShowExportDialog} 
+      />
+      
+      <EditStructureDialog 
+        open={showEditDialog} 
+        onOpenChange={setShowEditDialog} 
+      />
     </DashboardLayout>
   );
 }

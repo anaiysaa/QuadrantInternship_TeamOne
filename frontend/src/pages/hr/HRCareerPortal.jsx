@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -7,6 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { JobTemplateDialog } from '@/components/dialogs/JobTemplateDialog';
+import { PostJobDialog } from '@/components/dialogs/PostJobDialog';
+import { JobApplicationsDialog } from '@/components/dialogs/JobApplicationsDialog';
+import { EditJobDialog } from '@/components/dialogs/EditJobDialog';
+import { ReviewApplicationDialog } from '@/components/dialogs/ReviewApplicationDialog';
+import { ScheduleInterviewDialog } from '@/components/dialogs/ScheduleInterviewDialog';
 import {
   Table,
   TableBody,
@@ -18,11 +23,16 @@ import {
 
 export default function HRCareerPortal() {
   const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [showJobTemplates, setShowJobTemplates] = useState(false);
+  const [showPostJob, setShowPostJob] = useState(false);
+  const [showJobApplications, setShowJobApplications] = useState(false);
+  const [showEditJob, setShowEditJob] = useState(false);
+  const [showReviewApplication, setShowReviewApplication] = useState(false);
+  const [showScheduleInterview, setShowScheduleInterview] = useState(false);
 
-  // ... keep existing code (jobPostings and applications arrays, and all helper functions)
-  const jobPostings = [
+  const [jobPostings, setJobPostings] = useState([
     {
       id: 'JP001',
       title: 'Senior Frontend Developer',
@@ -34,7 +44,9 @@ export default function HRCareerPortal() {
       applicants: 24,
       postedDate: '2024-02-01',
       closingDate: '2024-03-01',
-      hiringManager: 'Sarah Johnson'
+      hiringManager: 'Sarah Johnson',
+      description: 'Join our engineering team to build cutting-edge web applications using React and TypeScript.',
+      requirements: ['5+ years React experience', 'TypeScript proficiency', 'Team leadership skills']
     },
     {
       id: 'JP002',
@@ -47,7 +59,9 @@ export default function HRCareerPortal() {
       applicants: 18,
       postedDate: '2024-02-05',
       closingDate: '2024-03-05',
-      hiringManager: 'Mike Wilson'
+      hiringManager: 'Mike Wilson',
+      description: 'Drive product strategy and work with cross-functional teams to deliver exceptional user experiences.',
+      requirements: ['3+ years PM experience', 'Analytics background', 'User research skills']
     },
     {
       id: 'JP003',
@@ -60,7 +74,9 @@ export default function HRCareerPortal() {
       applicants: 0,
       postedDate: null,
       closingDate: '2024-02-28',
-      hiringManager: 'Lisa Brown'
+      hiringManager: 'Lisa Brown',
+      description: 'Create beautiful and intuitive user interfaces that delight our customers.',
+      requirements: ['Portfolio of design work', 'Figma expertise', 'User testing experience']
     },
     {
       id: 'JP004',
@@ -73,7 +89,9 @@ export default function HRCareerPortal() {
       applicants: 31,
       postedDate: '2024-01-28',
       closingDate: '2024-02-25',
-      hiringManager: 'Tom Wilson'
+      hiringManager: 'Tom Wilson',
+      description: 'Generate new business opportunities and build relationships with potential clients.',
+      requirements: ['Strong communication skills', 'CRM experience preferred', 'Goal-oriented mindset']
     },
     {
       id: 'JP005',
@@ -86,11 +104,13 @@ export default function HRCareerPortal() {
       applicants: 42,
       postedDate: '2024-01-15',
       closingDate: '2024-02-10',
-      hiringManager: 'Alex Brown'
+      hiringManager: 'Alex Brown',
+      description: 'Support marketing campaigns and coordinate promotional activities.',
+      requirements: ['Bachelor\'s degree in Marketing', 'Social media experience', 'Creative mindset']
     }
-  ];
+  ]);
 
-  const applications = [
+  const [applications, setApplications] = useState([
     {
       id: 'APP001',
       candidateName: 'Jennifer Smith',
@@ -124,7 +144,10 @@ export default function HRCareerPortal() {
       stage: 'Final Decision',
       rating: 5
     }
-  ];
+  ]);
+
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const filteredPostings = jobPostings.filter(job =>
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,45 +205,45 @@ export default function HRCareerPortal() {
   ];
 
   const handleJobTemplates = () => {
-    toast({
-      title: "Job Templates",
-      description: "Opening job template management interface...",
-    });
+    setShowJobTemplates(true);
   };
 
   const handlePostNewJob = () => {
-    toast({
-      title: "Post New Job",
-      description: "Opening new job posting form...",
-    });
+    setShowPostJob(true);
   };
 
-  const handleEdit = (jobId) => {
-    toast({
-      title: "Edit Job",
-      description: `Opening edit form for job ${jobId}`,
-    });
+  const handleEdit = (job) => {
+    setSelectedJob(job);
+    setShowEditJob(true);
   };
 
-  const handleViewApps = (jobId) => {
-    toast({
-      title: "View Applications",
-      description: `Opening applications list for job ${jobId}`,
-    });
+  const handleSaveJob = (updatedJob) => {
+    setJobPostings(prevJobs =>
+      prevJobs.map(j => j.id === updatedJob.id ? updatedJob : j)
+    );
   };
 
-  const handleReview = (appId) => {
-    toast({
-      title: "Review Application",
-      description: `Opening application review for ${appId}`,
-    });
+  const handleViewApps = (job) => {
+    setSelectedJob(job);
+    setShowJobApplications(true);
   };
 
-  const handleSchedule = (appId) => {
-    toast({
-      title: "Schedule Interview",
-      description: `Opening interview scheduler for ${appId}`,
-    });
+  const handleReview = (application) => {
+    setSelectedApplication(application);
+    setShowReviewApplication(true);
+  };
+
+  const handleSchedule = (application) => {
+    setSelectedApplication(application);
+    setShowScheduleInterview(true);
+  };
+
+  const handleApplicationStatusUpdate = (updatedApplication) => {
+    setApplications(prevApps =>
+      prevApps.map(app => 
+        app.id === updatedApplication.id ? updatedApplication : app
+      )
+    );
   };
 
   const handleFilter = () => {
@@ -322,8 +345,12 @@ export default function HRCareerPortal() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(job.id)}>Edit</Button>
-                        <Button size="sm" variant="default" onClick={() => handleViewApps(job.id)}>View Apps</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(job)}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="default" onClick={() => handleViewApps(job)}>
+                          View Apps
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -373,8 +400,12 @@ export default function HRCareerPortal() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleReview(app.id)}>Review</Button>
-                        <Button size="sm" variant="default" onClick={() => handleSchedule(app.id)}>Schedule</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleReview(app)}>
+                          Review
+                        </Button>
+                        <Button size="sm" variant="default" onClick={() => handleSchedule(app)}>
+                          Schedule
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -384,6 +415,39 @@ export default function HRCareerPortal() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <JobTemplateDialog
+        open={showJobTemplates}
+        onOpenChange={setShowJobTemplates}
+      />
+      <PostJobDialog
+        open={showPostJob}
+        onOpenChange={setShowPostJob}
+      />
+      <JobApplicationsDialog
+        job={selectedJob}
+        open={showJobApplications}
+        onOpenChange={setShowJobApplications}
+      />
+      <EditJobDialog
+        job={selectedJob}
+        open={showEditJob}
+        onOpenChange={setShowEditJob}
+        onSave={handleSaveJob}
+      />
+      <ReviewApplicationDialog
+        application={selectedApplication}
+        open={showReviewApplication}
+        onOpenChange={setShowReviewApplication}
+        onStatusUpdate={handleApplicationStatusUpdate}
+      />
+      <ScheduleInterviewDialog
+        application={selectedApplication}
+        open={showScheduleInterview}
+        onOpenChange={setShowScheduleInterview}
+        onSchedule={handleApplicationStatusUpdate}
+      />
     </DashboardLayout>
   );
 }

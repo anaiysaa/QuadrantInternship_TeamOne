@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -16,13 +15,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AddEmployeeDialog } from '@/components/dialogs/AddEmployeeDialog';
+import { ViewEmployeeDialog } from '@/components/dialogs/ViewEmployeeDialog';
+import { EditEmployeeDialog } from '@/components/dialogs/EditEmployeeDialog';
 
 export default function EmployeeDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // ... keep existing code (employees data array)
+  // Mock employee data - in a real app this would come from an API
   const employees = [
     {
       id: 'EMP001',
@@ -92,7 +98,6 @@ export default function EmployeeDirectory() {
     }
   ];
 
-  // ... keep existing code (filteredEmployees, getInitials, getDepartmentColor)
   const filteredEmployees = employees.filter(employee =>
     employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -115,24 +120,19 @@ export default function EmployeeDirectory() {
   };
 
   const handleAddEmployee = () => {
-    toast({
-      title: "Add Employee",
-      description: "Opening new employee form...",
-    });
+    setShowAddDialog(true);
   };
 
   const handleView = (employeeId) => {
-    toast({
-      title: "View Employee",
-      description: `Opening profile for employee ${employeeId}`,
-    });
+    const employee = employees.find(emp => emp.id === employeeId);
+    setSelectedEmployee(employee);
+    setShowViewDialog(true);
   };
 
   const handleEdit = (employeeId) => {
-    toast({
-      title: "Edit Employee",
-      description: `Opening edit form for employee ${employeeId}`,
-    });
+    const employee = employees.find(emp => emp.id === employeeId);
+    setSelectedEmployee(employee);
+    setShowEditDialog(true);
   };
 
   const handleFilter = () => {
@@ -280,6 +280,11 @@ export default function EmployeeDirectory() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialogs */}
+      <AddEmployeeDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <ViewEmployeeDialog open={showViewDialog} onOpenChange={setShowViewDialog} employee={selectedEmployee} />
+      <EditEmployeeDialog open={showEditDialog} onOpenChange={setShowEditDialog} employee={selectedEmployee} />
     </DashboardLayout>
   );
 }

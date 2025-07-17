@@ -1,27 +1,23 @@
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export function EditProfileDialog({ open, onOpenChange }) {
   const { user } = useAuth();
   const { toast } = useToast();
-
+  
   const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    location: user?.location || "",
-    bio: user?.bio || "",
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    location: user?.location || '',
+    bio: user?.bio || ''
   });
 
   const handleSubmit = (e) => {
@@ -35,9 +31,9 @@ export function EditProfileDialog({ open, onOpenChange }) {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [field]: value
     }));
   };
 
@@ -53,62 +49,60 @@ export function EditProfileDialog({ open, onOpenChange }) {
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
+              onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Enter your full name"
             />
           </div>
-
+          
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
               value={formData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
+              onChange={(e) => handleInputChange('email', e.target.value)}
               placeholder="Enter your email"
             />
           </div>
-
+          
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
               value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
+              onChange={(e) => handleInputChange('phone', e.target.value)}
               placeholder="Enter your phone number"
             />
           </div>
-
+          
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
             <Input
               id="location"
               value={formData.location}
-              onChange={(e) => handleInputChange("location", e.target.value)}
+              onChange={(e) => handleInputChange('location', e.target.value)}
               placeholder="Enter your location"
             />
           </div>
-
+          
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>
             <Textarea
               id="bio"
               value={formData.bio}
-              onChange={(e) => handleInputChange("bio", e.target.value)}
+              onChange={(e) => handleInputChange('bio', e.target.value)}
               placeholder="Tell us about yourself"
               rows={3}
             />
           </div>
-
+          
           <div className="flex justify-end space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">
+              Save Changes
+            </Button>
           </div>
         </form>
       </DialogContent>
