@@ -1,100 +1,124 @@
-# backend/main.py
+# main.py
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from db import get_connection
+from dotenv import load_dotenv
+import pyodbc
 
+# Import your AI utilities here
+import ai_utils
+
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/employees", methods=["GET"])
-def get_employees():
-    return fetch_all("Employees")
+# -- DB connection
+def get_connection():
+    return pyodbc.connect(
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
+        f"DATABASE={os.getenv('AZURE_SQL_DB')};"
+        f"UID={os.getenv('AZURE_SQL_USER')};"
+        f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
+        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+    )
 
-@app.route("/employeeonboarding", methods=["GET"])
-def get_employee_onboarding():
-    return fetch_all("EmployeeOnboarding")
+def get_employee_skills_and_jobs(employee_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT Skills, AppliedJobs FROM dbo.Employees WHERE ID = ?", (employee_id,))
+    row = cursor.fetchone()
+    conn.close()
+    skills = [s.split('(')[0].strip() for s in (row[0] or '').split(',')] if row and row[0] else []
+    applied_jobs = [j.strip() for j in (row[1] or '').split(',')] if row and row[1] else []
+    return skills, applied_jobs
 
-@app.route("/leavedecisions", methods=["GET"])
-def get_leave_requests():
-    return fetch_all("LeaveRequests")
+def get_job_details(job_title):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT JobID, MandatorySkills FROM dbo.InternalJobs WHERE JobTitle = ?", (job_title,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None, []
+    job_id = row[0]
+    skills = [s.strip() for s in (row[1] or '').split(',') if s.strip()]
+    return job_id, skills
 
-@app.route("/timesheets", methods=["GET"])
-def get_timesheets():
-    return fetch_all("Timesheets")
+def get_courses_for_skills(skills_needed):
+    if not skills_needed:
+        return []
+    conn = get_connection()
+    cursor = conn.cursor()
+    like_clauses = " OR ".join([f"LOWER(SkillsCovered) LIKE ?" for _ in skills_needed])
+    sql = f"SELECT CourseName, SkillsCovered, Link FROM dbo.LMSCourses WHERE {like_clauses}"
+    params = [f"%{skill.lower()}%" for skill in skills_needed]
+    cursor.execute(sql, params)
+    results = cursor.fetchall()
+    conn.close()
+    return [
+        {"CourseName": row[0], "SkillsCovered": row[1], "Link": row[2]}
+        for row in results
+    ]
 
-@app.route("/hr_tickets", methods=["GET"])
-def get_hrtickets():
-    return fetch_all("hr_Tickets")
+@app.route("/summarize-hr-tickets", methods=["GET"])
+def summarize_hr_tickets():
+    """
+    Fetches all HR ticket descriptions, summarizes them using AI, 
+    and returns a list of summaries with the original info.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT TicketID, Title, Description FROM dbo.hr_tickets")
+    rows = cursor.fetchall()
+    conn.close()
 
-@app.route("/it_tickets", methods=["GET"])
-def get_ittickets():
-    return fetch_all("it_Tickets")
+    results = []
+    for row in rows:
+        ticket_id, title, description = row
+        summary = ai_utils.summarize_ticket_description(description)
+        results.append({
+            "TicketID": ticket_id,
+            "Title": title,
+            "OriginalDescription": description,
+            "Summary": summary
+        })
+    return jsonify(results)
 
-@app.route("/it_tickets", methods=["POST"])
-def post_it_ticket():
-    try:
-        data = request.json
-        employee_id = data.get("employeeId")
-        department = data.get("department")
-        issue = data.get("issue")
-        description = data.get("description")
-        # Add other fields as needed
- 
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO IT_Tickets (EmployeeID, Department, Issue, Description) VALUES (?, ?, ?, ?)",
-            (employee_id, department, issue, description)
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"status": "success"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@app.route("/hr_tickets", methods=["POST"])
-def post_hr_ticket():
-    try:
-        data = request.json
-        employee_id = data.get("employeeId")
-        department = data.get("department")
-        issue = data.get("issue")
-        description = data.get("description")
-        # Add other fields as needed
- 
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO IT_Tickets (EmployeeID, Department, Issue, Description) VALUES (?, ?, ?, ?)",
-            (employee_id, department, issue, description)
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"status": "success"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route("/apply-internal-transfer", methods=["POST"])
+def apply_internal_transfer():
+    """
+    For a given employee, provide missing skills and recommended courses for each job they're applying to.
+    """
+    data = request.get_json()
+    employee_id = data.get("employee_id")
+    if not employee_id:
+        return jsonify({"error": "employee_id is required"}), 400
 
+    employee_skills, applied_jobs = get_employee_skills_and_jobs(employee_id)
+    if not applied_jobs:
+        return jsonify({"error": "No applied jobs found for this employee"}), 404
 
-@app.route("/it_troubleshootingdocs", methods=["GET"])
-def get_troubleshooting_docs():
-    return fetch_all("it_troubleshootingdocs")
-
-@app.route("/it_assets", methods=["GET"])
-def get_assets():
-    return fetch_all("it_Assets")
-
-def fetch_all(table):
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT * FROM {table}")
-        rows = cursor.fetchall()
-        columns = [column[0] for column in cursor.description]
-        data = [dict(zip(columns, row)) for row in rows]
-        conn.close()
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    results = []
+    for job_title in applied_jobs:
+        job_id, job_required_skills = get_job_details(job_title)
+        if not job_id:
+            results.append({"job_title": job_title, "error": "Job not found in InternalJobs table"})
+            continue
+        missing_skills = [s for s in job_required_skills if s not in employee_skills]
+        courses = get_courses_for_skills(missing_skills)
+        ai_output = ai_utils.recommend_courses_for_missing_skills(employee_skills, job_required_skills, courses)
+        results.append({
+            "job_title": job_title,
+            "job_id": job_id,
+            "missing_skills": missing_skills,
+            "recommended_courses": courses,
+            "ai_recommendation": ai_output
+        })
+    return jsonify({
+        "employee_id": employee_id,
+        "recommendations": results
+    })
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
