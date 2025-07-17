@@ -61,6 +61,43 @@ def get_courses_for_skills(skills_needed):
         for row in results
     ]
 
+@app.route("/login", methods=["POST"])
+def login():
+    """
+    Authenticates user based on username and password.
+    Returns ID and department for access control.
+    """
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    # NOTE: Use plain Password for now, or update logic for hashed check if needed.
+    cursor.execute("""
+        SELECT ID, Username, Department
+        FROM dbo.Employees
+        WHERE Username = ? AND PasswordHash = ?
+    """, (username, password))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    # Example: Map Department value to portals/roles
+    department = row[2]
+    # You can optionally send a list of allowed portals based on department value
+    # Example: department="HR" → portals = ["Employee Portal", "HR Portal"]
+    return jsonify({
+        "employee_id": row[0],
+        "username": row[1],
+        "department": department,
+        # Optionally: portals/roles can be returned too
+    }), 200
+
 @app.route("/summarize-hr-tickets", methods=["GET"])
 def summarize_hr_tickets():
     """

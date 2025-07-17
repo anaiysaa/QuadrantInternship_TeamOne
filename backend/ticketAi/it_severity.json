@@ -1,0 +1,118 @@
+{
+  "severity_levels": [
+    {
+      "severity": 1,
+      "name": "Critical Severity",
+      "description": "Emergency-level issues affecting multiple users, security breaches, or complete system outages requiring immediate attention.",
+      "resolve_within": "30 minutes - 1 hour",
+      "example_phrases": [
+        "The entire network is down.",
+        "Security breach detected in our systems.",
+        "All servers are offline and nobody can work.",
+        "Data backup systems have failed completely.",
+        "Ransomware attack detected on company computers."
+      ],
+      "keywords": [
+        "network down",
+        "security breach",
+        "servers offline",
+        "backup failed",
+        "ransomware",
+        "data breach",
+        "complete outage",
+        "multiple users affected",
+        "emergency"
+      ]
+    },
+    {
+      "severity": 2,
+      "name": "High Severity",
+      "description": "Critical issues that significantly impact individual productivity and work capabilities.",
+      "resolve_within": "2-4 hours",
+      "example_phrases": [
+        "I can't access my work email at all.",
+        "My computer won't start up.",
+        "I cannot log in to any company systems.",
+        "All my files are corrupted or missing.",
+        "The system crashed and I lost important work."
+      ],
+      "keywords": [
+        "cannot access email",
+        "computer won't start",
+        "cannot log in",
+        "files corrupted",
+        "files missing",
+        "system crashed",
+        "lost work",
+        "complete failure"
+      ]
+    },
+    {
+      "severity": 3,
+      "name": "Medium Severity",
+      "description": "Issues that moderately impact work efficiency but have workarounds available.",
+      "resolve_within": "4-8 hours",
+      "example_phrases": [
+        "My email is not syncing properly.",
+        "I can't connect to the VPN.",
+        "The application keeps crashing but I can restart it.",
+        "I'm having trouble with file permissions.",
+        "My second monitor isn't working."
+      ],
+      "keywords": [
+        "email sync",
+        "vpn connection",
+        "application crash",
+        "file permissions",
+        "monitor issues",
+        "sync problems",
+        "connection issues"
+      ]
+    },
+    {
+      "severity": 4,
+      "name": "Low Severity",
+      "description": "Routine maintenance requests or minor issues that don't impact productivity significantly.",
+      "resolve_within": "1-2 business days",
+      "example_phrases": [
+        "Please install software X on my computer.",
+        "I need access to a shared folder.",
+        "Can you help me set up my email signature?",
+        "My computer is running slowly.",
+        "I need a new mouse/keyboard."
+      ],
+      "keywords": [
+        "install software",
+        "shared folder access",
+        "email signature",
+        "running slowly",
+        "new hardware",
+        "setup",
+        "configure"
+      ]
+    },
+    {
+      "severity": 5,
+      "name": "Very Low Severity",
+      "description": "Informational requests, documentation, or minor questions that do not affect system functionality.",
+      "resolve_within": "3-5 business days",
+      "example_phrases": [
+        "Can you send me the IT user manual?",
+        "What's the WiFi password for guests?",
+        "How do I connect to the printer?",
+        "Where can I download software X?",
+        "What are the system requirements for this application?"
+      ],
+      "keywords": [
+        "manual",
+        "documentation",
+        "wifi password",
+        "printer setup",
+        "download",
+        "system requirements",
+        "how to",
+        "tutorial"
+      ]
+    }
+  ]
+}
