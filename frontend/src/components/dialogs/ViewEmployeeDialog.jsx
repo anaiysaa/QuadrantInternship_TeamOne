@@ -75,3 +75,5 @@ export function ViewEmployeeDialog({ open, onOpenChange, employee }) {
     </Dialog>
   );
 }
+
+export default ViewEmployeeDialog;

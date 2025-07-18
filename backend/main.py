@@ -10,7 +10,7 @@ import ai_utils
 
 load_dotenv()
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})  # dev only
 
 # -- DB connection
 def get_connection():
@@ -32,6 +32,37 @@ def get_employee_skills_and_jobs(employee_id):
     skills = [s.split('(')[0].strip() for s in (row[0] or '').split(',')] if row and row[0] else []
     applied_jobs = [j.strip() for j in (row[1] or '').split(',')] if row and row[1] else []
     return skills, applied_jobs
+
+@app.route("/api/leave-requests", methods=["GET"])
+def get_leave_requests():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent FROM LeaveRequests")
+    rows = cursor.fetchall()
+    columns = [column[0] for column in cursor.description]
+    conn.close()
+    results = [dict(zip(columns, row)) for row in rows]
+    for r in results:
+        r['Urgent'] = bool(r['Urgent'])
+    return jsonify(results)
+
+@app.route("/api/leave-requests/<string:request_id>/approve", methods=["POST"])
+def approve_leave_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", request_id)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Request approved"})
+
+@app.route("/api/leave-requests/<string:request_id>/reject", methods=["POST"])
+def reject_leave_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Rejected' WHERE RequestID = ?", request_id)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Request rejected"})
 
 def get_job_details(job_title):
     conn = get_connection()
@@ -60,6 +91,25 @@ def get_courses_for_skills(skills_needed):
         {"CourseName": row[0], "SkillsCovered": row[1], "Link": row[2]}
         for row in results
     ]
+
+@app.route("/summarize-hr-tickets", methods=["GET"])
+def summarize_hr_tickets():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT TicketID, Title, Description FROM dbo.hr_tickets")
+    rows = cursor.fetchall()
+    conn.close()
+    results = []
+    for row in rows:
+        ticket_id, title, description = row
+        summary = ai_utils.summarize_ticket_description(description)
+        results.append({
+            "TicketID": ticket_id,
+            "Title": title,
+            "OriginalDescription": description,
+            "Summary": summary
+        })
+    return jsonify(results)
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -98,35 +148,8 @@ def login():
         # Optionally: portals/roles can be returned too
     }), 200
 
-@app.route("/summarize-hr-tickets", methods=["GET"])
-def summarize_hr_tickets():
-    """
-    Fetches all HR ticket descriptions, summarizes them using AI, 
-    and returns a list of summaries with the original info.
-    """
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT TicketID, Title, Description FROM dbo.hr_tickets")
-    rows = cursor.fetchall()
-    conn.close()
-
-    results = []
-    for row in rows:
-        ticket_id, title, description = row
-        summary = ai_utils.summarize_ticket_description(description)
-        results.append({
-            "TicketID": ticket_id,
-            "Title": title,
-            "OriginalDescription": description,
-            "Summary": summary
-        })
-    return jsonify(results)
-
 @app.route("/apply-internal-transfer", methods=["POST"])
 def apply_internal_transfer():
-    """
-    For a given employee, provide missing skills and recommended courses for each job they're applying to.
-    """
     data = request.get_json()
     employee_id = data.get("employee_id")
     if not employee_id:
@@ -156,6 +179,75 @@ def apply_internal_transfer():
         "employee_id": employee_id,
         "recommendations": results
     })
+
+@app.route("/api/employees", methods=["GET"])
+def get_employees():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone
+        FROM Employees
+    """)
+    rows = cursor.fetchall()
+    id_to_name = {row[0]: row[1] for row in rows}
+    employees = []
+    for row in rows:
+        manager_id = row[5]
+        manager_name = id_to_name.get(manager_id, "") if manager_id else ""
+        employees.append({
+            "id": row[0],
+            "name": row[1],
+            "email": row[2],
+            "department": row[3],
+            "position": row[4],
+            "managerId": manager_id,
+            "managerName": manager_name,
+            "joinDate": str(row[6]) if row[6] else "",
+            "status": row[7],
+            "phone": row[8],
+        })
+    conn.close()
+    return jsonify(employees)
+
+@app.route("/api/employees", methods=["POST"])
+def add_employee():
+    data = request.json
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT MAX(ID) FROM Employees")   # <--- FIXED LINE for INT IDs
+    last_id = cursor.fetchone()[0] or 0
+    next_id = last_id + 1
+    cursor.execute("""
+        INSERT INTO Employees (ID, Name, Email, Department, Role, Status, DateJoined, ManagerID, Phone)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        next_id, data['name'], data['email'], data['department'], data['position'],
+        data.get('status', 'Active'), data['joinDate'], data['manager'], data['phone']
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({"id": next_id})
+
+@app.route("/api/employees/<int:emp_id>", methods=["PUT"])
+def update_employee(emp_id):
+    data = request.json
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE Employees SET 
+            Name=?, Email=?, Department=?, Role=?, Status=?, DateJoined=?, ManagerID=?, Phone=?
+        WHERE ID=?
+    """, (
+        data['name'], data['email'], data['department'], data['position'],
+        data.get('status', 'Active'), data['joinDate'], data['manager'], data['phone'], emp_id
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route("/api/hello", methods=["GET"])
+def hello_world():
+    return jsonify({"msg": "Hello, Flask is working!"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)

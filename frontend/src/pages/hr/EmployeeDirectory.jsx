@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,98 +15,59 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { AddEmployeeDialog } from '@/components/dialogs/AddEmployeeDialog';
-import { ViewEmployeeDialog } from '@/components/dialogs/ViewEmployeeDialog';
-import { EditEmployeeDialog } from '@/components/dialogs/EditEmployeeDialog';
+import AddEmployeeDialog from '@/components/dialogs/AddEmployeeDialog';
+import EditEmployeeDialog from '@/components/dialogs/EditEmployeeDialog';
+import ViewEmployeeDialog from '@/components/dialogs/ViewEmployeeDialog';
+
+
+const API_URL = 'http://localhost:8000/api/employees';
+
+function resolveManagerId(managerInput, employees) {
+  if (!managerInput) return null;
+  const input = String(managerInput).trim().toLowerCase();
+  // Try ID match (case-insensitive)
+  const idMatch = employees.find(e =>
+    String(e.id).toLowerCase() === input
+  );
+  if (idMatch) return idMatch.id;
+  // Try name match (case-insensitive, unique only)
+  const matches = employees.filter(e =>
+    (e.name || '').toLowerCase() === input
+  );
+  if (matches.length === 1) return matches[0].id;
+  // No unique match found
+  return null;
+}
+
 
 export default function EmployeeDirectory() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [employees, setEmployees] = useState([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Mock employee data - in a real app this would come from an API
-  const employees = [
-    {
-      id: 'EMP001',
-      name: 'John Doe',
-      email: 'john.doe@company.com',
-      department: 'Engineering',
-      position: 'Senior Developer',
-      status: 'Active',
-      joinDate: '2023-01-15',
-      manager: 'Sarah Johnson',
-      phone: '+1 (555) 123-4567'
-    },
-    {
-      id: 'EMP002', 
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      department: 'Engineering',
-      position: 'Engineering Manager',
-      status: 'Active',
-      joinDate: '2022-03-10',
-      manager: 'Mike Wilson',
-      phone: '+1 (555) 234-5678'
-    },
-    {
-      id: 'EMP003',
-      name: 'Mike Wilson',
-      email: 'mike.wilson@company.com', 
-      department: 'Engineering',
-      position: 'VP Engineering',
-      status: 'Active',
-      joinDate: '2021-06-01',
-      manager: 'CEO',
-      phone: '+1 (555) 345-6789'
-    },
-    {
-      id: 'EMP004',
-      name: 'Emma Davis',
-      email: 'emma.davis@company.com',
-      department: 'HR',
-      position: 'HR Manager',
-      status: 'Active', 
-      joinDate: '2022-09-12',
-      manager: 'Lisa Brown',
-      phone: '+1 (555) 456-7890'
-    },
-    {
-      id: 'EMP005',
-      name: 'Alex Brown',
-      email: 'alex.brown@company.com',
-      department: 'Marketing',
-      position: 'Marketing Specialist',
-      status: 'Active',
-      joinDate: '2023-11-20',
-      manager: 'Tom Wilson',
-      phone: '+1 (555) 567-8901'
-    },
-    {
-      id: 'EMP006',
-      name: 'Lisa Brown',
-      email: 'lisa.brown@company.com',
-      department: 'HR',
-      position: 'HR Director',
-      status: 'Active',
-      joinDate: '2020-04-15',
-      manager: 'CEO',
-      phone: '+1 (555) 678-9012'
-    }
-  ];
+  useEffect(() => {
+    axios.get(API_URL)
+      .then(res => setEmployees(res.data))
+      .catch(() => {
+        setEmployees([]);
+        toast({ title: 'Error', description: 'Failed to load employees from server.' });
+      });
+  }, [refreshKey, toast]);
 
   const filteredEmployees = employees.filter(employee =>
-    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.id.toLowerCase().includes(searchTerm.toLowerCase())
+    (employee.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.position || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (employee.id || '').toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return (name || '').split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   const getDepartmentColor = (department) => {
@@ -119,8 +80,34 @@ export default function EmployeeDirectory() {
     }
   };
 
-  const handleAddEmployee = () => {
-    setShowAddDialog(true);
+  const handleAddEmployee = () => setShowAddDialog(true);
+
+  const handleAddEmployeeSubmit = async (newData) => {
+    const managerInput = newData.manager;
+    const managerId = resolveManagerId(managerInput, employees);
+    if (managerInput && !managerId) {
+      toast({
+        title: "Manager Not Found",
+        description: "Please enter a valid manager name or ID (case insensitive).",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      await axios.post(API_URL, { ...newData, manager: managerId });
+      setShowAddDialog(false);
+      toast({
+        title: "Employee Added",
+        description: `${newData.name} has been added.`,
+      });
+      setRefreshKey(k => k + 1);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to add employee.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleView = (employeeId) => {
@@ -134,6 +121,44 @@ export default function EmployeeDirectory() {
     setSelectedEmployee(employee);
     setShowEditDialog(true);
   };
+
+  const handleEditEmployeeSubmit = async (updatedData) => {
+    const managerInput = updatedData.manager;
+    const managerId = resolveManagerId(managerInput, employees);
+    if (managerInput && !managerId) {
+      toast({
+        title: "Manager Not Found",
+        description: "Please enter a valid manager name or ID (case insensitive).",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      await axios.put(`${API_URL}/${selectedEmployee.id}`, { ...updatedData, manager: managerId });
+      setShowEditDialog(false);
+      toast({
+        title: "Employee Updated",
+        description: `${updatedData.name}'s info updated.`,
+      });
+      setRefreshKey(k => k + 1);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to update employee.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const totalEmployees = employees.length;
+  const activeEmployees = employees.filter(e => e.status === 'Active').length;
+  const departmentCount = new Set(employees.map(e => e.department)).size;
+  const newThisMonth = employees.filter(e => {
+    if (!e.joinDate) return false;
+    const date = new Date(e.joinDate);
+    const now = new Date();
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }).length;
 
   const handleFilter = () => {
     toast({
@@ -168,7 +193,7 @@ export default function EmployeeDirectory() {
                 <div className="w-3 h-3 rounded-full bg-primary"></div>
                 <h3 className="text-sm font-medium text-muted-foreground">Total Employees</h3>
               </div>
-              <p className="text-2xl font-bold mt-1">{employees.length}</p>
+              <p className="text-2xl font-bold mt-1">{totalEmployees}</p>
             </CardContent>
           </Card>
           <Card>
@@ -177,7 +202,7 @@ export default function EmployeeDirectory() {
                 <div className="w-3 h-3 rounded-full bg-success"></div>
                 <h3 className="text-sm font-medium text-muted-foreground">Active</h3>
               </div>
-              <p className="text-2xl font-bold mt-1">{employees.filter(e => e.status === 'Active').length}</p>
+              <p className="text-2xl font-bold mt-1">{activeEmployees}</p>
             </CardContent>
           </Card>
           <Card>
@@ -186,7 +211,7 @@ export default function EmployeeDirectory() {
                 <div className="w-3 h-3 rounded-full bg-warning"></div>
                 <h3 className="text-sm font-medium text-muted-foreground">Departments</h3>
               </div>
-              <p className="text-2xl font-bold mt-1">{new Set(employees.map(e => e.department)).size}</p>
+              <p className="text-2xl font-bold mt-1">{departmentCount}</p>
             </CardContent>
           </Card>
           <Card>
@@ -195,7 +220,7 @@ export default function EmployeeDirectory() {
                 <div className="w-3 h-3 rounded-full bg-accent"></div>
                 <h3 className="text-sm font-medium text-muted-foreground">New This Month</h3>
               </div>
-              <p className="text-2xl font-bold mt-1">2</p>
+              <p className="text-2xl font-bold mt-1">{newThisMonth}</p>
             </CardContent>
           </Card>
         </div>
@@ -238,8 +263,8 @@ export default function EmployeeDirectory() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
+                {filteredEmployees.map((employee, idx) => (
+                  <TableRow key={employee.id || idx}>
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-8 w-8">
@@ -256,15 +281,25 @@ export default function EmployeeDirectory() {
                     </TableCell>
                     <TableCell>
                       <Badge className={getDepartmentColor(employee.department)}>
-                        {employee.department}
+                        {employee.department || '-'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{employee.position}</TableCell>
-                    <TableCell>{employee.manager}</TableCell>
-                    <TableCell>{new Date(employee.joinDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{employee.position || '-'}</TableCell>
+                    <TableCell>
+                      {employee.managerId && employee.managerName
+                        ? `${employee.managerName} (${employee.managerId})`
+                        : employee.managerId
+                          ? employee.managerId
+                          : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {employee.joinDate
+                        ? new Date(employee.joinDate).toLocaleDateString()
+                        : '-'}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>
-                        {employee.status}
+                        {employee.status || '-'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -282,9 +317,22 @@ export default function EmployeeDirectory() {
       </div>
 
       {/* Dialogs */}
-      <AddEmployeeDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
-      <ViewEmployeeDialog open={showViewDialog} onOpenChange={setShowViewDialog} employee={selectedEmployee} />
-      <EditEmployeeDialog open={showEditDialog} onOpenChange={setShowEditDialog} employee={selectedEmployee} />
+      <AddEmployeeDialog 
+        open={showAddDialog} 
+        onOpenChange={setShowAddDialog} 
+        onAdd={handleAddEmployeeSubmit} 
+      />
+      <ViewEmployeeDialog 
+        open={showViewDialog} 
+        onOpenChange={setShowViewDialog} 
+        employee={selectedEmployee} 
+      />
+      <EditEmployeeDialog 
+        open={showEditDialog} 
+        onOpenChange={setShowEditDialog} 
+        employee={selectedEmployee}
+        onEdit={handleEditEmployeeSubmit}
+      />
     </DashboardLayout>
   );
 }
