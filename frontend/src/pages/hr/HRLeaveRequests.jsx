@@ -7,9 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { BarChart3, EyeOff, Eye } from 'lucide-react';
-import { LeaveDetailsDialog } from '@/components/dialogs/LeaveDetailsDialog';
+import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
 import {
   Table,
   TableBody,
@@ -20,41 +18,61 @@ import {
 } from '@/components/ui/table';
 
 const API_URL = 'http://localhost:8000/api/leave-requests';
+const EMP_API_URL = 'http://localhost:8000/api/employees';
 
 export default function HRLeaveRequests() {
   const { currentPortal } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
 
-  // --- FIX: Add missing dialog state ---
   const [leaveDetailsOpen, setLeaveDetailsOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
 
-  // GET: Fetch all leave requests
+  // Fetch all leave requests
   useEffect(() => {
     axios
       .get(API_URL)
       .then((res) => setLeaveRequests(res.data))
-      .catch((err) => {
+      .catch(() => {
         setLeaveRequests([]);
         toast({ title: 'Error', description: 'Failed to load leave requests.' });
       });
   }, [refreshKey, toast]);
 
-  // Filter leave requests by search term
-  const filteredRequests = leaveRequests.filter((request) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      request.Employee?.toLowerCase().includes(term) ||
-      request.Type?.toLowerCase().includes(term) ||
-      request.Status?.toLowerCase().includes(term) ||
-      request.RequestID?.toLowerCase().includes(term)
-    );
-  });
+  // Fetch employee directory for name lookup
+  useEffect(() => {
+    axios
+      .get(EMP_API_URL)
+      .then(res => setEmployees(res.data))
+      .catch(() => setEmployees([]));
+  }, []);
 
-  // Analytics data (omitted for brevity...)
+  // Find employee name by ID
+  const getEmployeeDisplay = (empId) => {
+    const emp = employees.find((e) => String(e.id) === String(empId));
+    return emp ? `${emp.name} (${emp.id})` : empId;
+  };
+
+  // Filter leave requests by search term
+  const filteredRequests = leaveRequests
+    .filter((request) => {
+      const term = searchTerm.toLowerCase();
+      return (
+        getEmployeeDisplay(request.Employee).toLowerCase().includes(term) ||
+        (request.Type || '').toLowerCase().includes(term) ||
+        (request.Status || '').toLowerCase().includes(term) ||
+        (request.RequestID || '').toLowerCase().includes(term)
+      );
+    })
+    // Sort so the oldest is at the top, newest at the bottom (by SubmittedDate)
+    .sort((a, b) => {
+      const da = new Date(a.SubmittedDate || a.submittedDate || a.StartDate || 0);
+      const db = new Date(b.SubmittedDate || b.submittedDate || b.StartDate || 0);
+      return da - db;
+    });
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -79,7 +97,6 @@ export default function HRLeaveRequests() {
     return <Badge className={colors[type] || 'bg-secondary text-secondary-foreground'}>{type}</Badge>;
   };
 
-  // POST: Approve a leave request
   const handleApprove = async (requestId) => {
     try {
       await axios.post(`${API_URL}/${requestId}/approve`);
@@ -90,7 +107,6 @@ export default function HRLeaveRequests() {
     }
   };
 
-  // POST: Reject a leave request
   const handleReject = async (requestId) => {
     try {
       await axios.post(`${API_URL}/${requestId}/reject`);
@@ -101,7 +117,6 @@ export default function HRLeaveRequests() {
     }
   };
 
-  // --- FIX: Add view details handler ---
   const handleViewDetails = (request) => {
     setSelectedLeave(request);
     setLeaveDetailsOpen(true);
@@ -168,7 +183,7 @@ export default function HRLeaveRequests() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{request.Employee}</p>
+                        <p className="font-medium">{getEmployeeDisplay(request.Employee)}</p>
                       </div>
                     </TableCell>
                     <TableCell>{getTypeBadge(request.Type)}</TableCell>

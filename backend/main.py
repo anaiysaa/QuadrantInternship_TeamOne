@@ -1,12 +1,10 @@
-# main.py
 import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 import pyodbc
-
-# Import your AI utilities here
 import ai_utils
+import sys
 
 load_dotenv()
 app = Flask(__name__)
@@ -33,18 +31,107 @@ def get_employee_skills_and_jobs(employee_id):
     applied_jobs = [j.strip() for j in (row[1] or '').split(',')] if row and row[1] else []
     return skills, applied_jobs
 
+# ------------------ LEAVE REQUESTS ------------------
+
 @app.route("/api/leave-requests", methods=["GET"])
 def get_leave_requests():
+    """
+    If ?employee_id=ID is provided, return only that employee's leave requests.
+    Otherwise, return all (for HR portal).
+    """
+    emp_id = request.args.get("employee_id")
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent FROM LeaveRequests")
+    if emp_id:
+        cursor.execute("""
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate
+            FROM LeaveRequests WHERE EmployeeID=?
+            ORDER BY SubmittedDate DESC
+        """, (emp_id,))
+    else:
+        cursor.execute("""
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate
+            FROM LeaveRequests
+            ORDER BY SubmittedDate DESC
+        """)
     rows = cursor.fetchall()
     columns = [column[0] for column in cursor.description]
     conn.close()
     results = [dict(zip(columns, row)) for row in rows]
     for r in results:
-        r['Urgent'] = bool(r['Urgent'])
+        r['Urgent'] = bool(r.get('Urgent', False))
+        # Format dates for JSON serializability
+        for k in ('StartDate', 'EndDate', 'SubmittedDate'):
+            if r.get(k):
+                r[k] = str(r[k])
     return jsonify(results)
+
+from flask import jsonify, request
+
+# main.py (relevant leave request part, copy-paste over your /api/leave-requests POST endpoint)
+
+from datetime import datetime, timedelta
+
+@app.route("/api/leave-requests", methods=["POST"])
+def submit_leave_request():
+    data = request.json
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Generate next RequestID
+    cursor.execute("SELECT ISNULL(MAX(CAST(SUBSTRING(RequestID, 3, 10) AS INT)), 0) + 1 FROM LeaveRequests")
+    next_number = cursor.fetchone()[0]
+    new_id = f"LR{next_number:03d}"
+
+    # Parse/calculate start & end dates
+    start = data.get("StartDate") or data.get("startDate")
+    end = data.get("EndDate") or data.get("endDate")
+    # Defensive: fallback to today if either is missing
+    start_dt = datetime.strptime(start, "%Y-%m-%d") if start else datetime.today()
+    end_dt = datetime.strptime(end, "%Y-%m-%d") if end else start_dt
+
+    # Count weekdays only
+    def count_weekdays(s, e):
+        count = 0
+        d = s
+        while d <= e:
+            if d.weekday() < 5:  # 0-4 = Mon-Fri
+                count += 1
+            d += timedelta(days=1)
+        return count
+
+    days = count_weekdays(start_dt, end_dt)
+
+    # Pull fields, using defaults for missing
+    reason = data.get("Reason") or data.get("reason") or ""
+    submitted_date = datetime.now().strftime("%Y-%m-%d")
+    urgent = bool(data.get("Urgent") or data.get("urgent") or False)
+    status = data.get("Status") or data.get("status") or "Pending"
+    employee = data.get("Employee") or data.get("employee")
+    type_ = data.get("Type") or data.get("type")
+
+    # Insert with all required columns
+    cursor.execute(
+        "INSERT INTO LeaveRequests (RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            new_id,
+            employee,
+            type_,
+            start_dt.strftime("%Y-%m-%d"),
+            end_dt.strftime("%Y-%m-%d"),
+            days,
+            status,
+            urgent,
+            reason,
+            submitted_date,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"RequestID": new_id, "success": True, "days": days}), 201
+
+
+
 
 @app.route("/api/leave-requests/<string:request_id>/approve", methods=["POST"])
 def approve_leave_request(request_id):
@@ -63,6 +150,9 @@ def reject_leave_request(request_id):
     conn.commit()
     conn.close()
     return jsonify({"message": "Request rejected"})
+
+
+# ------------------ END LEAVE REQUESTS ------------------
 
 def get_job_details(job_title):
     conn = get_connection()
@@ -125,7 +215,6 @@ def login():
 
     conn = get_connection()
     cursor = conn.cursor()
-    # NOTE: Use plain Password for now, or update logic for hashed check if needed.
     cursor.execute("""
         SELECT ID, Username, Department
         FROM dbo.Employees
@@ -137,15 +226,11 @@ def login():
     if not row:
         return jsonify({"error": "Invalid username or password"}), 401
 
-    # Example: Map Department value to portals/roles
     department = row[2]
-    # You can optionally send a list of allowed portals based on department value
-    # Example: department="HR" → portals = ["Employee Portal", "HR Portal"]
     return jsonify({
         "employee_id": row[0],
         "username": row[1],
         "department": department,
-        # Optionally: portals/roles can be returned too
     }), 200
 
 @app.route("/apply-internal-transfer", methods=["POST"])
@@ -182,39 +267,51 @@ def apply_internal_transfer():
 
 @app.route("/api/employees", methods=["GET"])
 def get_employees():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone
-        FROM Employees
-    """)
-    rows = cursor.fetchall()
-    id_to_name = {row[0]: row[1] for row in rows}
-    employees = []
-    for row in rows:
-        manager_id = row[5]
-        manager_name = id_to_name.get(manager_id, "") if manager_id else ""
-        employees.append({
-            "id": row[0],
-            "name": row[1],
-            "email": row[2],
-            "department": row[3],
-            "position": row[4],
-            "managerId": manager_id,
-            "managerName": manager_name,
-            "joinDate": str(row[6]) if row[6] else "",
-            "status": row[7],
-            "phone": row[8],
-        })
-    conn.close()
-    return jsonify(employees)
+    import sys
+    print("==== /api/employees HIT! ====", file=sys.stderr)
+    print("HEADERS:", dict(request.headers), file=sys.stderr)
+    sys.stderr.flush()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone
+            FROM Employees
+        """)
+        rows = cursor.fetchall()
+        id_to_name = {row[0]: row[1] for row in rows}
+        employees = []
+        for row in rows:
+            manager_id = row[5]
+            manager_name = id_to_name.get(manager_id, "") if manager_id else ""
+            employees.append({
+                "id": row[0],
+                "name": row[1],
+                "email": row[2],
+                "department": row[3],
+                "position": row[4],
+                "managerId": manager_id,
+                "managerName": manager_name,
+                "joinDate": str(row[6]) if row[6] else "",
+                "status": row[7],
+                "phone": row[8],
+            })
+        conn.close()
+        print(f"Returning {len(employees)} employees", file=sys.stderr)
+        sys.stderr.flush()
+        return jsonify(employees)
+    except Exception as e:
+        print("ERROR in /api/employees:", e, file=sys.stderr)
+        sys.stderr.flush()
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/employees", methods=["POST"])
 def add_employee():
     data = request.json
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT MAX(ID) FROM Employees")   # <--- FIXED LINE for INT IDs
+    cursor.execute("SELECT MAX(ID) FROM Employees")
     last_id = cursor.fetchone()[0] or 0
     next_id = last_id + 1
     cursor.execute("""
@@ -245,9 +342,127 @@ def update_employee(emp_id):
     conn.close()
     return jsonify({"success": True})
 
-@app.route("/api/hello", methods=["GET"])
-def hello_world():
-    return jsonify({"msg": "Hello, Flask is working!"})
+@app.route("/api/livechats", methods=["POST"])
+def create_live_chat():
+    data = request.get_json()
+    print("POST data:", data, file=sys.stderr)
+    sys.stderr.flush()
+
+    if not data:
+        return jsonify({"error": "No data received. Check Content-Type and body format."}), 400
+
+    # Defensive: check for 'from'
+    if 'from' not in data or not data['from']:
+        return jsonify({"error": "Missing 'from' field in POST data"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Generate a new ChatID, store all relevant info
+    cursor.execute("SELECT ISNULL(MAX(ChatID), 0) + 1 FROM LiveChats")
+    chat_id = cursor.fetchone()[0]
+    cursor.execute("""
+        INSERT INTO LiveChats (ChatID, FromID, ToID, Issue, Priority, Description, Department, Timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())
+    """, (
+        chat_id,
+        data["from"],           # sender's Employee ID
+        data["to"],             # recipient's Employee ID
+        data["issue"],
+        data["priority"],
+        data.get("description", ""),
+        data.get("department", ""),
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "ChatID": chat_id})
+
+@app.route("/api/livechats/<int:chat_id>/messages", methods=["POST"])
+def add_message(chat_id):
+    data = request.json
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO Messages (ChatID, SenderID, Content)
+        VALUES (?, ?, ?)
+    """, (
+        chat_id,
+        data["senderId"],
+        data["content"]
+    ))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route("/api/livechats/<int:chat_id>/messages", methods=["GET"])
+def get_messages(chat_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT MessageID, SenderID, Content, Timestamp
+        FROM Messages
+        WHERE ChatID = ?
+        ORDER BY Timestamp ASC
+    """, (chat_id,))
+    messages = []
+    for row in cursor.fetchall():
+        messages.append({
+            "messageId": row[0],
+            "senderId": row[1],
+            "content": row[2],
+            "timestamp": str(row[3])
+        })
+    conn.close()
+    return jsonify(messages)
+
+@app.route("/api/livechats", methods=["GET"])
+def get_all_chats():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ChatID, FromID, ToID, Issue, Priority, Department, Timestamp
+        FROM LiveChats
+        ORDER BY Timestamp DESC
+    """)
+    chats = []
+    for row in cursor.fetchall():
+        chats.append({
+            "chatId": row[0],
+            "fromId": row[1],
+            "toId": row[2],
+            "issue": row[3],
+            "priority": row[4],
+            "department": row[5],
+            "timestamp": str(row[6])
+        })
+    conn.close()
+    return jsonify(chats)
+
+@app.route("/api/livechats", methods=["GET"])
+def get_live_chats():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify([])
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT c.ChatID, c.FromID, c.ToID, c.Issue, c.Priority, c.Description, c.Department, c.Timestamp, c.Status,
+               e.Name as EmployeeName
+        FROM LiveChats c
+        JOIN Employees e ON e.ID = c.ToID
+        WHERE c.FromID = ? OR c.ToID = ?
+        ORDER BY c.Timestamp DESC
+    """, (user_id, user_id))
+    rows = cursor.fetchall()
+    columns = [desc[0] for desc in cursor.description]
+    chats = [dict(zip(columns, row)) for row in rows]
+    conn.close()
+    return jsonify(chats)
+
+
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)

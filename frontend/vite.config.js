@@ -6,15 +6,16 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
-    port: 8080,
-    proxy: {
-      "/login": "http://localhost:8000",
-      "/summarize-hr-tickets": "http://localhost:8000",
-      "/apply-internal-transfer": "http://localhost:8000",
-      // add all your backend API endpoints here if needed
-    }
-  },
+  host: "::",
+  port: 8080,
+  proxy: {
+    "/api": "http://127.0.0.1:8000", // <--- Use IP instead of localhost if you want!
+    "/login": "http://127.0.0.1:8000",
+    "/summarize-hr-tickets": "http://127.0.0.1:8000",
+    "/apply-internal-transfer": "http://127.0.0.1:8000",
+  }
+},
+
   plugins: [
     react(),
     mode === 'development' && componentTagger(),

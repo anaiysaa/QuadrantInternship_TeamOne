@@ -106,7 +106,6 @@ export function AuthProvider({ children }) {
     return portals;
   };
 
-  // ADD THIS FUNCTION!
   const canShowPortalToggle = () => {
     if (!authState.user) return false;
     const dept = authState.user.department;
@@ -115,6 +114,12 @@ export function AuthProvider({ children }) {
       dept === "HR" ||
       dept === "IT"
     );
+  };
+
+  // -------- Add this function! --------
+  const logAdminAction = (action, details) => {
+    // For now, just log to the console. You can replace with real backend API call.
+    console.log("[ADMIN ACTION]", action, details);
   };
 
   return (
@@ -126,7 +131,8 @@ export function AuthProvider({ children }) {
         switchPortal,
         canAccessPortal,
         getAvailablePortals,
-        canShowPortalToggle // <-- Make sure this is included!
+        canShowPortalToggle,
+        logAdminAction, // <-- add this
       }}
     >
       {children}

@@ -1,177 +1,101 @@
-import { useState, useRef, useEffect } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { CreateTicketDialog } from '@/components/dialogs/CreateTicketDialog';
-import { RemoteDesktopDialog } from '@/components/dialogs/RemoteDesktopDialog';
-import { CallEmployeeDialog } from '@/components/dialogs/CallEmployeeDialog';
-import { ChatHistoryDialog } from '@/components/dialogs/ChatHistoryDialog';
-import { StartNewChatDialog } from '@/components/dialogs/StartNewChatDialog';
+import { useState, useEffect, useRef } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { StartNewChatDialog } from "@/components/dialogs/StartNewChatDialog";
+
+// --- Placeholder for demo. Replace with real logged-in user info! ---
+const CURRENT_USER_ID = 1;
+const CURRENT_USER_DEPARTMENT = "IT";
 
 export default function ITLiveChat() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'system',
-      message: 'Welcome to IT Support Chat! How can I help you today?',
-      timestamp: new Date('2024-02-12T10:00:00'),
-      type: 'welcome'
-    }
-  ]);
-  const [newMessage, setNewMessage] = useState('');
-  const [activeChats, setActiveChats] = useState([
-    {
-      id: 'chat-001',
-      employee: 'John Doe',
-      department: 'Engineering',
-      issue: 'Login problems',
-      priority: 'High',
-      status: 'Active',
-      startTime: '2024-02-12T09:30:00',
-      lastMessage: 'I cannot access my account'
-    },
-    {
-      id: 'chat-002',
-      employee: 'Sarah Johnson',
-      department: 'Sales',
-      issue: 'Printer not working',
-      priority: 'Medium',
-      status: 'Waiting',
-      startTime: '2024-02-12T09:45:00',
-      lastMessage: 'The printer shows error code 42'
-    },
-    {
-      id: 'chat-003',
-      employee: 'Lisa Brown',
-      department: 'Design',
-      issue: 'Software installation',
-      priority: 'Low',
-      status: 'Resolved',
-      startTime: '2024-02-12T08:15:00',
-      lastMessage: 'Thank you, it works now!'
-    }
-  ]);
-  const [selectedChat, setSelectedChat] = useState('chat-001');
+  const [activeChats, setActiveChats] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Fetch all live chats for this user (modify query/filter as needed)
+  const fetchActiveChats = async () => {
+    const res = await fetch(`/api/livechats?user_id=${CURRENT_USER_ID}`);
+    const data = await res.json();
+    setActiveChats(data);
+    // Auto-select first chat if none selected
+    if (!selectedChat && data.length > 0) setSelectedChat(data[0].ChatID);
   };
 
+  // Fetch messages for selected chat
+  const fetchMessages = async (chatId) => {
+    if (!chatId) return setMessages([]);
+    const res = await fetch(`/api/messages?chat_id=${chatId}`);
+    const data = await res.json();
+    setMessages(data);
+  };
+
+  // Initial load and refresh after starting a chat
   useEffect(() => {
-    scrollToBottom();
+    fetchActiveChats();
+    // eslint-disable-next-line
+  }, []);
+
+  // Load messages when chat is selected
+  useEffect(() => {
+    if (selectedChat) fetchMessages(selectedChat);
+    // eslint-disable-next-line
+  }, [selectedChat]);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const commonResponses = [
-    "Can you please restart your computer and try again?",
-    "I'll create a ticket for this issue and assign it to our technical team.",
-    "Please try clearing your browser cache and cookies.",
-    "Let me check the system status for you.",
-    "Can you provide a screenshot of the error message?",
-    "I'll escalate this to our network administrator.",
-    "Please update your software to the latest version.",
-    "Let me remote into your computer to take a look."
-  ];
-
-  const troubleshootingSteps = [
-    {
-      category: 'Login Issues',
-      steps: [
-        'Verify username and password',
-        'Check caps lock status',
-        'Clear browser cache',
-        'Try incognito/private mode',
-        'Reset password if needed'
-      ]
-    },
-    {
-      category: 'Network Problems',
-      steps: [
-        'Check ethernet cable connection',
-        'Restart network adapter',
-        'Run network troubleshooter',
-        'Check Wi-Fi connection',
-        'Contact network team if persists'
-      ]
-    },
-    {
-      category: 'Software Issues',
-      steps: [
-        'Close and restart application',
-        'Check for software updates',
-        'Run as administrator',
-        'Reinstall the application',
-        'Check system requirements'
-      ]
-    }
-  ];
-
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg = {
-        id: messages.length + 1,
-        sender: 'it-tech',
+  // Send message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: selectedChat,
+        sender_id: CURRENT_USER_ID,
         message: newMessage,
-        timestamp: new Date(),
-        type: 'response'
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage('');
-
-      // Simulate bot response after 2 seconds
-      setTimeout(() => {
-        const botResponse = {
-          id: messages.length + 2,
-          sender: 'system',
-          message: "I understand your issue. Let me help you with that. Can you provide more details about when this problem started?",
-          timestamp: new Date(),
-          type: 'bot'
-        };
-        setMessages(prev => [...prev, botResponse]);
-      }, 2000);
-    }
+      }),
+    });
+    setNewMessage("");
+    fetchMessages(selectedChat); // Reload messages
   };
 
-  const handleQuickResponse = (response) => {
-    const newMsg = {
-      id: messages.length + 1,
-      sender: 'it-tech',
-      message: response,
-      timestamp: new Date(),
-      type: 'response'
-    };
-    setMessages([...messages, newMsg]);
-  };
-
+  // Utility badges
   const getPriorityBadge = (priority) => {
-    switch (priority) {
-      case 'High':
+    switch (priority?.toLowerCase()) {
+      case "high":
         return <Badge variant="destructive">High</Badge>;
-      case 'Medium':
+      case "medium":
         return <Badge variant="outline" className="text-warning border-warning">Medium</Badge>;
-      case 'Low':
+      case "low":
         return <Badge variant="outline" className="text-success border-success">Low</Badge>;
+      case "critical":
+        return <Badge variant="destructive">Critical</Badge>;
       default:
         return <Badge variant="secondary">{priority}</Badge>;
     }
   };
-
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Active':
+    switch (status?.toLowerCase()) {
+      case "active":
         return <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>;
-      case 'Waiting':
+      case "waiting":
         return <Badge variant="outline" className="text-warning border-warning">Waiting</Badge>;
-      case 'Resolved':
+      case "resolved":
         return <Badge variant="secondary">Resolved</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
-  const currentChat = activeChats.find(chat => chat.id === selectedChat);
+  const currentChat = activeChats.find((c) => c.ChatID === selectedChat);
 
   return (
     <DashboardLayout>
@@ -182,67 +106,74 @@ export default function ITLiveChat() {
             <p className="text-muted-foreground">Real-time assistance for employees</p>
           </div>
           <div className="flex space-x-2">
-            <ChatHistoryDialog>
-              <Button variant="outline">Chat History</Button>
-            </ChatHistoryDialog>
-            <StartNewChatDialog>
+            {/* Add ChatHistoryDialog etc. if needed */}
+            <StartNewChatDialog onChatCreated={fetchActiveChats}>
               <Button>Start New Chat</Button>
             </StartNewChatDialog>
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Active Chats Sidebar */}
+          {/* Sidebar: Active Chats */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="text-lg">Active Chats</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="space-y-2">
+                {activeChats.length === 0 && (
+                  <p className="p-3 text-sm text-muted-foreground">No active chats.</p>
+                )}
                 {activeChats.map((chat) => (
                   <div
-                    key={chat.id}
+                    key={chat.ChatID}
                     className={`p-3 cursor-pointer hover:bg-accent transition-colors ${
-                      selectedChat === chat.id ? 'bg-accent' : ''
+                      selectedChat === chat.ChatID ? "bg-accent" : ""
                     }`}
-                    onClick={() => setSelectedChat(chat.id)}
+                    onClick={() => setSelectedChat(chat.ChatID)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-sm">{chat.employee}</p>
-                      {getStatusBadge(chat.status)}
+                      <div>
+                        <p className="font-medium text-sm">{chat.ToName || chat.FromName || "?"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {chat.Department || ""} Dept
+                        </p>
+                      </div>
+                      {getStatusBadge(chat.Status)}
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-muted-foreground">{chat.department}</p>
-                      {getPriorityBadge(chat.priority)}
+                      <p className="text-sm text-muted-foreground">
+                        {chat.Issue}
+                      </p>
+                      {getPriorityBadge(chat.Priority)}
                     </div>
-                    <p className="text-sm text-muted-foreground">{chat.issue}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(chat.startTime).toLocaleTimeString()}
+                      {chat.Timestamp && new Date(chat.Timestamp).toLocaleTimeString()}
                     </p>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
-
           {/* Chat Interface */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>
-                    {currentChat ? `Chat with ${currentChat.employee}` : 'Select a Chat'}
+                    {currentChat
+                      ? `Chat with ${currentChat.ToName || currentChat.FromName || "Employee"} (${currentChat.Department || "?"})`
+                      : "Select a Chat"}
                   </CardTitle>
                   {currentChat && (
                     <p className="text-sm text-muted-foreground">
-                      {currentChat.department} • {currentChat.issue}
+                      {currentChat.Issue}
                     </p>
                   )}
                 </div>
                 {currentChat && (
                   <div className="flex space-x-2">
-                    {getPriorityBadge(currentChat.priority)}
-                    {getStatusBadge(currentChat.status)}
+                    {getPriorityBadge(currentChat.Priority)}
+                    {getStatusBadge(currentChat.Status)}
                   </div>
                 )}
               </div>
@@ -251,25 +182,31 @@ export default function ITLiveChat() {
               {/* Messages */}
               <div className="h-96 overflow-y-auto border rounded-lg p-4 mb-4 bg-background">
                 <div className="space-y-4">
+                  {messages.length === 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      No messages in this chat yet.
+                    </div>
+                  )}
                   {messages.map((message) => (
                     <div
-                      key={message.id}
+                      key={message.MessageID}
                       className={`flex ${
-                        message.sender === 'it-tech' ? 'justify-end' : 'justify-start'
+                        message.SenderID === CURRENT_USER_ID
+                          ? "justify-end"
+                          : "justify-start"
                       }`}
                     >
                       <div
                         className={`max-w-[70%] p-3 rounded-lg ${
-                          message.sender === 'it-tech'
-                            ? 'bg-primary text-primary-foreground'
-                            : message.type === 'welcome'
-                            ? 'bg-accent text-accent-foreground'
-                            : 'bg-muted'
+                          message.SenderID === CURRENT_USER_ID
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
                         }`}
                       >
-                        <p className="text-sm">{message.message}</p>
+                        <p className="text-sm">{message.Content}</p>
                         <p className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString()}
+                          {message.Timestamp &&
+                            new Date(message.Timestamp).toLocaleTimeString()}
                         </p>
                       </div>
                     </div>
@@ -277,81 +214,50 @@ export default function ITLiveChat() {
                   <div ref={messagesEndRef} />
                 </div>
               </div>
-
-              {/* Quick Responses */}
-              <div className="mb-4">
-                <p className="text-sm font-medium mb-2">Quick Responses:</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {commonResponses.slice(0, 4).map((response, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="text-left justify-start h-auto whitespace-normal"
-                      onClick={() => handleQuickResponse(response)}
-                    >
-                      {response}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
               {/* Message Input */}
-              <div className="flex space-x-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your response..."
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="flex-1"
-                />
-                <Button onClick={handleSendMessage}>Send</Button>
-              </div>
+              {currentChat && (
+                <div className="flex space-x-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your response..."
+                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSendMessage}>Send</Button>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {/* Troubleshooting Guide */}
+          {/* Quick Troubleshooting Sidebar (optional) */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="text-lg">Quick Troubleshooting</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {troubleshootingSteps.map((guide, index) => (
-                  <div key={index}>
-                    <h4 className="font-medium text-sm mb-2">{guide.category}</h4>
-                    <ul className="space-y-1">
-                      {guide.steps.map((step, stepIndex) => (
-                        <li key={stepIndex} className="text-xs text-muted-foreground flex items-start">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mt-1.5 mr-2 flex-shrink-0"></span>
-                          {step}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 p-3 bg-accent rounded-lg">
-                <p className="text-sm font-medium mb-2">Escalation Options</p>
-                <div className="space-y-2">
-                  <CreateTicketDialog>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Create Ticket
-                    </Button>
-                  </CreateTicketDialog>
-                  
-                  <RemoteDesktopDialog employee={currentChat?.employee}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Remote Desktop
-                    </Button>
-                  </RemoteDesktopDialog>
-                  
-                  <CallEmployeeDialog employee={currentChat?.employee}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Call Employee
-                    </Button>
-                  </CallEmployeeDialog>
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Login Issues</h4>
+                  <ul className="space-y-1">
+                    <li className="text-xs text-muted-foreground">Verify username and password</li>
+                    <li className="text-xs text-muted-foreground">Clear browser cache</li>
+                    <li className="text-xs text-muted-foreground">Reset password if needed</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Network Problems</h4>
+                  <ul className="space-y-1">
+                    <li className="text-xs text-muted-foreground">Check ethernet cable connection</li>
+                    <li className="text-xs text-muted-foreground">Restart network adapter</li>
+                    <li className="text-xs text-muted-foreground">Contact network team if persists</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Software Issues</h4>
+                  <ul className="space-y-1">
+                    <li className="text-xs text-muted-foreground">Close and restart application</li>
+                    <li className="text-xs text-muted-foreground">Check for software updates</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
