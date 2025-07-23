@@ -1,5 +1,3 @@
-# resume_nor.py
-
 import os
 import json
 import re
@@ -7,41 +5,35 @@ from dotenv import load_dotenv
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 import pyodbc
-from openai import AzureOpenAI  # NEW: for openai>=1.0.0
+from openai import AzureOpenAI  # for openai>=1.0.0
 
-# Load .env variables
 load_dotenv()
 
-# Azure Document Intelligence settings
 docai_endpoint = os.getenv("DOCINTEL_ENDPOINT")
 docai_key = os.getenv("DOCINTEL_KEY")
 
-# Azure OpenAI settings
 openai_api_key = os.getenv("OPENAI_API_KEY")
 openai_api_version = os.getenv("OPENAI_API_VERSION", "2024-02-15-preview")
 openai_api_base = os.getenv("OPENAI_API_BASE")
 deployment_name = os.getenv("DEPLOYMENT_NAME")
 
-# Database connection settings
 driver = '{ODBC Driver 17 for SQL Server}'
 server = os.getenv("server")
 database = os.getenv("database")
-username = os.getenv("username")   # Use your .env value here
+username = os.getenv("username")
 password = os.getenv("password")
 conn_str = f"DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password}"
 
 def get_db_cursor():
-    """Get a new DB connection and cursor. Call close() after use."""
     conn = pyodbc.connect(conn_str)
     return conn, conn.cursor()
 
 def extract_text_with_docai(file_obj):
-    # file_obj is a file-like object (from Flask upload)
     client = DocumentAnalysisClient(
         endpoint=docai_endpoint,
         credential=AzureKeyCredential(docai_key)
     )
-    file_obj.seek(0)  # Ensure pointer at start
+    file_obj.seek(0)
     poller = client.begin_analyze_document("prebuilt-document", document=file_obj)
     result = poller.result()
     all_text = []
@@ -51,7 +43,6 @@ def extract_text_with_docai(file_obj):
     return "\n".join(all_text)
 
 def normalize_resume_text_azure(raw_text):
-    # Uses OpenAI >=1.0.0 (AzureOpenAI)
     client = AzureOpenAI(
         api_key=openai_api_key,
         api_version=openai_api_version,
@@ -144,7 +135,6 @@ def insert_or_update_employee(data, cursor, conn):
     conn.commit()
 
 def process_resume_file(file_obj):
-    # file_obj is the Flask-uploaded file (file-like object)
     resume_text = extract_text_with_docai(file_obj)
     normalized = normalize_resume_text_azure(resume_text)
     conn, cursor = get_db_cursor()
