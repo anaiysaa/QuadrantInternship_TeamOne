@@ -1,16 +1,22 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify
 from flask_cors import CORS
-from resume_nor import process_resume_file  # <-- Make sure this exists in your project
+from .resume_nor import process_resume_file
+
 import pyodbc
 import os
 import re
 import json
+from dotenv import load_dotenv
 
+resume_api = Blueprint('resume_api', __name__)
+load_dotenv()
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}}, supports_credentials=True)
+# -- Enable CORS if needed for this blueprint (not for the whole app here) --
+# (You may also enable CORS globally in main.py)
 
-# ----- BASIC SECTION EXTRACTION (for UI only) -----
+def get_connection():
+    return pyodbc.connect(os.getenv("DB_CONN_STR"))
+
 def extract_basic_sections(text):
     """Extract summary, experience, education, skills from raw text. For display only."""
     sections = {"summary": "", "experience": [], "education": [], "skills": []}
@@ -34,41 +40,33 @@ def extract_basic_sections(text):
         sections["skills"] = [s.strip() for s in skills if len(s.strip()) > 1]
     return sections
 
-# ----- RESUME UPLOAD ENDPOINT -----
-@app.route('/upload', methods=['POST'])
+@resume_api.route('/upload', methods=['POST'])
 def upload_resume():
     file = request.files.get('resume')
     if not file:
         return jsonify({"status": "error", "message": "No file received"}), 400
 
     try:
-        # Backend processing (AI, DB, etc)
         result = process_resume_file(file)
-
-        # Section extraction ONLY for display (does NOT affect database)
         file.stream.seek(0)
         raw_text = file.read().decode(errors="ignore")
         sections = extract_basic_sections(raw_text)
-
         return jsonify({
             "status": "success",
-            "result": result,      # AI/DB result for backend logic
-            "sections": sections   # Just for UI display
+            "result": result,
+            "sections": sections
         }), 200
-
     except Exception as e:
         print("ERROR processing resume:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ----- GET EMPLOYEE RESUME ENDPOINT -----
-@app.route('/employee-resume', methods=['GET'])
+@resume_api.route('/employee-resume', methods=['GET'])
 def get_employee_resume():
     username = request.args.get('username')
     if not username:
         return jsonify({"success": False, "message": "No username provided"}), 400
 
     try:
-        # Adjust these based on your environment/pyodbc setup!
         conn_str = os.getenv("DB_CONN_STR")
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
@@ -98,5 +96,66 @@ def get_employee_resume():
         print("DB error:", e)
         return jsonify({"success": False, "message": "DB error"}), 500
 
-if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+@resume_api.route("/api/employees/<int:emp_id>", methods=["GET"])
+def get_employee(emp_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ID, Name, Email, Phone, Address, Username, PasswordHash, Department, Role, ManagerID, TeamID,
+               DateJoined, Status, PaidLeavesLeft, Gender, TrainingsDone, TrainingsLeft, Salary, Campus,
+               EmploymentStatus, PhotoURL, HireDate, SkillCategory, YearsInCompany, Skills, AppliedJobs,
+               Certifications, EducationDegree, EducationField, EducationInstitution, EducationYear
+        FROM Employees
+        WHERE ID = ?
+    """, (emp_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "Not found"}), 404
+
+    manager_name = ""
+    if row[9]:
+        conn2 = get_connection()
+        cursor2 = conn2.cursor()
+        cursor2.execute("SELECT Name FROM Employees WHERE ID = ?", (row[9],))
+        manager_row = cursor2.fetchone()
+        if manager_row:
+            manager_name = manager_row[0]
+        conn2.close()
+
+    return jsonify({
+        "id": row[0],
+        "name": row[1],
+        "email": row[2],
+        "phone": row[3],
+        "address": row[4],
+        "username": row[5],
+        "department": row[7],
+        "role": row[8],
+        "managerId": row[9],
+        "managerName": manager_name,
+        "teamId": row[10],
+        "joinDate": str(row[11]) if row[11] else "",
+        "status": row[12],
+        "paidLeavesLeft": row[13],
+        "gender": row[14],
+        "trainingsDone": row[15],
+        "trainingsLeft": row[16],
+        "salary": row[17],
+        "campus": row[18],
+        "employmentStatus": row[19],
+        "photoUrl": row[20],
+        "hireDate": str(row[21]) if row[21] else "",
+        "skillCategory": row[22],
+        "yearsInCompany": row[23],
+        "skills": row[24],
+        "appliedJobs": row[25],
+        "certifications": row[26],
+        "educationDegree": row[27],
+        "educationField": row[28],
+        "educationInstitution": row[29],
+        "educationYear": row[30]
+    })
+
+# No app.run() or CORS(app, ...) here—do that in main.py
+

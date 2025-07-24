@@ -1,31 +1,22 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Blueprint, request, jsonify
 import pyodbc
 import os
 import json
 import re
 from dotenv import load_dotenv
-from azure.ai.formrecognizer import DocumentAnalysisClient
-from azure.core.credentials import AzureKeyCredential
-from openai import AzureOpenAI
-from werkzeug.security import check_password_hash
 
-from course_recommender_ai import get_recommended_courses
+# Use relative import if in the same package
+from .course_recommender_ai import get_recommended_courses
 
 load_dotenv()
 
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}}, supports_credentials=True)
-
+job_match_api = Blueprint('job_match_api', __name__)
 
 DB_CONN_STR = os.getenv("DB_CONN_STR")
 
 def get_db_connection():
     return pyodbc.connect(DB_CONN_STR)
 
-# Degree ranking
 DEGREE_RANK = {
     "High School": 1,
     "Associate": 2,
@@ -37,20 +28,17 @@ DEGREE_RANK = {
     "PhD": 5
 }
 
-@app.route('/job-matches/<int:employee_id>', methods=['GET'])
+@job_match_api.route('/job-matches/<int:employee_id>', methods=['GET'])
 def get_job_matches(employee_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        # 1. Fetch the specified employee
         cursor.execute("""
             SELECT Id, Name, Email, Phone, Address, EducationDegree, Skills
             FROM Employees
             WHERE Id = ?
         """, (employee_id,))
         row = cursor.fetchone()
-
         if not row:
             return jsonify({"error": "Employee not found"}), 404
 
@@ -72,7 +60,6 @@ def get_job_matches(employee_id):
         emp_rank = DEGREE_RANK.get(employee["degree_level"], 0)
         emp_skills = set(s.lower() for s in employee["skills"])
 
-        # 2. Fetch all internal jobs (using only the confirmed columns)
         cursor.execute("""
             SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications, JobDescription
             FROM InternalJobs
@@ -80,7 +67,6 @@ def get_job_matches(employee_id):
         job_rows = cursor.fetchall()
 
         matches = []
-
         for job_row in job_rows:
             job_id = job_row[0]
             title = job_row[1]
@@ -118,12 +104,12 @@ def get_job_matches(employee_id):
     except Exception as e:
         return jsonify({"error": f"Failed to get job matches: {str(e)}"}), 500
 
-@app.route('/login', methods=['POST'])
+@job_match_api.route('/login', methods=['POST'])
 def login():
     data = request.json
-    username = data.get("username")  # ✅ NOT email
+    username = data.get("username")
     password = data.get("password")
-    
+
     conn = pyodbc.connect(DB_CONN_STR)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Employees WHERE username = ?", (username,))
@@ -133,7 +119,6 @@ def login():
     if not row:
         return jsonify({"error": "User not found"}), 401
 
-    # Assuming row[3] is password column
     if row[6] != password:
         return jsonify({"error": "Invalid password"}), 401
 
@@ -143,5 +128,3 @@ def login():
         "employee_id": row[0]
     })
 
-if __name__ == "__main__":
-    app.run(port=5001, debug=True)
