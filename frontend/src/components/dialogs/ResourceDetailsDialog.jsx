@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +27,11 @@ export function ResourceDetailsDialog({ resource, open, onOpenChange }) {
     }
   };
 
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -37,14 +41,18 @@ export function ResourceDetailsDialog({ resource, open, onOpenChange }) {
             {resource.title}
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
-          {/* Resource Info */}
+          {/* Category and Tags */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${getCategoryColor(resource.category)}`}></div>
+              <div className={`w-3 h-3 rounded-full ${getCategoryColor(resource.category)}`} />
               <span className="text-sm font-medium">{resource.category}</span>
             </div>
+            {resource.tags?.split(',').map((tag, i) => (
+  <Badge key={i} variant="outline">{tag.trim()}</Badge>
+))}
+
             <Badge variant="outline" className={getTypeColor(resource.type)}>
               {resource.type}
             </Badge>
@@ -56,19 +64,19 @@ export function ResourceDetailsDialog({ resource, open, onOpenChange }) {
             <p className="text-muted-foreground">{resource.description}</p>
           </div>
 
-          {/* Resource Details */}
+          {/* Metadata */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Download className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  <strong>File Size:</strong> {resource.size}
+                  <strong>File Size:</strong> {resource.size || 'N/A'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  <strong>Downloads:</strong> {resource.downloads}
+                  <strong>Downloads:</strong> {resource.downloads ?? 0}
                 </span>
               </div>
             </div>
@@ -76,33 +84,25 @@ export function ResourceDetailsDialog({ resource, open, onOpenChange }) {
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  <strong>Last Updated:</strong> {new Date(resource.lastUpdated).toLocaleDateString()}
+                  <strong>Last Updated:</strong> {formatDate(resource.lastUpdated)}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Table of Contents (simulated) */}
-          <div>
-            <h4 className="font-semibold mb-2">Table of Contents</h4>
-            <div className="bg-accent rounded-lg p-4">
-              <ul className="space-y-2 text-sm">
-                <li>1. Introduction</li>
-                <li>2. Getting Started</li>
-                <li>3. Step-by-step Instructions</li>
-                <li>4. Troubleshooting</li>
-                <li>5. FAQ</li>
-                <li>6. Contact Support</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
+          {/* Actions */}
           <div className="flex items-center space-x-3 pt-4 border-t">
-            <Button className="flex-1">
-              <Download className="h-4 w-4 mr-2" />
-              Download Resource
-            </Button>
+            <a
+              href={`http://localhost:8000/api/resources/download/${resource.file_name}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1"
+            >
+              <Button className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Download Resource
+              </Button>
+            </a>
             <Button variant="outline" className="flex-1">
               <Eye className="h-4 w-4 mr-2" />
               Preview

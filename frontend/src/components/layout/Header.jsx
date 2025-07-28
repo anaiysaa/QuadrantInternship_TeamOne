@@ -35,7 +35,7 @@ export function Header() {
     const success = switchPortal(portalName);
     if (success) {
       console.log(`Switched to ${portalName}`);
-      logAdminAction("Portal Switch", { targetPortal: portalName });
+      // logAdminAction("Portal Switch", { targetPortal: portalName });
     } else {
       console.log(`Access denied to ${portalName}`);
     }

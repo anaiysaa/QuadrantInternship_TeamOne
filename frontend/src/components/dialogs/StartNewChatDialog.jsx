@@ -10,9 +10,8 @@ import { MessageSquarePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-export function StartNewChatDialog({ children }) {
+export function StartNewChatDialog({ children, onChatCreated }) {
   const { user } = useAuth();
-
   const [isOpen, setIsOpen] = useState(false);
   const [allEmployees, setAllEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
@@ -70,22 +69,11 @@ export function StartNewChatDialog({ children }) {
 
   const handleEmployeeSelect = (id) => {
     setFormData((prev) => ({ ...prev, employeeId: id }));
-    setSearch(""); // clear search
+    setSearch("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // 🟡 Check for valid logged-in user
-    if (!user || !user.id) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to start a chat.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!formData.employeeId || !formData.issue || !formData.priority) {
       toast({
         title: "Missing Information",
@@ -94,21 +82,19 @@ export function StartNewChatDialog({ children }) {
       });
       return;
     }    
-
     try {
       const res = await fetch("/api/livechats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: user.id, // <<-- always an integer, always present now!
+          from: user.employeeId || user.id,
           to: formData.employeeId,
           issue: formData.issue,
           priority: formData.priority,
           description: formData.description,
-          department: user.department || "", // fallback to empty string
+          department: user.department,
         }),
       });
-
       const text = await res.text();
       let data;
       try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
@@ -117,7 +103,7 @@ export function StartNewChatDialog({ children }) {
         setIsOpen(false);
         setFormData({ employeeId: "", issue: "", priority: "", description: "" });
         setSearch("");
-        // Optionally: refresh chat list here!
+        if (onChatCreated) onChatCreated();
       } else {
         throw new Error(data.error || "Failed to start chat.");
       }
@@ -137,7 +123,6 @@ export function StartNewChatDialog({ children }) {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Searchable Employee Combobox */}
           <div className="space-y-2">
             <Label htmlFor="employee">Send To *</Label>
             <div className="relative">
@@ -187,8 +172,6 @@ export function StartNewChatDialog({ children }) {
               )}
             </div>
           </div>
-
-          {/* Issue and Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="issue">Issue Type *</Label>
@@ -223,7 +206,6 @@ export function StartNewChatDialog({ children }) {
               </select>
             </div>
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
