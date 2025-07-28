@@ -1,116 +1,88 @@
-
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 export function AddArticleDialog({ children }) {
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    title: '',
-    category: '',
-    tags: '',
-    content: '',
-    summary: ''
+  const [form, setForm] = useState({
+    title: "",
+    category: "",
+    tags: "",
+    summary: "",
+    file: null,
   });
+  const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+    if (name === "file") {
+      setForm((prev) => ({ ...prev, file: files[0] }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Adding article:', formData);
-    toast({
-      title: "Article Added",
-      description: "New knowledge base article has been created successfully.",
-    });
-    setOpen(false);
-    setFormData({ title: '', category: '', tags: '', content: '', summary: '' });
+
+    const formData = new FormData();
+    for (const key in form) {
+      formData.append(key, form[key]);
+    }
+
+    try {
+      const res = await fetch("http://localhost:8000/api/resources/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        toast({ title: "Upload successful!" });
+        setOpen(false);
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error uploading:", error);
+      toast({ title: "Upload error", description: error.message, variant: "destructive" });
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Add Knowledge Base Article</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Article Title</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Enter article title"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Hardware">Hardware</SelectItem>
-                  <SelectItem value="Software">Software</SelectItem>
-                  <SelectItem value="Network">Network</SelectItem>
-                  <SelectItem value="Security">Security</SelectItem>
-                  <SelectItem value="Troubleshooting">Troubleshooting</SelectItem>
-                  <SelectItem value="Setup">Setup</SelectItem>
-                </SelectContent>
-              </Select>
+    <>
+      <div onClick={() => setOpen(true)}>{children}</div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Knowledge Base Article</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input name="title" placeholder="Title" onChange={handleChange} required />
+            <select
+  name="category"
+  value={form.category}
+  onChange={handleChange}
+  className="w-full border rounded-md px-3 py-2"
+  required
+>
+  <option value="">Select Category</option>
+  <option value="Hardware">Hardware</option>
+  <option value="Software">Software</option>
+  <option value="Security">Security</option>
+  <option value="Network">Network</option>
+</select>
+            <Input name="tags" placeholder="Tags (comma separated)" onChange={handleChange} />
+            <Textarea name="summary" placeholder="Summary" onChange={handleChange} />
+            <Input type="file" name="file" accept=".pdf,.doc,.docx" onChange={handleChange} required />
+            <div className="text-right">
+              <Button type="submit">Upload</Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags</Label>
-              <Input
-                id="tags"
-                value={formData.tags}
-                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                placeholder="Enter tags separated by commas"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="summary">Summary</Label>
-            <Textarea
-              id="summary"
-              value={formData.summary}
-              onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-              placeholder="Brief summary of the article"
-              rows={2}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Write the detailed article content here..."
-              rows={8}
-              required
-            />
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Publish Article</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

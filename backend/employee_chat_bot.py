@@ -18,16 +18,18 @@ SEARCH_INDEX = os.getenv("SEARCH_INDEX")
 SEARCH_ADMIN_KEY = os.getenv("SEARCH_ADMIN_KEY")
 SEARCH_API_VERSION = os.getenv("SEARCH_API_VERSION")
 
-# FastAPI setup
+
 app = FastAPI()
 
+# 👇 Add this block after creating the app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production!
+    allow_origins=["http://localhost:8080"],  # or ["*"] during dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Azure OpenAI client (new SDK)
 client = AzureOpenAI(
