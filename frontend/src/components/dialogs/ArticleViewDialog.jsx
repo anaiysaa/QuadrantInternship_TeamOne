@@ -88,11 +88,12 @@ export function ArticleViewDialog({ article, open, onOpenChange }) {
 
           {/* Article Tags */}
           <div className="flex flex-wrap gap-2">
-            {article.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
+            {(Array.isArray(article.tags) ? article.tags : String(article.tags).split(',')).map((tag, index) => (
+  <Badge key={index} variant="secondary" className="text-xs">
+    {tag.trim()}
+  </Badge>
+))}
+
           </div>
 
           {/* Article Content */}
