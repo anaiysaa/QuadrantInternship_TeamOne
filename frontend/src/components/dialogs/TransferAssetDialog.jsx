@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
-export function TransferAssetDialog({ children, asset }) {
+export function TransferAssetDialog({ children, asset, onTransfer }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -21,11 +20,17 @@ export function TransferAssetDialog({ children, asset }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Transferring asset:', { asset: asset?.id, ...formData });
-    toast({
-      title: "Asset Transferred",
-      description: `Asset ${asset?.id} has been transferred successfully.`,
-    });
+    
+    // Call the onTransfer function instead of just console.log
+    if (onTransfer) {
+      onTransfer({
+        assetId: asset?.id,
+        newEmployee: formData.newEmployee,
+        newLocation: formData.newLocation,
+        transferReason: formData.transferReason
+      });
+    }
+    
     setOpen(false);
     setFormData({
       newEmployee: '', newDepartment: '', newLocation: '', transferReason: '',

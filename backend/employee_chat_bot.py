@@ -58,40 +58,30 @@ def search_employee_handbook(query, top_k=2):
 async def ask(request: Request):
     data = await request.json()
     user_question = data.get("question", "")
+    chat_history = data.get("history", [])
 
-    # 1. Retrieve relevant handbook snippets
-    try:
-        handbook_snippet = search_employee_handbook(user_question, top_k=2)
-    except Exception as e:
-        return {"error": f"Azure Search failed: {e}"}
+    # Fetch context as before
+    handbook_snippet = search_employee_handbook(user_question, top_k=2)
 
-    # 2. Compose prompt for LLM
     prompt = f"""
 You are an HR assistant bot. Answer the following employee question using ONLY the official handbook excerpts below.
 First, provide a clear, friendly summary in your own words.
 Then, show the actual excerpt(s) from the handbook that you used to answer.
 
 Handbook excerpts:
-\"\"\"
-{handbook_snippet}
-\"\"\"
-
-Question: {user_question}
+\"\"\"{handbook_snippet}\"\"\"
 """
 
-    # 3. Get answer from Azure OpenAI
-    try:
-        completion = client.chat.completions.create(
-            model=AZURE_OPENAI_DEPLOYMENT,
-            messages=[
-                {"role": "system", "content": "You are a helpful HR assistant. Always use the provided handbook excerpt to answer."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=600
-        )
-        answer = completion.choices[0].message.content.strip()
-    except Exception as e:
-        return {"error": f"OpenAI API failed: {e}"}
+    # Build messages list
+    messages = [{"role": "system", "content": "You are a helpful HR assistant. Always use the provided handbook excerpt to answer."}]
+    messages.extend(chat_history)
+    messages.append({"role": "user", "content": prompt + f"\n\nQuestion: {user_question}"})
 
+    completion = client.chat.completions.create(
+        model=AZURE_OPENAI_DEPLOYMENT,
+        messages=messages,
+        temperature=0.2,
+        max_tokens=600
+    )
+    answer = completion.choices[0].message.content.strip()
     return {"answer": answer}

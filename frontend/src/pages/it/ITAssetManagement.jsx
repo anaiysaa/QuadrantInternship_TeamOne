@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,195 +18,37 @@ import { EditAssetDialog } from '@/components/dialogs/EditAssetDialog';
 import { TransferAssetDialog } from '@/components/dialogs/TransferAssetDialog';
 import { useToast } from '@/hooks/use-toast';
 
+const API_BASE_URL = 'http://localhost:8000';
+
 export default function ITAssetManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const assets = [
-    {
-      id: 'AST-001',
-      employee: 'John Doe',
-      department: 'Engineering',
-      assetType: 'Laptop',
-      brand: 'Dell',
-      model: 'XPS 15',
-      serialNumber: 'DL123456789',
-      assignedDate: '2024-01-15',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 24'
-    },
-    {
-      id: 'AST-002',
-      employee: 'John Doe',
-      department: 'Engineering',
-      assetType: 'Monitor',
-      brand: 'LG',
-      model: '27UL850-W',
-      serialNumber: 'LG987654321',
-      assignedDate: '2024-01-15',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Office - Desk 24'
-    },
-    {
-      id: 'AST-003',
-      employee: 'John Doe',
-      department: 'Engineering',
-      assetType: 'Keyboard',
-      brand: 'Logitech',
-      model: 'MX Keys',
-      serialNumber: 'LT456789123',
-      assignedDate: '2024-01-15',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 24'
-    },
-    {
-      id: 'AST-004',
-      employee: 'John Doe',
-      department: 'Engineering',
-      assetType: 'Mouse',
-      brand: 'Logitech',
-      model: 'MX Master 3',
-      serialNumber: 'LT789123456',
-      assignedDate: '2024-01-15',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 24'
-    },
-    {
-      id: 'AST-005',
-      employee: 'Sarah Johnson',
-      department: 'Sales',
-      assetType: 'Desktop',
-      brand: 'HP',
-      model: 'EliteDesk 800',
-      serialNumber: 'HP123456789',
-      assignedDate: '2024-01-20',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Office - Desk 12'
-    },
-    {
-      id: 'AST-006',
-      employee: 'Sarah Johnson',
-      department: 'Sales',
-      assetType: 'Chair',
-      brand: 'Herman Miller',
-      model: 'Aeron',
-      serialNumber: 'HM987654321',
-      assignedDate: '2024-01-20',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 12'
-    },
-    {
-      id: 'AST-007',
-      employee: 'Sarah Johnson',
-      department: 'Sales',
-      assetType: 'Desk',
-      brand: 'IKEA',
-      model: 'BEKANT',
-      serialNumber: 'IK456789123',
-      assignedDate: '2024-01-20',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Position 12'
-    },
-    {
-      id: 'AST-008',
-      employee: 'Lisa Brown',
-      department: 'Design',
-      assetType: 'Laptop',
-      brand: 'MacBook Pro',
-      model: '16-inch M3',
-      serialNumber: 'AP789123456',
-      assignedDate: '2024-02-01',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Remote Work'
-    },
-    {
-      id: 'AST-009',
-      employee: 'Lisa Brown',
-      department: 'Design',
-      assetType: 'Graphics Tablet',
-      brand: 'Wacom',
-      model: 'Intuos Pro',
-      serialNumber: 'WC123456789',
-      assignedDate: '2024-02-01',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Remote Work'
-    },
-    {
-      id: 'AST-010',
-      employee: 'Mike Wilson',
-      department: 'Operations',
-      assetType: 'Laptop',
-      brand: 'Lenovo',
-      model: 'ThinkPad X1',
-      serialNumber: 'LV987654321',
-      assignedDate: '2024-01-25',
-      status: 'Maintenance',
-      condition: 'Fair',
-      location: 'IT Department'
-    },
-    {
-      id: 'AST-011',
-      employee: 'Mike Wilson',
-      department: 'Operations',
-      assetType: 'Headset',
-      brand: 'Jabra',
-      model: 'Evolve 75',
-      serialNumber: 'JB456789123',
-      assignedDate: '2024-01-25',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 8'
-    },
-    {
-      id: 'AST-012',
-      employee: 'Emma Davis',
-      department: 'Finance',
-      assetType: 'Desktop',
-      brand: 'Dell',
-      model: 'OptiPlex 7090',
-      serialNumber: 'DL789123456',
-      assignedDate: '2024-01-30',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Office - Desk 18'
-    },
-    {
-      id: 'AST-013',
-      employee: 'Emma Davis',
-      department: 'Finance',
-      assetType: 'Monitor',
-      brand: 'Samsung',
-      model: 'U28E590D',
-      serialNumber: 'SM123456789',
-      assignedDate: '2024-01-30',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 18'
-    },
-    {
-      id: 'AST-014',
-      employee: 'Emma Davis',
-      department: 'Finance',
-      assetType: 'Webcam',
-      brand: 'Logitech',
-      model: 'C920',
-      serialNumber: 'LT987654321',
-      assignedDate: '2024-01-30',
-      status: 'Active',
-      condition: 'Good',
-      location: 'Office - Desk 18'
+  // Fetch assets from API
+  const fetchAssets = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/api/it-assets`);
+      setAssets(response.data);
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load assets from server",
+        variant: "destructive"
+      });
+      setAssets([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchAssets();
+  }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -259,13 +102,118 @@ export default function ITAssetManagement() {
     { title: 'Employees', value: employeesWithAssets, color: 'bg-accent' },
   ];
 
+  // Handle API calls
+  const handleAddAsset = async (assetData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/it-assets`, assetData);
+      toast({
+        title: "Asset Added",
+        description: "New asset has been added successfully.",
+      });
+      fetchAssets(); // Refresh data
+    } catch (error) {
+      console.error('Error adding asset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add asset",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditAsset = async (assetId, assetData) => {
+    try {
+      await axios.put(`${API_BASE_URL}/api/it-assets/${assetId}`, assetData);
+      toast({
+        title: "Asset Updated",
+        description: "Asset information has been updated successfully.",
+      });
+      fetchAssets(); // Refresh data
+    } catch (error) {
+      console.error('Error updating asset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update asset",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleTransferAsset = async (transferData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/it-assets/transfer`, transferData);
+      toast({
+        title: "Asset Transferred",
+        description: `Asset ${transferData.assetId} has been transferred successfully.`,
+      });
+      fetchAssets(); // Refresh data
+    } catch (error) {
+      console.error('Error transferring asset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to transfer asset",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleExportAssets = () => {
-    console.log('Exporting assets...');
+    if (filteredAssets.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No assets to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['Asset ID', 'Employee', 'Department', 'Asset Type', 'Brand', 'Model', 'Serial Number', 'Status', 'Condition', 'Location'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredAssets.map(asset => [
+        asset.id || '',
+        asset.employee || '',
+        asset.department || '',
+        asset.assetType || '',
+        asset.brand || '',
+        asset.model || '',
+        asset.serialNumber || '',
+        asset.status || '',
+        asset.condition || '',
+        asset.location || ''
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `it-assets-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
     toast({
-      title: "Export Started",
-      description: "Asset report is being generated.",
+      title: "Export Complete",
+      description: "Asset report has been downloaded.",
     });
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading assets...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -277,7 +225,7 @@ export default function ITAssetManagement() {
           </div>
           <div className="flex space-x-2">
             <Button variant="outline" onClick={handleExportAssets}>Export Assets</Button>
-            <AddAssetDialog>
+            <AddAssetDialog onAdd={handleAddAsset}>
               <Button>Add Asset</Button>
             </AddAssetDialog>
           </div>
@@ -367,10 +315,10 @@ export default function ITAssetManagement() {
                     <TableCell className="text-sm">{asset.location}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <EditAssetDialog asset={asset}>
+                        <EditAssetDialog asset={asset} onEdit={(assetData) => handleEditAsset(asset.id, assetData)}>
                           <Button size="sm" variant="outline">Edit</Button>
                         </EditAssetDialog>
-                        <TransferAssetDialog asset={asset}>
+                        <TransferAssetDialog asset={asset} onTransfer={handleTransferAsset}>
                           <Button size="sm" variant="default">Transfer</Button>
                         </TransferAssetDialog>
                       </div>

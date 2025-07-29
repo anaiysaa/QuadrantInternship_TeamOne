@@ -9,8 +9,6 @@ import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8000/api/leave-requests';
-// You may need to fetch this userId from context/auth
-const USER_ID = localStorage.getItem('employee_id') || '10001'; // fallback to test
 
 export default function LeaveManagement() {
   const [date, setDate] = useState(new Date());
@@ -26,8 +24,15 @@ export default function LeaveManagement() {
     'Personal Leave': { used: 0, total: 5 },
   });
 
-  // Fetch leave requests for the logged in employee only
+  const USER_ID = localStorage.getItem('employee_id');
+
   useEffect(() => {
+    if (!USER_ID) {
+      alert("No employee ID found. Please log in again.");
+      window.location.href = '/login'; // Change this to your login page
+      return;
+    }
+
     axios.get(API_URL)
       .then(res => {
         const data = res.data.filter(r => String(r.Employee) === String(USER_ID));
@@ -47,7 +52,7 @@ export default function LeaveManagement() {
         setLeaveBalance(bal);
       })
       .catch(() => setLeaveRequests([]));
-  }, [refresh]);
+  }, [refresh, USER_ID]);
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
@@ -77,23 +82,22 @@ export default function LeaveManagement() {
   };
 
   const handleLeaveSubmit = async (req) => {
-  try {
-    await axios.post(API_URL, {
-      Employee: USER_ID,
-      Type: req.type,
-      StartDate: req.startDate,
-      EndDate: req.endDate,
-      Reason: req.reason,
-      Urgent: req.urgent,    // <-- pass this!
-      Status: 'Pending',
-    });
-    setLeaveRequestOpen(false);
-    setRefresh(r => r + 1);
-  } catch {
-    alert('Failed to submit leave request');
-  }
-};
-
+    try {
+      await axios.post(API_URL, {
+        Employee: USER_ID,
+        Type: req.type,
+        StartDate: req.startDate,
+        EndDate: req.endDate,
+        Reason: req.reason,
+        Urgent: req.urgent,
+        Status: 'Pending',
+      });
+      setLeaveRequestOpen(false);
+      setRefresh(r => r + 1);
+    } catch (err) {
+      alert('Failed to submit leave request');
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -104,7 +108,6 @@ export default function LeaveManagement() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Leave Balance */}
           <Card>
             <CardHeader>
               <CardTitle>Leave Balance</CardTitle>
@@ -137,7 +140,6 @@ export default function LeaveManagement() {
             </CardContent>
           </Card>
 
-          {/* Calendar */}
           <Card>
             <CardHeader>
               <CardTitle>Calendar</CardTitle>
@@ -152,7 +154,6 @@ export default function LeaveManagement() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
@@ -174,7 +175,6 @@ export default function LeaveManagement() {
           </Card>
         </div>
 
-        {/* Leave History */}
         <Card>
           <CardHeader>
             <CardTitle>Leave History</CardTitle>
@@ -204,7 +204,6 @@ export default function LeaveManagement() {
           </CardContent>
         </Card>
 
-        {/* Dialogs */}
         <LeaveRequestDialog
           open={leaveRequestOpen}
           onOpenChange={setLeaveRequestOpen}
