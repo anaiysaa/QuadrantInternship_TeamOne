@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 resume_api = Blueprint('resume_api', __name__)
 load_dotenv()
 
-# -- Enable CORS if needed for this blueprint (not for the whole app here) --
+# -- Enable CORS if needed  for this blueprint (not for the whole app here) --
 # (You may also enable CORS globally in main.py)
 
 def get_connection():
