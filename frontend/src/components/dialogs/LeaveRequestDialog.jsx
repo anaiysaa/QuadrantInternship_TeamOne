@@ -1,163 +1,110 @@
-
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
-export function LeaveRequestDialog({ open, onOpenChange, defaultType = '' }) {
-  const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    type: defaultType,
-    startDate: null,
-    endDate: null,
-    reason: ''
-  });
+function countBusinessDays(start, end) {
+  if (!start || !end) return 0;
+  let s = new Date(start);
+  let e = new Date(end);
+  if (s > e) return 0;
+  let count = 0;
+  while (s <= e) {
+    if (s.getDay() !== 0 && s.getDay() !== 6) count++;
+    s.setDate(s.getDate() + 1);
+  }
+  return count;
+}
 
-  const leaveTypes = [
-    { value: 'annual', label: 'Annual Leave' },
-    { value: 'sick', label: 'Sick Leave' },
-    { value: 'personal', label: 'Personal Leave' },
-    { value: 'wfh', label: 'Work from Home' }
-  ];
+export default function LeaveRequestDialog({ open, onOpenChange, defaultType, onSubmit }) {
+  const [type, setType] = useState(defaultType || '');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [urgent, setUrgent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!formData.type || !formData.startDate || !formData.endDate || !formData.reason) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
+  // Live business days calculation
+  const days = countBusinessDays(startDate, endDate);
+
+  // Reset fields on open
+  React.useEffect(() => {
+    if (open) {
+      setType(defaultType || '');
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+      setUrgent(false);
     }
+  }, [open, defaultType]);
 
-    // Calculate days
-    const timeDiff = formData.endDate.getTime() - formData.startDate.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-
-    toast({
-      title: "Leave Request Submitted",
-      description: `Your ${formData.type} leave request for ${daysDiff} day(s) has been submitted for approval.`,
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!type || !startDate || !endDate || !reason) return;
+    setSubmitting(true);
+    await onSubmit({
+      type,
+      startDate,
+      endDate,
+      reason,
+      urgent
     });
-    
-    // Reset form
-    setFormData({
-      type: '',
-      startDate: null,
-      endDate: null,
-      reason: ''
-    });
-    
-    onOpenChange(false);
+    setSubmitting(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Request Leave</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="type">Leave Type *</Label>
-            <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select leave type" />
-              </SelectTrigger>
-              <SelectContent>
-                {leaveTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label className="block text-sm font-medium">Leave Type</label>
+            <select
+              value={type}
+              onChange={e => setType(e.target.value)}
+              className="w-full border rounded px-2 py-1"
+              required
+            >
+              <option value="">Select type</option>
+              <option value="Annual Leave">Annual Leave</option>
+              <option value="Sick Leave">Sick Leave</option>
+              <option value="Personal Leave">Personal Leave</option>
+              <option value="Maternity">Maternity</option>
+              <option value="Vacation">Vacation</option>
+              <option value="Work from Home">Work from Home</option>
+            </select>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.startDate ? format(formData.startDate, "PPP") : "Pick start date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.startDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium">Start Date</label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required />
             </div>
-
-            <div className="space-y-2">
-              <Label>End Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.endDate ? format(formData.endDate, "PPP") : "Pick end date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.endDate}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                    disabled={(date) => date < (formData.startDate || new Date())}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="flex-1">
+              <label className="block text-sm font-medium">End Date</label>
+              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason *</Label>
-            <Textarea
-              id="reason"
-              value={formData.reason}
-              onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-              placeholder="Please provide a reason for your leave request"
-              rows={3}
-            />
+          <div>
+            <label className="block text-sm font-medium">Days (auto-calculated, excluding weekends)</label>
+            <Input value={days || ''} readOnly />
           </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div>
+            <label className="block text-sm font-medium">Reason</label>
+            <Input value={reason} onChange={e => setReason(e.target.value)} required />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox checked={urgent} onCheckedChange={setUrgent} id="urgent" />
+            <label htmlFor="urgent" className="text-sm">Mark as urgent</label>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
-              Submit Request
+            <Button type="submit" disabled={submitting || days === 0 || !type || !startDate || !endDate || !reason}>
+              {submitting ? 'Submitting...' : 'Submit Request'}
             </Button>
           </div>
         </form>

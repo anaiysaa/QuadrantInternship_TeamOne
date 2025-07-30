@@ -3,9 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
-import { useState } from 'react';
-import { LeaveRequestDialog } from '@/components/dialogs/LeaveRequestDialog';
-import { LeaveDetailsDialog } from '@/components/dialogs/LeaveDetailsDialog';
+import { useState, useEffect } from 'react';
+import LeaveRequestDialog from '@/components/dialogs/LeaveRequestDialog';
+import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
+import axios from 'axios';
+
+const API_URL = 'http://localhost:8000/api/leave-requests';
 
 export default function LeaveManagement() {
   const [date, setDate] = useState(new Date());
@@ -13,42 +16,46 @@ export default function LeaveManagement() {
   const [leaveDetailsOpen, setLeaveDetailsOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [refresh, setRefresh] = useState(0);
+  const [leaveBalance, setLeaveBalance] = useState({
+    'Annual Leave': { used: 0, total: 25 },
+    'Sick Leave': { used: 0, total: 10 },
+    'Personal Leave': { used: 0, total: 5 },
+  });
 
-  const leaveRequests = [
-    {
-      id: 1,
-      type: 'Annual Leave',
-      startDate: '2024-03-15',
-      endDate: '2024-03-20',
-      days: 5,
-      status: 'approved',
-      reason: 'Family vacation',
-      submittedDate: '2024-02-15'
-    },
-    {
-      id: 2,
-      type: 'Sick Leave',
-      startDate: '2024-02-28',
-      endDate: '2024-03-01',
-      days: 2,
-      status: 'approved',
-      reason: 'Medical appointment',
-      submittedDate: '2024-02-20'
-    },
-    {
-      id: 3,
-      type: 'Personal Leave',
-      startDate: '2024-04-10',
-      endDate: '2024-04-10',
-      days: 1,
-      status: 'pending',
-      reason: 'Personal matters',
-      submittedDate: '2024-03-25'
+  const USER_ID = localStorage.getItem('employee_id');
+
+  useEffect(() => {
+    if (!USER_ID) {
+      alert("No employee ID found. Please log in again.");
+      window.location.href = '/login'; // Change this to your login page
+      return;
     }
-  ];
+
+    axios.get(API_URL)
+      .then(res => {
+        const data = res.data.filter(r => String(r.Employee) === String(USER_ID));
+        setLeaveRequests(data);
+
+        // Calculate leave balances
+        let bal = {
+          'Annual Leave': { used: 0, total: 25 },
+          'Sick Leave': { used: 0, total: 10 },
+          'Personal Leave': { used: 0, total: 5 },
+        };
+        data.forEach(r => {
+          if ((r.Status === 'Approved' || r.Status === 'approved') && bal[r.Type]) {
+            bal[r.Type].used += Number(r.Days) || 0;
+          }
+        });
+        setLeaveBalance(bal);
+      })
+      .catch(() => setLeaveRequests([]));
+  }, [refresh, USER_ID]);
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'approved': return 'bg-success text-success-foreground';
       case 'pending': return 'bg-warning text-warning-foreground';
       case 'rejected': return 'bg-destructive text-destructive-foreground';
@@ -57,19 +64,39 @@ export default function LeaveManagement() {
   };
 
   const handleQuickAction = (leaveType) => {
-    const typeMap = {
-      'annual': 'annual',
-      'sick': 'sick',
-      'personal': 'personal',
-      'wfh': 'wfh'
-    };
-    setSelectedLeaveType(typeMap[leaveType] || '');
+    setSelectedLeaveType(leaveType === 'annual'
+      ? 'Annual Leave'
+      : leaveType === 'sick'
+      ? 'Sick Leave'
+      : leaveType === 'personal'
+      ? 'Personal Leave'
+      : leaveType === 'wfh'
+      ? 'Work from Home'
+      : '');
     setLeaveRequestOpen(true);
   };
 
   const handleViewDetails = (request) => {
     setSelectedLeave(request);
     setLeaveDetailsOpen(true);
+  };
+
+  const handleLeaveSubmit = async (req) => {
+    try {
+      await axios.post(API_URL, {
+        Employee: USER_ID,
+        Type: req.type,
+        StartDate: req.startDate,
+        EndDate: req.endDate,
+        Reason: req.reason,
+        Urgent: req.urgent,
+        Status: 'Pending',
+      });
+      setLeaveRequestOpen(false);
+      setRefresh(r => r + 1);
+    } catch (err) {
+      alert('Failed to submit leave request');
+    }
   };
 
   return (
@@ -81,43 +108,38 @@ export default function LeaveManagement() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Leave Balance */}
           <Card>
             <CardHeader>
               <CardTitle>Leave Balance</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Annual Leave</span>
-                  <span className="text-sm font-medium">18/25 days</span>
+              {['Annual Leave', 'Sick Leave', 'Personal Leave'].map(type => (
+                <div key={type} className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">{type}</span>
+                    <span className="text-sm font-medium">
+                      {leaveBalance[type]?.total - leaveBalance[type]?.used}/{leaveBalance[type]?.total} days
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className={
+                        type === 'Annual Leave'
+                          ? 'bg-primary h-2 rounded-full'
+                          : type === 'Sick Leave'
+                          ? 'bg-warning h-2 rounded-full'
+                          : 'bg-accent h-2 rounded-full'
+                      }
+                      style={{
+                        width: `${Math.round(100 * (leaveBalance[type]?.total - leaveBalance[type]?.used) / leaveBalance[type]?.total)}%`
+                      }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-primary h-2 rounded-full" style={{ width: '72%' }}></div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Sick Leave</span>
-                  <span className="text-sm font-medium">3/10 days</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-warning h-2 rounded-full" style={{ width: '30%' }}></div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Personal Leave</span>
-                  <span className="text-sm font-medium">1/5 days</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-accent h-2 rounded-full" style={{ width: '20%' }}></div>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
 
-          {/* Calendar */}
           <Card>
             <CardHeader>
               <CardTitle>Calendar</CardTitle>
@@ -132,7 +154,6 @@ export default function LeaveManagement() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
@@ -154,7 +175,6 @@ export default function LeaveManagement() {
           </Card>
         </div>
 
-        {/* Leave History */}
         <Card>
           <CardHeader>
             <CardTitle>Leave History</CardTitle>
@@ -162,18 +182,18 @@ export default function LeaveManagement() {
           <CardContent>
             <div className="space-y-4">
               {leaveRequests.map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={request.RequestID || request.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium">{request.type}</span>
-                      <Badge className={getStatusColor(request.status)}>
-                        {request.status}
+                      <span className="font-medium">{request.Type || request.type}</span>
+                      <Badge className={getStatusColor(request.Status || request.status)}>
+                        {(request.Status || request.status)}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {request.startDate} - {request.endDate} ({request.days} days)
+                      {(request.StartDate || request.startDate)} - {(request.EndDate || request.endDate)} ({request.Days || request.days} days)
                     </p>
-                    <p className="text-sm">{request.reason}</p>
+                    <p className="text-sm">{request.Reason || request.reason}</p>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => handleViewDetails(request)}>
                     View Details
@@ -184,14 +204,15 @@ export default function LeaveManagement() {
           </CardContent>
         </Card>
 
-        <LeaveRequestDialog 
-          open={leaveRequestOpen} 
+        <LeaveRequestDialog
+          open={leaveRequestOpen}
           onOpenChange={setLeaveRequestOpen}
           defaultType={selectedLeaveType}
+          onSubmit={handleLeaveSubmit}
         />
 
-        <LeaveDetailsDialog 
-          open={leaveDetailsOpen} 
+        <LeaveDetailsDialog
+          open={leaveDetailsOpen}
           onOpenChange={setLeaveDetailsOpen}
           leaveRequest={selectedLeave}
         />

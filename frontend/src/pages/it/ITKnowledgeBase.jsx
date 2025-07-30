@@ -72,7 +72,6 @@ export default function ITKnowledgeBase() {
             <p className="text-muted-foreground">IT support articles and documentation</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => setExportDialogOpen(true)}>Export KB</Button>
             <AddArticleDialog>
               <Button>Add Article</Button>
             </AddArticleDialog>

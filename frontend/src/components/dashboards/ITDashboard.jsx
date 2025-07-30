@@ -7,11 +7,36 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 export function ITDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const {user} = useAuth();
   const [showTasks, setShowTasks] = useState(true);
-
-  // ... keep existing code (current tasks data, IT stats, tickets, etc.)
+  const [currentTasks, setCurrentTasks] = useState([
+    {
+      id: 1,
+      title: "Update Antivirus Definitions",
+      priority: "High",
+      category: "Security",
+      description: "Update virus definitions on all workstations.",
+      dueDate: "2024-07-30",
+      status: "Not Started"
+    },
+    {
+      id: 2,
+      title: "Network Upgrade",
+      priority: "Medium",
+      category: "Infrastructure",
+      description: "Upgrade office switches and routers.",
+      dueDate: "2024-08-05",
+      status: "In Progress"
+    },
+    {
+      id: 3,
+      title: "User Access Review",
+      priority: "Low",
+      category: "Audit",
+      description: "Quarterly review of user permissions.",
+      dueDate: "2024-08-15",
+      status: "Not Started"
+    } ]);
 
   const getPriorityColor = (priority) => {
     // ... keep existing code (priority color logic)

@@ -16,13 +16,15 @@ import { X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export function EditArticleDialog({ article, open, onOpenChange, onSave }) {
-  const [formData, setFormData] = useState({
-    title: article?.title || '',
-    category: article?.category || '',
-    summary: article?.summary || '',
-    content: article?.content || '',
-    tags: article?.tags || [],
-  });
+const [formData, setFormData] = useState({
+  title: article?.title || '',
+  category: article?.category || '',
+  summary: article?.summary || '',
+  file: null,
+  fileName: article?.fileName || '', // used to show current file name
+  tags: Array.isArray(article?.tags) ? article.tags : String(article?.tags || '').split(',').map(t => t.trim()),
+});
+
   const [newTag, setNewTag] = useState('');
   const { toast } = useToast();
 
@@ -52,22 +54,56 @@ export function EditArticleDialog({ article, open, onOpenChange, onSave }) {
     }));
   };
 
-  const handleSave = () => {
-    const updatedArticle = {
-      ...article,
-      ...formData,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
-    
+ const handleSave = async () => {
+  // Compose the updated article object
+  const updatedArticle = {
+    ...article,
+    title: formData.title,
+    category: formData.category,
+    summary: formData.summary,
+    tags: formData.tags,
+    lastUpdated: new Date().toISOString().split('T')[0],
+    fileName: formData.fileName, // keep old file name if no new file is chosen
+  };
+
+  try {
+    // If a new file is selected, handle upload
+    if (formData.file) {
+      const uploadData = new FormData();
+      uploadData.append("file", formData.file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadData,
+      });
+
+      if (!res.ok) {
+        throw new Error("File upload failed");
+      }
+
+      const fileRes = await res.json();
+      updatedArticle.fileName = fileRes.fileName || formData.file.name;
+    }
+
+    // Save the updated article
     onSave?.(updatedArticle);
-    
+
     toast({
       title: "Article Updated",
-      description: `"${formData.title}" has been successfully updated.`,
+      description: `"${updatedArticle.title}" has been successfully updated.`,
     });
-    
+
     onOpenChange(false);
-  };
+  } catch (err) {
+    toast({
+      title: "Save Failed",
+      description: err.message || "Something went wrong.",
+      variant: "destructive",
+    });
+  }
+};
+
+
 
   const categories = ['Security', 'Network', 'Hardware', 'Software', 'Setup'];
 
@@ -119,15 +155,23 @@ export function EditArticleDialog({ article, open, onOpenChange, onSave }) {
 
           {/* Content */}
           <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              value={formData.content}
-              onChange={(e) => handleInputChange('content', e.target.value)}
-              placeholder="Detailed article content"
-              rows={8}
-            />
-          </div>
+  <Label htmlFor="file">Upload File</Label>
+  <Input
+    id="file"
+    type="file"
+    accept=".pdf,.doc,.docx"
+    onChange={(e) =>
+      setFormData(prev => ({
+        ...prev,
+        file: e.target.files[0],
+        fileName: e.target.files[0]?.name || prev.fileName
+      }))
+    }
+  />
+  {formData.fileName && (
+    <p className="text-sm text-muted-foreground">Current file: {formData.fileName}</p>
+  )}
+</div>
 
           {/* Tags */}
           <div className="space-y-2">

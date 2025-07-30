@@ -1,5 +1,5 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,110 +18,38 @@ import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Eye, EyeOff } from 'lucide-react';
 
+const API_BASE_URL = 'http://localhost:8000';
+
 export default function ITInventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const inventory = [
-    {
-      id: 'INV-001',
-      name: 'Dell Latitude 5520',
-      category: 'Hardware',
-      brand: 'Dell',
-      model: 'Latitude 5520',
-      quantity: 15,
-      available: 8,
-      allocated: 7,
-      unitPrice: 1200,
-      totalValue: 18000,
-      supplier: 'Dell Direct',
-      location: 'Storage Room A',
-      reorderLevel: 5,
-      status: 'In Stock'
-    },
-    {
-      id: 'INV-002',
-      name: 'USB-C Cables',
-      category: 'Accessories',
-      brand: 'Generic',
-      model: 'USB-C 3.0',
-      quantity: 50,
-      available: 45,
-      allocated: 5,
-      unitPrice: 15,
-      totalValue: 750,
-      supplier: 'Tech Supplies Co',
-      location: 'Storage Room B',
-      reorderLevel: 10,
-      status: 'In Stock'
-    },
-    {
-      id: 'INV-003',
-      name: 'Wireless Keyboards',
-      category: 'Accessories',
-      brand: 'Logitech',
-      model: 'K380',
-      quantity: 25,
-      available: 20,
-      allocated: 5,
-      unitPrice: 45,
-      totalValue: 1125,
-      supplier: 'Office Depot',
-      location: 'Storage Room A',
-      reorderLevel: 8,
-      status: 'In Stock'
-    },
-    {
-      id: 'INV-004',
-      name: 'Monitor Stands',
-      category: 'Accessories',
-      brand: 'VIVO',
-      model: 'STAND-V001',
-      quantity: 3,
-      available: 2,
-      allocated: 1,
-      unitPrice: 35,
-      totalValue: 105,
-      supplier: 'Amazon Business',
-      location: 'Storage Room C',
-      reorderLevel: 5,
-      status: 'Low Stock'
-    },
-    {
-      id: 'INV-005',
-      name: 'Network Switches',
-      category: 'Hardware',
-      brand: 'Cisco',
-      model: 'SG350-28',
-      quantity: 8,
-      available: 6,
-      allocated: 2,
-      unitPrice: 350,
-      totalValue: 2800,
-      supplier: 'CDW',
-      location: 'Network Closet',
-      reorderLevel: 2,
-      status: 'In Stock'
-    },
-    {
-      id: 'INV-006',
-      name: 'Ethernet Cables',
-      category: 'Accessories',
-      brand: 'Monoprice',
-      model: 'Cat6 3ft',
-      quantity: 100,
-      available: 85,
-      allocated: 15,
-      unitPrice: 8,
-      totalValue: 800,
-      supplier: 'Monoprice',
-      location: 'Storage Room B',
-      reorderLevel: 20,
-      status: 'In Stock'
+  // Fetch inventory from API
+  const fetchInventory = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/api/it-inventory`);
+      setInventory(response.data);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load inventory from server",
+        variant: "destructive"
+      });
+      setInventory([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -158,27 +86,107 @@ export default function ITInventory() {
     { title: 'Out of Stock', value: outOfStockItems, color: 'bg-destructive' },
   ];
 
-  const handleEditItem = (item) => {
-    console.log('Editing item:', item);
-    toast({
-      title: "Edit Item",
-      description: `Opening edit dialog for ${item.name}`,
-    });
+  // Handle API calls
+  const handleAddItem = async (itemData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/it-inventory`, itemData);
+      toast({
+        title: "Item Added",
+        description: "New inventory item has been added successfully.",
+      });
+      fetchInventory(); // Refresh data
+    } catch (error) {
+      console.error('Error adding item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add inventory item",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleOrderItem = (item) => {
-    console.log('Ordering item:', item);
-    toast({
-      title: "Order Placed",
-      description: `Order has been placed for ${item.name}`,
-    });
+  const handleEditItem = async (itemId, itemData) => {
+    try {
+      await axios.put(`${API_BASE_URL}/api/it-inventory/${itemId}`, itemData);
+      toast({
+        title: "Item Updated",
+        description: "Inventory item has been updated successfully.",
+      });
+      fetchInventory(); // Refresh data
+    } catch (error) {
+      console.error('Error updating item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update inventory item",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleOrderItem = async (item) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/it-inventory/order`, {
+        itemId: item.id,
+        quantity: 1
+      });
+      toast({
+        title: "Order Placed",
+        description: `Order has been placed for ${item.name}`,
+      });
+      fetchInventory(); // Refresh data
+    } catch (error) {
+      console.error('Error placing order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to place order",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleExportInventory = () => {
-    console.log('Exporting inventory...');
+    if (filteredInventory.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No inventory items to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['Item ID', 'Name', 'Category', 'Brand', 'Model', 'Quantity', 'Available', 'Unit Price', 'Total Value', 'Status', 'Location'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredInventory.map(item => [
+        item.id || '',
+        item.name || '',
+        item.category || '',
+        item.brand || '',
+        item.model || '',
+        item.quantity || 0,
+        item.available || 0,
+        item.unitPrice || 0,
+        item.totalValue || 0,
+        item.status || '',
+        item.location || ''
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `it-inventory-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
     toast({
-      title: "Export Started",
-      description: "Inventory report is being generated.",
+      title: "Export Complete",
+      description: "Inventory report has been downloaded.",
     });
   };
 
@@ -189,7 +197,7 @@ export default function ITInventory() {
     const totalAllocated = categoryItems.reduce((sum, item) => sum + item.allocated, 0);
     const totalValue = categoryItems.reduce((sum, item) => sum + item.totalValue, 0);
     const lowStockCount = categoryItems.filter(item => item.quantity <= item.reorderLevel).length;
-    const utilizationRate = ((totalAllocated / totalQuantity) * 100);
+    const utilizationRate = totalQuantity > 0 ? ((totalAllocated / totalQuantity) * 100) : 0;
     
     return {
       category,
@@ -237,6 +245,19 @@ export default function ITInventory() {
     return null;
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading inventory...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -255,7 +276,7 @@ export default function ITInventory() {
               <span>{showAnalytics ? 'Hide' : 'Show'} Analytics</span>
             </Button>
             <Button variant="outline" onClick={handleExportInventory}>Export Report</Button>
-            <AddInventoryDialog>
+            <AddInventoryDialog onAdd={handleAddItem}>
               <Button>Add Item</Button>
             </AddInventoryDialog>
           </div>
@@ -465,7 +486,7 @@ export default function ITInventory() {
                     <TableCell>{getStatusBadge(item.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEditItem(item)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEditItem(item.id, item)}>
                           Edit
                         </Button>
                         <Button size="sm" variant="default" onClick={() => handleOrderItem(item)}>
