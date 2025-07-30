@@ -19,6 +19,17 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Register Blueprints *after* app exists!
+from resume_ai.resume_api import resume_api
+app.register_blueprint(resume_api, url_prefix='/resume')
+
+from resume_ai.job_match import job_match_api
+app.register_blueprint(job_match_api, url_prefix='/job')
+
+from onboarding_api import onboarding_api
+app.register_blueprint(onboarding_api, url_prefix='/onboarding')
+
+# -- DB connection
 def get_connection():
     return pyodbc.connect(
         f"DRIVER={{ODBC Driver 18 for SQL Server}};"
