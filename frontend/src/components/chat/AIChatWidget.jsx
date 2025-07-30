@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Minimize2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +32,7 @@ export function AIChatWidget() {
       employee: "Hi! I'm your AI assistant. I can help you with leave requests, timesheet questions, IT support, and general HR inquiries. What can I help you with today?",
       hr: "Hello! I'm here to assist with HR-related queries, employee management, leave approvals, and policy questions. How can I help?",
       it: "Hi there! I can help with IT support tickets, asset management, software requests, and technical documentation. What do you need assistance with?",
-      admin: "Welcome! I can assist with system administration, user management, analytics, and platform-wide queries. How may I help you today?"
+      admin: "Welcome! I can assist you with questions about company policy and the employee handbook. How may I help you today?"
     };
     return greetings[role] || greetings.employee;
   };
@@ -61,47 +60,19 @@ export function AIChatWidget() {
     setIsMinimized(!isMinimized);
   };
 
-  const simulateAIResponse = async (userMessage) => {
-    setIsTyping(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const userRole = user?.role || 'employee';
-    const userName = user?.name || 'there';
-    
-    // Simple response logic based on message content and user role
-    let response = '';
-    const messageText = userMessage.toLowerCase();
-    
-    if (messageText.includes('leave') || messageText.includes('vacation')) {
-      if (userRole === 'hr') {
-        response = "I can help you manage leave requests. You can view pending requests in the HR Portal, approve/deny applications, and check team leave calendars. Would you like me to guide you to a specific section?";
-      } else {
-        response = `Hi ${userName}! For leave requests, you can apply through the Leave Management page. Your current leave balance shows 15 days remaining. Would you like me to help you submit a new request?`;
-      }
-    } else if (messageText.includes('ticket') || messageText.includes('support') || messageText.includes('it')) {
-      if (userRole === 'it') {
-        response = "I can help you manage IT support tickets. You currently have 12 open tickets in the queue. You can assign tickets, update statuses, or access the knowledge base. What would you like to do?";
-      } else {
-        response = `You have 2 open support tickets. Ticket #1234 (laptop running slowly) is in progress, and Ticket #1235 (software license request) is pending. Would you like me to help you create a new ticket?`;
-      }
-    } else if (messageText.includes('timesheet') || messageText.includes('hours')) {
-      response = `Your timesheet shows 168 hours this month (40 hours this week). Don't forget to submit your weekly timesheet by Friday. Would you like me to take you to the timesheet page?`;
-    } else if (messageText.includes('payroll') || messageText.includes('salary')) {
-      if (userRole === 'hr' || userRole === 'admin') {
-        response = "I can help with payroll management. You can process payroll, view salary reports, and manage employee compensation through the HR Portal. What specific payroll task do you need help with?";
-      } else {
-        response = "For payroll inquiries, please contact HR directly or submit a ticket. I can help you find the right contact information or assist with other employee services.";
-      }
-    } else if (messageText.includes('hello') || messageText.includes('hi') || messageText.includes('help')) {
-      response = `Hello ${userName}! I'm here to help with HR, IT, and general employee questions. I can assist with leave requests, timesheet submissions, support tickets, and much more. What would you like to know?`;
-    } else {
-      response = `I understand you're asking about "${userMessage}". While I'm still learning, I can help with leave management, IT support, timesheets, and HR policies. Could you rephrase your question or ask about one of these specific areas?`;
+  const sendToBackend = async (userMessage) => {
+    try {
+      const res = await fetch('http://localhost:8000/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: userMessage })
+      });
+      const data = await res.json();
+      return data.answer || "Sorry, I couldn't find an answer.";
+    } catch (err) {
+      console.error('Backend error:', err);
+      return "An error occurred while reaching the assistant.";
     }
-    
-    setIsTyping(false);
-    return response;
   };
 
   const handleSendMessage = async () => {
@@ -117,27 +88,26 @@ export function AIChatWidget() {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
+    setIsTyping(true);
 
     try {
-      const aiResponse = await simulateAIResponse(inputValue);
-      
+      const aiReply = await sendToBackend(userMessage.text);
       const aiMessage = {
         id: messages.length + 2,
-        text: aiResponse,
+        text: aiReply,
         sender: 'ai',
         timestamp: new Date().toISOString()
       };
-
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (err) {
       toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Something went wrong. Try again later.',
+        variant: 'destructive'
       });
     } finally {
       setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -172,20 +142,10 @@ export function AIChatWidget() {
             <Badge variant="outline" className="text-xs">{user?.role || 'Employee'}</Badge>
           </div>
           <div className="flex items-center space-x-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleMinimize}
-              className="h-6 w-6"
-            >
+            <Button variant="ghost" size="icon" onClick={handleMinimize} className="h-6 w-6">
               {isMinimized ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="h-6 w-6"
-            >
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-6 w-6">
               <X className="h-3 w-3" />
             </Button>
           </div>
@@ -211,7 +171,6 @@ export function AIChatWidget() {
                     </div>
                   </div>
                 ))}
-                
                 {isTyping && (
                   <div className="flex justify-start">
                     <div className="bg-muted p-3 rounded-lg">
@@ -223,7 +182,6 @@ export function AIChatWidget() {
                     </div>
                   </div>
                 )}
-                
                 <div ref={messagesEndRef} />
               </div>
             </CardContent>

@@ -15,7 +15,13 @@ export function AuthProvider({ children }) {
     const storedUser = localStorage.getItem("portalUser");
     const storedPortal = localStorage.getItem("currentPortal");
     if (storedUser) {
-      const user = JSON.parse(storedUser);
+      // Guarantee both .id and .employeeId are always set on user
+      const userFromStorage = JSON.parse(storedUser);
+      const user = {
+        ...userFromStorage,
+        id: userFromStorage.employeeId || userFromStorage.id || userFromStorage.employee_id,
+        employeeId: userFromStorage.employeeId || userFromStorage.id || userFromStorage.employee_id,
+      };
       setAuthState({
         user,
         isAuthenticated: true,
@@ -32,13 +38,14 @@ export function AuthProvider({ children }) {
     try {
       const res = await axios.post("/login", { username, password });
       const user = res.data;
-      // Map backend response to expected shape
+      // Always set id and employeeId
       const transformedUser = {
         ...user,
         name: user.username,
         email: user.username,
         role: user.department?.toLowerCase(),
-        employeeId: user.employee_id
+        id: user.employee_id,            // always set id
+        employeeId: user.employee_id     // always set employeeId
       };
       localStorage.setItem("portalUser", JSON.stringify(transformedUser));
       let portals = ["Employee Portal"];
@@ -106,7 +113,6 @@ export function AuthProvider({ children }) {
     return portals;
   };
 
-  // ADD THIS FUNCTION!
   const canShowPortalToggle = () => {
     if (!authState.user) return false;
     const dept = authState.user.department;
@@ -126,7 +132,7 @@ export function AuthProvider({ children }) {
         switchPortal,
         canAccessPortal,
         getAvailablePortals,
-        canShowPortalToggle // <-- Make sure this is included!
+        canShowPortalToggle
       }}
     >
       {children}
