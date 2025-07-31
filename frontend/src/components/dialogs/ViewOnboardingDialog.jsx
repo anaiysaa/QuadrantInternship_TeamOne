@@ -2,10 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-export function ViewOnboardingDialog({ open, onOpenChange, candidate, refreshCandidates }) {
-  const { toast } = useToast();
-  const [newTask, setNewTask] = useState("");
-
+export function ViewOnboardingDialog({ open, onOpenChange, candidate }) {
   if (!candidate) return null;
 
   // ✅ Calculate progress from checklistTasksStatus
