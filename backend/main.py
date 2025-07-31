@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
+
 import pyodbc
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
@@ -19,7 +20,7 @@ from ticketAi.hr_ticket_bot import classify_hr_ticket
 
 load_dotenv()
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 # Register Blueprints *after* app exists!
 from resume_ai.resume_api import resume_api
@@ -98,38 +99,6 @@ def add_message(chat_id):
 
 
 # ------------------ EMPLOYEES ------------------
-
-@app.route("/api/employees", methods=["GET"])
-def get_employees():
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone
-            FROM Employees
-        """)
-        rows = cursor.fetchall()
-        id_to_name = {row[0]: row[1] for row in rows}
-        employees = []
-        for row in rows:
-            manager_id = row[5]
-            manager_name = id_to_name.get(manager_id, "") if manager_id else ""
-            employees.append({
-                "id": row[0],
-                "name": row[1],
-                "email": row[2],
-                "department": row[3],
-                "position": row[4],
-                "managerId": manager_id,
-                "managerName": manager_name,
-                "joinDate": str(row[6]) if row[6] else "",
-                "status": row[7],
-                "phone": row[8],
-            })
-        conn.close()
-        return jsonify(employees)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # ------------------ LEAVE REQUESTS (SAMPLE) ------------------
 
@@ -332,31 +301,6 @@ def send_chat_message():
     return jsonify({"success": True}), 201
 
 # ------------------ LOGIN (SIMPLE) ------------------
-
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
-    if not username or not password:
-        return jsonify({"error": "Missing username or password"}), 400
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT ID, Username, Department
-        FROM dbo.Employees
-        WHERE Username = ? AND PasswordHash = ?
-    """, (username, password))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return jsonify({"error": "Invalid username or password"}), 401
-    department = row[2]
-    return jsonify({
-        "employee_id": row[0],
-        "username": row[1],
-        "department": department,
-    }), 200
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -561,6 +505,67 @@ def summarize_hr_tickets():
         })
     return jsonify(results)
 
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ID, Username, Name, Department
+        FROM dbo.Employees
+        WHERE Username = ? AND PasswordHash = ?
+    """, (username, password))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    department = row[3]
+
+    return jsonify({
+        "employee_id": row[0],
+        "username": row[1],
+        "name": row[2],    # <-- REAL NAME
+        "department": department,
+    }), 200
+
+@app.route("/api/timesheets/<ticket_id>/approve", methods=["POST"])
+def approve_timesheet(ticket_id):
+    data = request.get_json()
+    approved_by = data.get("approvedBy", "HR")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE dbo.Timesheets
+        SET Status='Approved', ApprovedBy=?, ApprovedDate=GETDATE()
+        WHERE TicketID=?
+    """, (approved_by, ticket_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+@app.route("/api/timesheets/<ticket_id>/reject", methods=["POST"])
+def reject_timesheet(ticket_id):
+    data = request.get_json()
+    approved_by = data.get("approvedBy", "HR")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE dbo.Timesheets
+        SET Status='Rejected', ApprovedBy=?, ApprovedDate=GETDATE()
+        WHERE TicketID=?
+    """, (approved_by, ticket_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
 @app.route("/apply-internal-transfer", methods=["POST"])
 def apply_internal_transfer():
     data = request.get_json()
@@ -592,6 +597,49 @@ def apply_internal_transfer():
         "employee_id": employee_id,
         "recommendations": results
     })
+
+@app.route("/api/timesheets/<ticket_id>/submit", methods=["POST"])
+def submit_timesheet_with_id(ticket_id):  # <--- Renamed here!
+    now = "GETDATE()"
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        UPDATE dbo.Timesheets SET Status='Submitted', SubmittedDate={now}
+        WHERE TicketID=?""", (ticket_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/employees", methods=["GET"])
+def get_employees():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone, Gender
+        FROM Employees
+    """)
+    rows = cursor.fetchall()
+    id_to_name = {row[0]: row[1] for row in rows}
+    employees = []
+    for row in rows:
+        manager_id = row[5]
+        manager_name = id_to_name.get(manager_id, "") if manager_id else ""
+        employees.append({
+            "id": row[0],
+            "name": row[1],
+            "email": row[2],
+            "department": row[3],
+            "position": row[4],
+            "managerId": manager_id,
+            "managerName": manager_name,
+            "joinDate": str(row[6]) if row[6] else "",
+            "status": row[7],
+            "phone": row[8],
+            "gender": row[9],   # <-- GENDER IS NOW HERE
+        })
+    conn.close()
+    return jsonify(employees)
 
 @app.route("/api/employees", methods=["POST"])
 def add_employee():
@@ -712,12 +760,21 @@ def get_course_by_id(course_id):
 def enroll_user_in_course(user_id):
     try:
         data = request.json
+        print("Enroll endpoint called. user_id:", user_id, "POST body:", data)
         course_id = data.get("course_id")
         if not course_id:
+            print("Missing course_id in payload!")
             return jsonify({"error": "Missing course_id"}), 400
 
         conn = get_connection()
         cursor = conn.cursor()
+
+        # Check if the course exists
+        cursor.execute("SELECT COUNT(*) FROM LMSCourses WHERE CourseID = ?", (course_id,))
+        if cursor.fetchone()[0] == 0:
+            conn.close()
+            print(f"Course {course_id} does not exist!")
+            return jsonify({"error": "Course does not exist"}), 400
 
         # Check if already enrolled
         cursor.execute(
@@ -726,6 +783,7 @@ def enroll_user_in_course(user_id):
         )
         if cursor.fetchone()[0] > 0:
             conn.close()
+            print(f"User {user_id} already enrolled in course {course_id}")
             return jsonify({"error": "Already enrolled"}), 400
 
         # Insert new enrollment: UserID, CourseID, Status, Progress
@@ -735,6 +793,7 @@ def enroll_user_in_course(user_id):
         )
         conn.commit()
         conn.close()
+        print(f"User {user_id} successfully enrolled in course {course_id}")
         return jsonify({"success": True}), 201
 
     except Exception as e:
@@ -1250,6 +1309,166 @@ def unarchive_it_ticket(ticket_id):
         print(f"Error in unarchive_it_ticket: {str(e)}")
         return jsonify({"error": str(e)}), 500
 # ------------------ RUN ------------------
+@app.route("/api/timesheets", methods=["GET"])
+def get_timesheets():
+    employee_id = request.args.get('employeeId')
+    status = request.args.get('status')
+    conn = get_connection()
+    cursor = conn.cursor()
+    base_sql = """
+        SELECT TicketID, EmployeeID, EmployeeName, Month, TotalHours, Overtime, WeekPeriod, SubmittedDate, Status,
+               MondayHours, TuesdayHours, WednesdayHours, ThursdayHours, FridayHours, SaturdayHours, SundayHours, Notes,
+               ApprovedBy, ApprovedDate, LastModified
+        FROM dbo.Timesheets
+    """
+    params = []
+    where = []
+    if employee_id:
+        where.append("EmployeeID=?")
+        params.append(employee_id)
+    if status:
+        where.append("Status=?")
+        params.append(status)
+    if where:
+        base_sql += " WHERE " + " AND ".join(where)
+    base_sql += " ORDER BY LastModified DESC"
+
+    cursor.execute(base_sql, tuple(params))
+    rows = cursor.fetchall()
+    conn.close()
+    results = [
+        {
+            "id": row[0],
+            "employeeId": row[1],
+            "employeeName": row[2],
+            "month": row[3],
+            "totalHours": row[4],
+            "overtime": row[5],
+            "week": row[6],
+            "submittedDate": row[7].isoformat() if row[7] else None,
+            "status": row[8],
+            "MondayHours": row[9],
+            "TuesdayHours": row[10],
+            "WednesdayHours": row[11],
+            "ThursdayHours": row[12],
+            "FridayHours": row[13],
+            "SaturdayHours": row[14],
+            "SundayHours": row[15],
+            "notes": row[16],
+            "approvedBy": row[17],
+            "approvedDate": row[18].isoformat() if row[18] else None,
+            "lastModified": row[19].isoformat() if row[19] else None,
+        }
+        for row in rows
+    ]
+    return jsonify(results)
+
+@app.route("/api/timesheets", methods=["POST"])
+def submit_timesheet():
+    data = request.get_json()
+    required_fields = [
+        "employeeId", "employeeName", "month", "week", "totalHours", "regularHours", "overtimeHours",
+        "MondayHours", "TuesdayHours", "WednesdayHours", "ThursdayHours",
+        "FridayHours", "SaturdayHours", "SundayHours", "notes"
+    ]
+    # Check for missing fields
+    for f in required_fields:
+        if f not in data:
+            return jsonify({"error": f"Missing required field: {f}"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    # TicketID logic (TSxxx format)
+    cursor.execute("SELECT MAX(TicketID) FROM dbo.Timesheets")
+    raw_last_id = cursor.fetchone()[0]
+    if raw_last_id and isinstance(raw_last_id, str) and raw_last_id.startswith("TS"):
+        num = int(raw_last_id[2:])
+        next_id = f"TS{num+1:03d}"
+    else:
+        next_id = "TS001"
+
+    # INSERT statement including Month column!
+    cursor.execute("""
+        INSERT INTO dbo.Timesheets (
+            TicketID, EmployeeID, EmployeeName, Month, WeekPeriod, TotalHours, Overtime, Status,
+            MondayHours, TuesdayHours, WednesdayHours, ThursdayHours,
+            FridayHours, SaturdayHours, SundayHours, Notes, SubmittedDate, ApprovedBy, ApprovedDate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), NULL, NULL)
+    """, (
+        next_id, data["employeeId"], data["employeeName"], data["month"], data["week"],
+        data["totalHours"], data["overtimeHours"], "Submitted",
+        data["MondayHours"], data["TuesdayHours"], data["WednesdayHours"], data["ThursdayHours"],
+        data["FridayHours"], data["SaturdayHours"], data["SundayHours"], data["notes"]
+    ))
+
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Timesheet submitted", "id": next_id})
+
+
+
+@app.route("/api/timesheets/draft", methods=["POST"])
+def save_timesheet_draft():
+    data = request.get_json()
+    required_fields = [
+        "employeeId", "employeeName", "month", "week", "totalHours", "regularHours", "overtimeHours",
+        "MondayHours", "TuesdayHours", "WednesdayHours", "ThursdayHours",
+        "FridayHours", "SaturdayHours", "SundayHours", "notes"
+    ]
+    for f in required_fields:
+        if f not in data:
+            return jsonify({"error": f"Missing required field: {f}"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    # See if a draft already exists for this week and employee
+    cursor.execute("""
+        SELECT TicketID FROM dbo.Timesheets
+        WHERE EmployeeID=? AND WeekPeriod=? AND Status='Draft'
+    """, (data["employeeId"], data["week"]))
+    row = cursor.fetchone()
+    now = "GETDATE()"
+    if row:
+        # UPDATE draft
+        cursor.execute(f"""
+            UPDATE dbo.Timesheets SET
+                EmployeeName=?, Month=?, TotalHours=?, Overtime=?, 
+                MondayHours=?, TuesdayHours=?, WednesdayHours=?, ThursdayHours=?,
+                FridayHours=?, SaturdayHours=?, SundayHours=?, Notes=?, LastModified={now}
+            WHERE TicketID=?""",
+            (
+                data["employeeName"], data["month"], data["totalHours"], data["overtimeHours"],
+                data["MondayHours"], data["TuesdayHours"], data["WednesdayHours"], data["ThursdayHours"],
+                data["FridayHours"], data["SaturdayHours"], data["SundayHours"], data["notes"], row[0]
+            ))
+        draft_id = row[0]
+    else:
+        # INSERT new draft
+        cursor.execute("SELECT MAX(TicketID) FROM dbo.Timesheets")
+        raw_last_id = cursor.fetchone()[0]
+        if raw_last_id and isinstance(raw_last_id, str) and raw_last_id.startswith("TS"):
+            num = int(raw_last_id[2:])
+            next_id = f"TS{num+1:03d}"
+        else:
+            next_id = "TS001"
+        cursor.execute(f"""
+            INSERT INTO dbo.Timesheets (
+                TicketID, EmployeeID, EmployeeName, Month, WeekPeriod, TotalHours, Overtime, Status,
+                MondayHours, TuesdayHours, WednesdayHours, ThursdayHours, FridayHours, SaturdayHours, SundayHours, Notes, LastModified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?, ?, ?, ?, ?, {now})
+        """, (
+            next_id, data["employeeId"], data["employeeName"], data["month"], data["week"], data["totalHours"],
+            data["overtimeHours"], data["MondayHours"], data["TuesdayHours"], data["WednesdayHours"],
+            data["ThursdayHours"], data["FridayHours"], data["SaturdayHours"], data["SundayHours"], data["notes"]
+        ))
+        draft_id = next_id
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Draft saved", "id": draft_id})
+
+@app.route("/api/hello", methods=["GET"])
+def hello_world():
+    return jsonify({"msg": "Hello, Flask is working!"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)

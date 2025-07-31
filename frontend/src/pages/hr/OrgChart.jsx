@@ -1,174 +1,215 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { ExportChartDialog } from '@/components/dialogs/ExportChartDialog';
-import { EditStructureDialog } from '@/components/dialogs/EditStructureDialog';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Users, Mail, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+
+// Helper: returns first and last initials (or just first if only one word)
+const getInitials = (name = '') => {
+  const words = name.trim().split(' ');
+  if (words.length === 0) return '';
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
+
+const getDepartmentColor = (department) => {
+  switch (department) {
+    case 'Executive': return 'bg-purple-500';
+    case 'Engineering': return 'bg-primary';
+    case 'HR': return 'bg-success';
+    case 'Marketing': return 'bg-warning';
+    case 'Sales': return 'bg-destructive';
+    default: return 'bg-secondary';
+  }
+};
+
+// Build org tree from flat SQL data
+function buildOrgTree(employees) {
+  if (!employees || employees.length === 0) return null;
+  const byId = {};
+  employees.forEach(emp => byId[emp.id] = { ...emp, directReports: [] });
+  let root = null;
+  employees.forEach(emp => {
+    if (emp.managerId && byId[emp.managerId]) {
+      byId[emp.managerId].directReports.push(byId[emp.id]);
+    } else if (!emp.managerId && (!root || emp.department === 'Executive')) {
+      root = byId[emp.id];
+    }
+  });
+  return root;
+}
 
 export default function OrgChart() {
+  const [employees, setEmployees] = useState([]);
+  const [orgTree, setOrgTree] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [collapsed, setCollapsed] = useState({}); // employeeId: bool
 
-  const orgData = {
-    ceo: {
-      id: 'CEO',
-      name: 'Robert Johnson',
-      title: 'Chief Executive Officer',
-      department: 'Executive',
-      email: 'robert.johnson@company.com',
-      phone: '+1 (555) 000-0001',
-      directReports: 4,
-      level: 1
-    },
-    departments: [
-      {
-        head: {
-          id: 'ENG-HEAD',
-          name: 'Mike Wilson',
-          title: 'VP Engineering',
-          department: 'Engineering',
-          email: 'mike.wilson@company.com',
-          phone: '+1 (555) 345-6789',
-          reportsTo: 'CEO',
-          directReports: 2,
-          level: 2
-        },
-        managers: [
-          {
-            id: 'EMP002',
-            name: 'Sarah Johnson',
-            title: 'Engineering Manager',
-            department: 'Engineering',
-            email: 'sarah.johnson@company.com',
-            phone: '+1 (555) 234-5678',
-            reportsTo: 'ENG-HEAD',
-            directReports: 3,
-            level: 3
-          }
-        ],
-        employees: [
-          {
-            id: 'EMP001',
-            name: 'John Doe',
-            title: 'Senior Developer',
-            department: 'Engineering',
-            email: 'john.doe@company.com',
-            phone: '+1 (555) 123-4567',
-            reportsTo: 'EMP002',
-            directReports: 0,
-            level: 4
-          }
-        ]
-      },
-      {
-        head: {
-          id: 'HR-HEAD',
-          name: 'Lisa Brown',
-          title: 'HR Director',
-          department: 'HR',
-          email: 'lisa.brown@company.com',
-          phone: '+1 (555) 678-9012',
-          reportsTo: 'CEO',
-          directReports: 1,
-          level: 2
-        },
-        managers: [],
-        employees: [
-          {
-            id: 'EMP004',
-            name: 'Emma Davis',
-            title: 'HR Manager',
-            department: 'HR',
-            email: 'emma.davis@company.com',
-            phone: '+1 (555) 456-7890',
-            reportsTo: 'HR-HEAD',
-            directReports: 0,
-            level: 3
-          }
-        ]
-      },
-      {
-        head: {
-          id: 'MKT-HEAD',
-          name: 'Tom Wilson',
-          title: 'Marketing Director',
-          department: 'Marketing',
-          email: 'tom.wilson@company.com',
-          phone: '+1 (555) 789-0123',
-          reportsTo: 'CEO',
-          directReports: 1,
-          level: 2
-        },
-        managers: [],
-        employees: [
-          {
-            id: 'EMP005',
-            name: 'Alex Brown',
-            title: 'Marketing Specialist',
-            department: 'Marketing',
-            email: 'alex.brown@company.com',
-            phone: '+1 (555) 567-8901',
-            reportsTo: 'MKT-HEAD',
-            directReports: 0,
-            level: 3
-          }
-        ]
-      }
-    ]
-  };
+  // Fetch from backend SQL
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/employees')
+      .then(res => res.json())
+      .then(data => {
+        setEmployees(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load organization data');
+        setLoading(false);
+      });
+  }, []);
 
-  const allEmployees = [
-    orgData.ceo,
-    ...orgData.departments.flatMap(dept => [dept.head, ...dept.managers, ...dept.employees])
-  ];
+  // Build org tree
+  useEffect(() => {
+    if (employees.length) setOrgTree(buildOrgTree(employees));
+  }, [employees]);
 
-  const filteredEmployees = allEmployees.filter(emp => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         emp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         emp.department.toLowerCase().includes(searchTerm.toLowerCase());
+  // Dynamic department list
+  const departments = useMemo(() => {
+    const set = new Set(employees.map(e => e.department));
+    return ['All', ...Array.from(set)];
+  }, [employees]);
+
+  // All employees for search/filter
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch =
+      searchTerm === '' ||
+      (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.position || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = selectedDepartment === 'All' || emp.department === selectedDepartment;
     return matchesSearch && matchesDepartment;
   });
 
-  const departments = ['All', 'Executive', 'Engineering', 'HR', 'Marketing'];
-
-  const getDepartmentColor = (department) => {
-    switch (department) {
-      case 'Executive': return 'bg-purple-500';
-      case 'Engineering': return 'bg-primary';
-      case 'HR': return 'bg-success';
-      case 'Marketing': return 'bg-warning';
-      case 'Sales': return 'bg-destructive';
-      default: return 'bg-secondary';
-    }
+  const isEmployeeHighlighted = (employee) => {
+    if (searchTerm === '') return false;
+    return (
+      (employee.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.position || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
   };
 
-  const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
+  // Team stats
   const stats = [
-    { title: 'Total Employees', value: allEmployees.length, color: 'bg-primary' },
-    { title: 'Departments', value: departments.length - 1, color: 'bg-success' }, // -1 to exclude "All"
-    { title: 'Managers', value: allEmployees.filter(e => e.directReports > 0).length, color: 'bg-warning' },
-    { title: 'Direct Reports Avg', value: (allEmployees.reduce((acc, e) => acc + e.directReports, 0) / allEmployees.filter(e => e.directReports > 0).length).toFixed(1), color: 'bg-accent' },
+    { title: 'Total Employees', value: employees.length, color: 'bg-primary' },
+    { title: 'Departments', value: departments.length - 1, color: 'bg-success' },
+    { title: 'Managers', value: employees.filter(e => employees.some(f => f.managerId === e.id)).length, color: 'bg-warning' },
+    { title: 'Direct Reports Avg', value: (employees.reduce((acc, e) => acc + employees.filter(f => f.managerId === e.id).length, 0) / (employees.filter(e => employees.some(f => f.managerId === e.id)).length || 1)).toFixed(1), color: 'bg-accent' },
   ];
 
-  const handleExportChart = () => {
-    setShowExportDialog(true);
+  // Expand/collapse handler
+  const handleToggle = (employeeId) => {
+    setCollapsed(prev => ({ ...prev, [employeeId]: !prev[employeeId] }));
   };
 
-  const handleEditStructure = () => {
-    setShowEditDialog(true);
+  // Recursive node render
+  const renderEmployeeNode = (employee, level = 0, isRoot = false) => {
+    const isHighlighted = isEmployeeHighlighted(employee);
+    const directReports = employee.directReports || [];
+
+    return (
+      <div className="flex flex-col items-center">
+        {/* Employee Card */}
+        <div className={`relative bg-card border rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 ${
+          isRoot ? 'border-primary bg-gradient-to-br from-primary/5 to-primary/10 min-w-[280px]' :
+          level === 1 ? 'border-accent bg-gradient-to-br from-accent/5 to-accent/10 min-w-[260px]' :
+          'border-border bg-card min-w-[240px]'
+        } ${isHighlighted ? 'ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
+          <div className="p-4">
+            <div className="flex flex-col items-center text-center space-y-3">
+              {/* Avatar Initials */}
+              <Avatar className={`${isRoot ? 'w-16 h-16' : level === 1 ? 'w-14 h-14' : 'w-12 h-12'} border-2 border-background shadow-md ring-2 ring-primary/20 ${isHighlighted ? 'ring-yellow-400' : ''}`}>
+                <AvatarFallback className={`${getDepartmentColor(employee.department)} text-white font-bold ${isRoot ? 'text-lg' : 'text-sm'}`}>
+                  {getInitials(employee.name)}
+                </AvatarFallback>
+              </Avatar>
+
+              {/* Employee Info */}
+              <div className="space-y-1">
+                <h3 className={`font-bold text-foreground ${isRoot ? 'text-lg' : level === 1 ? 'text-base' : 'text-sm'} ${isHighlighted ? 'text-yellow-800 dark:text-yellow-200' : ''}`}>
+                  {employee.name}
+                </h3>
+                <p className={`text-muted-foreground font-medium ${isRoot ? 'text-sm' : 'text-xs'}`}>
+                  {employee.position}
+                </p>
+                <Badge
+                  variant={isRoot ? 'default' : level === 1 ? 'secondary' : 'outline'}
+                  className={`text-xs ${isHighlighted ? 'bg-yellow-200 text-yellow-800' : ''}`}
+                >
+                  {employee.department}
+                </Badge>
+              </div>
+
+              {/* Contact Info */}
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center justify-center space-x-1">
+                  <Mail className="w-3 h-3" />
+                  <span className="truncate max-w-[180px]">{employee.email}</span>
+                </div>
+                {employee.phone && (
+                  <div className="flex items-center justify-center space-x-1">
+                    <Phone className="w-3 h-3" />
+                    <span>{employee.phone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Reports Count */}
+              {directReports.length > 0 && (
+                <div className="flex items-center space-x-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  <Users className="w-3 h-3" />
+                  <span>{directReports.length} direct reports</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Expand/collapse toggle */}
+          {directReports.length > 0 && (
+            <button
+              className="absolute left-1/2 -translate-x-1/2 bottom-1 text-xs mt-2 bg-background border rounded-full px-2 py-1 shadow hover:bg-muted"
+              onClick={() => handleToggle(employee.id)}
+              aria-label={collapsed[employee.id] ? 'Expand reports' : 'Collapse reports'}
+              type="button"
+            >
+              {collapsed[employee.id] ? <ChevronDown className="w-4 h-4 inline" /> : <ChevronUp className="w-4 h-4 inline" />}
+              <span className="ml-1">{collapsed[employee.id] ? 'Expand' : 'Collapse'}</span>
+            </button>
+          )}
+        </div>
+        {/* Draw lines and children */}
+        {directReports.length > 0 && !collapsed[employee.id] && (
+          <div>
+            {/* Vertical line down from card */}
+            <div className="w-px h-6 mx-auto bg-gradient-to-b from-primary/50 to-primary/10"></div>
+            {/* Horizontal lines to direct reports */}
+            <div className="flex justify-center items-start gap-8 mt-0">
+              {directReports.map((dr, i) => (
+                <div key={dr.id} className="flex flex-col items-center">
+                  {/* Child node */}
+                  <div className="mt-1">{renderEmployeeNode(dr, level + 1, false)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
+
+  if (loading) return <div className="p-8 text-lg">Loading organization data...</div>;
+  if (error) return <div className="p-8 text-red-500">{error}</div>;
 
   return (
     <DashboardLayout>
@@ -179,8 +220,8 @@ export default function OrgChart() {
             <p className="text-muted-foreground">View company organization structure</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleExportChart}>Export Chart</Button>
-            <Button onClick={handleEditStructure}>Edit Structure</Button>
+            <Button variant="outline" onClick={() => setShowExportDialog(true)}>Export Chart</Button>
+            <Button onClick={() => setShowEditDialog(true)}>Edit Structure</Button>
           </div>
         </div>
 
@@ -207,7 +248,7 @@ export default function OrgChart() {
           <CardContent>
             <div className="flex items-center space-x-4">
               <Input
-                placeholder="Search by name, title, or department..."
+                placeholder="Search by name, title, department, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1"
@@ -222,123 +263,68 @@ export default function OrgChart() {
                 ))}
               </select>
             </div>
+            {searchTerm && (
+              <div className="mt-3 text-sm text-muted-foreground">
+                Found {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''} matching "{searchTerm}"
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Organization Chart */}
+        {/* Org Chart Visualization */}
         <Card>
           <CardHeader>
-            <CardTitle>Organization Structure</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* CEO */}
-            <div className="mb-6">
-              <div className="flex items-center space-x-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                <div className="w-12 h-12 bg-purple-500 text-white rounded-full flex items-center justify-center font-semibold">
-                  {getInitials(orgData.ceo.name)}
+            <div className="flex items-center justify-between">
+              <CardTitle>Interactive Organization Chart</CardTitle>
+              {searchTerm && (
+                <div className="flex items-center space-x-2 text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
+                  <span>Highlighted: Search Results</span>
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{orgData.ceo.name}</h3>
-                  <p className="text-sm text-muted-foreground">{orgData.ceo.title}</p>
-                  <p className="text-xs text-muted-foreground">{orgData.ceo.email}</p>
-                </div>
-                <Badge className="bg-purple-500 text-white">CEO</Badge>
-              </div>
+              )}
             </div>
-
-            {/* Department Heads */}
-            {orgData.departments.map((dept, deptIndex) => (
-              <div key={deptIndex} className="ml-8 mb-4">
-                {/* Department Head */}
-                <div className="flex items-center space-x-4 p-4 bg-accent/50 border rounded-lg mb-3">
-                  <div className={`w-10 h-10 ${getDepartmentColor(dept.head.department)} text-white rounded-full flex items-center justify-center font-semibold text-sm`}>
-                    {getInitials(dept.head.name)}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{dept.head.name}</h4>
-                    <p className="text-sm text-muted-foreground">{dept.head.title}</p>
-                    <p className="text-xs text-muted-foreground">{dept.head.email}</p>
-                  </div>
-                  <Badge className={getDepartmentColor(dept.head.department)}>{dept.head.department}</Badge>
-                </div>
-
-                {/* Managers */}
-                {dept.managers.map((manager, managerIndex) => (
-                  <div key={managerIndex} className="ml-8 mb-3">
-                    <div className="flex items-center space-x-4 p-3 bg-muted/50 border rounded-lg">
-                      <div className={`w-8 h-8 ${getDepartmentColor(manager.department)} text-white rounded-full flex items-center justify-center font-semibold text-xs`}>
-                        {getInitials(manager.name)}
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-medium">{manager.name}</h5>
-                        <p className="text-sm text-muted-foreground">{manager.title}</p>
-                        <p className="text-xs text-muted-foreground">{manager.email}</p>
-                      </div>
-                      <Badge variant="outline">{manager.directReports} reports</Badge>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Employees */}
-                {dept.employees.map((employee, empIndex) => (
-                  <div key={empIndex} className="ml-16">
-                    <div className="flex items-center space-x-3 p-3 bg-background border rounded-lg mb-2">
-                      <div className={`w-6 h-6 ${getDepartmentColor(employee.department)} text-white rounded-full flex items-center justify-center font-semibold text-xs`}>
-                        {getInitials(employee.name)}
-                      </div>
-                      <div className="flex-1">
-                        <h6 className="font-medium text-sm">{employee.name}</h6>
-                        <p className="text-xs text-muted-foreground">{employee.title}</p>
-                        <p className="text-xs text-muted-foreground">{employee.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+          </CardHeader>
+          <CardContent className="overflow-x-auto bg-gradient-to-br from-background to-muted/20 p-8">
+            <div className="min-w-max flex justify-center">
+              {/* Root of the tree */}
+              {orgTree && renderEmployeeNode(orgTree, 0, true)}
+            </div>
           </CardContent>
         </Card>
 
         {/* Department Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {orgData.departments.map((dept, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${getDepartmentColor(dept.head.department)}`}></div>
-                  <span>{dept.head.department}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Head:</span>
-                    <span className="text-sm font-medium">{dept.head.name}</span>
+          {departments.filter(d => d !== 'All').map((dept, index) => {
+            const deptEmps = employees.filter(e => e.department === dept);
+            const head = deptEmps.find(e => !e.managerId || !deptEmps.find(f => f.id === e.managerId));
+            return (
+              <Card key={index}>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getDepartmentColor(dept)}`}></div>
+                    <span>{dept}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Head:</span>
+                      <span className="text-sm font-medium">{head ? head.name : '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Total Staff:</span>
+                      <span className="text-sm font-medium">{deptEmps.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Managers:</span>
+                      <span className="text-sm font-medium">{deptEmps.filter(e => employees.some(f => f.managerId === e.id)).length}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Total Staff:</span>
-                    <span className="text-sm font-medium">{1 + dept.managers.length + dept.employees.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Managers:</span>
-                    <span className="text-sm font-medium">{dept.managers.length}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
-
-      <ExportChartDialog 
-        open={showExportDialog} 
-        onOpenChange={setShowExportDialog} 
-      />
-      
-      <EditStructureDialog 
-        open={showEditDialog} 
-        onOpenChange={setShowEditDialog} 
-      />
     </DashboardLayout>
   );
 }

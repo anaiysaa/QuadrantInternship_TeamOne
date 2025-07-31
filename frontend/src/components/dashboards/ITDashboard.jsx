@@ -6,6 +6,56 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
+// 🟢 1. ADD THIS — Dummy data for IT tasks!
+const currentTasks = [
+  {
+    id: 1,
+    title: "Update Network Firewall",
+    description: "Install the latest firmware update on all edge firewalls.",
+    priority: "High",
+    category: "Security",
+    dueDate: "2024-07-30",
+    status: "Not Started"
+  },
+  {
+    id: 2,
+    title: "Provision Laptops for New Hires",
+    description: "Set up 5 new laptops with required company images.",
+    priority: "Medium",
+    category: "Hardware",
+    dueDate: "2024-07-25",
+    status: "In Progress"
+  },
+  {
+    id: 3,
+    title: "Migrate Email Server",
+    description: "Complete mailbox migration to cloud before end of month.",
+    priority: "High",
+    category: "Infrastructure",
+    dueDate: "2024-07-31",
+    status: "Not Started"
+  },
+  {
+    id: 4,
+    title: "Update Internal Wiki",
+    description: "Add documentation for the new IT support ticket process.",
+    priority: "Low",
+    category: "Documentation",
+    dueDate: "2024-08-05",
+    status: "Completed"
+  },
+  {
+    id: 5,
+    title: "Patch Print Server",
+    description: "Apply security patch for CVE-2024-12345.",
+    priority: "High",
+    category: "Security",
+    dueDate: "2024-07-28",
+    status: "In Progress"
+  }
+  // ...add more as needed
+];
+
 export function ITDashboard() {
   const {user} = useAuth();
   const [showTasks, setShowTasks] = useState(true);
@@ -39,15 +89,25 @@ export function ITDashboard() {
     } ]);
 
   const getPriorityColor = (priority) => {
-    // ... keep existing code (priority color logic)
+    switch (priority) {
+      case "High":
+        return "bg-red-500 text-white";
+      case "Medium":
+        return "bg-yellow-500 text-white";
+      case "Low":
+        return "bg-green-500 text-white";
+      default:
+        return "bg-muted";
+    }
   };
 
+  // Dummy handlers (replace as needed)
   const handleTaskAction = (task) => {
-    // ... keep existing code (task action handling)
+    alert(`Clicked action for: ${task.title}`);
   };
 
   const handleQuickAction = (action) => {
-    // ... keep existing code (quick action handling)
+    alert(`Quick action: ${action}`);
   };
 
   return (
@@ -84,8 +144,7 @@ export function ITDashboard() {
             </Button>
           </CardTitle>
           <Badge variant="outline">
-            {currentTasks.filter((t) => t.status !== "Completed").length} Active
-            Tasks
+            {currentTasks.filter((t) => t.status !== "Completed").length} Active Tasks
           </Badge>
         </CardHeader>
 
@@ -150,8 +209,7 @@ export function ITDashboard() {
         )}
       </Card>
 
-      {/* IT Stats */}
-      {/* ... keep existing code (IT stats, critical tickets, asset alerts, quick actions, etc.) */}
+      {/* IT Stats and other sections go here */}
     </div>
   );
 }
