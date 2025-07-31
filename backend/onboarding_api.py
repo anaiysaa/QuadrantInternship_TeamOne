@@ -82,6 +82,7 @@ def get_new_hire(hire_id):
         "checklistTasksStatus": tasks_status,
     }
     return jsonify(hire)
+
 @onboarding_api.route("/newhires", methods=["POST"])
 def add_new_hire():
     data = request.json
@@ -218,36 +219,6 @@ def update_checklist_status(hire_id):
     conn.close()
 
     return jsonify({"success": True})
-@onboarding_api.route('/checklists/<int:checklist_id>', methods=['GET'])
-def get_checklist_by_id(checklist_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Get checklist name
-    cursor.execute("SELECT ChecklistName FROM dbo.Checklists WHERE ChecklistID = ?", (checklist_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        return jsonify({"error": "Checklist not found"}), 404
-
-    checklist_name = row[0]
-
-    # Get tasks
-    cursor.execute(
-        "SELECT ItemID, TaskDesc, IsMandatory FROM dbo.ChecklistItems WHERE ChecklistID = ?",
-        (checklist_id,)
-    )
-    tasks = [
-        {"itemId": t[0], "taskDesc": t[1], "isMandatory": bool(t[2])}
-        for t in cursor.fetchall()
-    ]
-    conn.close()
-
-    return jsonify({
-        "checklistId": checklist_id,
-        "checklistName": checklist_name,
-        "tasks": tasks
-    })
 
 @onboarding_api.route('/checklists/<department>', methods=['GET'])
 def get_checklist_by_department(department):
@@ -320,16 +291,10 @@ def add_task_to_new_hire(hire_id):
 def list_departments():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT DISTINCT c.ChecklistID, c.Department
-        FROM dbo.Checklists c
-        INNER JOIN dbo.ChecklistItems ci ON c.ChecklistID = ci.ChecklistID
-        WHERE c.Department IS NOT NULL
-    """)
-    departments = [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
+    cursor.execute("SELECT DISTINCT Department FROM dbo.Checklists")
+    departments = [row[0] for row in cursor.fetchall() if row[0]]
     conn.close()
     return jsonify(departments)
-
 
 
 @onboarding_api.route('/checklists/<int:checklist_id>/tasks', methods=['POST'])
