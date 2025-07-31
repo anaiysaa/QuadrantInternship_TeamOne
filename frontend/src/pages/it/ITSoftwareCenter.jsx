@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,205 +20,78 @@ import { LicenseReportDialog } from '@/components/dialogs/LicenseReportDialog';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
+const API_BASE_URL = 'http://localhost:8000';
+
 export default function ITSoftwareCenter() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [softwareLicenses, setSoftwareLicenses] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const softwareLicenses = [
-    {
-      id: 'SW-001',
-      name: 'Microsoft Office 365',
-      vendor: 'Microsoft',
-      category: 'Productivity',
-      licenseType: 'Subscription',
-      totalLicenses: 250,
-      usedLicenses: 235,
-      availableLicenses: 15,
-      expiryDate: '2024-12-31',
-      costPerLicense: 12.50,
-      totalCost: 3125,
-      status: 'Active',
-      manager: 'IT Department',
-      notes: 'Enterprise plan with advanced features'
-    },
-    {
-      id: 'SW-002',
-      name: 'Adobe Creative Suite',
-      vendor: 'Adobe',
-      category: 'Creative',
-      licenseType: 'Subscription',
-      totalLicenses: 25,
-      usedLicenses: 22,
-      availableLicenses: 3,
-      expiryDate: '2024-08-15',
-      costPerLicense: 52.99,
-      totalCost: 1324.75,
-      status: 'Active',
-      manager: 'Design Team',
-      notes: 'Creative Cloud for Teams'
-    },
-    {
-      id: 'SW-003',
-      name: 'Slack Business+',
-      vendor: 'Slack',
-      category: 'Communication',
-      licenseType: 'Subscription',
-      totalLicenses: 200,
-      usedLicenses: 185,
-      availableLicenses: 15,
-      expiryDate: '2024-06-30',
-      costPerLicense: 12.50,
-      totalCost: 2500,
-      status: 'Expiring Soon',
-      manager: 'IT Department',
-      notes: 'Company-wide communication platform'
-    },
-    {
-      id: 'SW-004',
-      name: 'Zoom Pro',
-      vendor: 'Zoom',
-      category: 'Communication',
-      licenseType: 'Subscription',
-      totalLicenses: 100,
-      usedLicenses: 85,
-      availableLicenses: 15,
-      expiryDate: '2024-09-20',
-      costPerLicense: 14.99,
-      totalCost: 1499,
-      status: 'Active',
-      manager: 'IT Department',
-      notes: 'Video conferencing for all teams'
-    },
-    {
-      id: 'SW-005',
-      name: 'Figma Professional',
-      vendor: 'Figma',
-      category: 'Design',
-      licenseType: 'Subscription',
-      totalLicenses: 15,
-      usedLicenses: 12,
-      availableLicenses: 3,
-      expiryDate: '2024-11-10',
-      costPerLicense: 12.00,
-      totalCost: 180,
-      status: 'Active',
-      manager: 'Design Team',
-      notes: 'Design collaboration tool'
-    },
-    {
-      id: 'SW-006',
-      name: 'Jira Software',
-      vendor: 'Atlassian',
-      category: 'Development',
-      licenseType: 'Subscription',
-      totalLicenses: 50,
-      usedLicenses: 45,
-      availableLicenses: 5,
-      expiryDate: '2024-07-25',
-      costPerLicense: 7.50,
-      totalCost: 375,
-      status: 'Active',
-      manager: 'Engineering Team',
-      notes: 'Project management for development'
-    },
-    {
-      id: 'SW-007',
-      name: 'Confluence',
-      vendor: 'Atlassian',
-      category: 'Collaboration',
-      licenseType: 'Subscription',
-      totalLicenses: 50,
-      usedLicenses: 38,
-      availableLicenses: 12,
-      expiryDate: '2024-07-25',
-      costPerLicense: 5.50,
-      totalCost: 275,
-      status: 'Active',
-      manager: 'Engineering Team',
-      notes: 'Team documentation and collaboration'
-    },
-    {
-      id: 'SW-008',
-      name: 'Salesforce Professional',
-      vendor: 'Salesforce',
-      category: 'CRM',
-      licenseType: 'Subscription',
-      totalLicenses: 30,
-      usedLicenses: 28,
-      availableLicenses: 2,
-      expiryDate: '2024-10-15',
-      costPerLicense: 75.00,
-      totalCost: 2250,
-      status: 'Active',
-      manager: 'Sales Team',
-      notes: 'Customer relationship management'
-    },
-    {
-      id: 'SW-009',
-      name: 'QuickBooks Enterprise',
-      vendor: 'Intuit',
-      category: 'Finance',
-      licenseType: 'Annual',
-      totalLicenses: 5,
-      usedLicenses: 5,
-      availableLicenses: 0,
-      expiryDate: '2024-04-30',
-      costPerLicense: 200.00,
-      totalCost: 1000,
-      status: 'Expiring Soon',
-      manager: 'Finance Team',
-      notes: 'Accounting and financial management'
-    },
-    {
-      id: 'SW-010',
-      name: 'Norton Antivirus',
-      vendor: 'Norton',
-      category: 'Security',
-      licenseType: 'Annual',
-      totalLicenses: 300,
-      usedLicenses: 280,
-      availableLicenses: 20,
-      expiryDate: '2024-12-01',
-      costPerLicense: 4.99,
-      totalCost: 1497,
-      status: 'Active',
-      manager: 'IT Department',
-      notes: 'Endpoint protection for all devices'
-    },
-    {
-      id: 'SW-011',
-      name: 'GitHub Enterprise',
-      vendor: 'GitHub',
-      category: 'Development',
-      licenseType: 'Subscription',
-      totalLicenses: 40,
-      usedLicenses: 35,
-      availableLicenses: 5,
-      expiryDate: '2024-08-30',
-      costPerLicense: 21.00,
-      totalCost: 840,
-      status: 'Active',
-      manager: 'Engineering Team',
-      notes: 'Code repository and collaboration'
-    },
-    {
-      id: 'SW-012',
-      name: 'Tableau Creator',
-      vendor: 'Tableau',
-      category: 'Analytics',
-      licenseType: 'Annual',
-      totalLicenses: 10,
-      usedLicenses: 8,
-      availableLicenses: 2,
-      expiryDate: '2024-05-15',
-      costPerLicense: 70.00,
-      totalCost: 700,
-      status: 'Expiring Soon',
-      manager: 'Data Team',
-      notes: 'Business intelligence and analytics'
+  // Fetch software licenses from API
+  const fetchSoftwareLicenses = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/api/software-licenses`);
+      setSoftwareLicenses(response.data);
+    } catch (error) {
+      console.error('Error fetching software licenses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load software licenses from server",
+        variant: "destructive"
+      });
+      setSoftwareLicenses([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Fetch category analytics from API
+  const fetchCategoryData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/software-licenses/categories`);
+      setCategoryData(response.data);
+    } catch (error) {
+      console.error('Error fetching category data:', error);
+      // Fallback to calculating from license data
+      calculateCategoryData();
+    }
+  };
+
+  // Fallback calculation if API fails
+  const calculateCategoryData = () => {
+    const categories = [...new Set(softwareLicenses.map(s => s.category))];
+    const data = categories.map(category => {
+      const categoryLicenses = softwareLicenses.filter(s => s.category === category);
+      const totalInCategory = categoryLicenses.reduce((sum, s) => sum + s.totalLicenses, 0);
+      const usedInCategory = categoryLicenses.reduce((sum, s) => sum + s.usedLicenses, 0);
+      const costInCategory = categoryLicenses.reduce((sum, s) => sum + s.totalCost, 0);
+      const utilizationRate = totalInCategory > 0 ? ((usedInCategory / totalInCategory) * 100) : 0;
+      
+      return {
+        category,
+        totalLicenses: totalInCategory,
+        usedLicenses: usedInCategory,
+        availableLicenses: totalInCategory - usedInCategory,
+        utilizationRate: utilizationRate,
+        monthlyCost: costInCategory
+      };
+    });
+    setCategoryData(data);
+  };
+
+  useEffect(() => {
+    fetchSoftwareLicenses();
+  }, []);
+
+  useEffect(() => {
+    if (softwareLicenses.length > 0) {
+      fetchCategoryData();
+    }
+  }, [softwareLicenses]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -260,24 +134,106 @@ export default function ITSoftwareCenter() {
     { title: 'Expiring Soon', value: expiringSoon, color: 'bg-destructive' },
   ];
 
-  const categories = [...new Set(softwareLicenses.map(s => s.category))];
+  // Handle API calls
+  const handleAddLicense = async (licenseData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/software-licenses`, licenseData);
+      toast({
+        title: "License Added",
+        description: "New software license has been added successfully.",
+      });
+      fetchSoftwareLicenses(); // Refresh data
+    } catch (error) {
+      console.error('Error adding license:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add software license",
+        variant: "destructive"
+      });
+    }
+  };
 
-  const categoryData = categories.map(category => {
-    const categoryLicenses = softwareLicenses.filter(s => s.category === category);
-    const totalInCategory = categoryLicenses.reduce((sum, s) => sum + s.totalLicenses, 0);
-    const usedInCategory = categoryLicenses.reduce((sum, s) => sum + s.usedLicenses, 0);
-    const costInCategory = categoryLicenses.reduce((sum, s) => sum + s.totalCost, 0);
-    const utilizationRate = ((usedInCategory / totalInCategory) * 100);
-    
-    return {
-      category,
-      totalLicenses: totalInCategory,
-      usedLicenses: usedInCategory,
-      availableLicenses: totalInCategory - usedInCategory,
-      utilizationRate: utilizationRate,
-      monthlyCost: costInCategory
-    };
-  });
+  const handleManageLicense = async (licenseId, licenseData) => {
+    try {
+      await axios.put(`${API_BASE_URL}/api/software-licenses/${licenseId}`, licenseData);
+      toast({
+        title: "License Updated",
+        description: "Software license has been updated successfully.",
+      });
+      fetchSoftwareLicenses(); // Refresh data
+    } catch (error) {
+      console.error('Error updating license:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update software license",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRenewLicense = async (renewData) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/software-licenses/renew`, renewData);
+      toast({
+        title: "License Renewed",
+        description: "Software license has been renewed successfully.",
+      });
+      fetchSoftwareLicenses(); // Refresh data
+    } catch (error) {
+      console.error('Error renewing license:', error);
+      toast({
+        title: "Error",
+        description: "Failed to renew software license",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleExportReport = () => {
+    if (filteredSoftware.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No software licenses to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['License ID', 'Software', 'Vendor', 'Category', 'License Type', 'Total Licenses', 'Used', 'Available', 'Expiry Date', 'Monthly Cost', 'Status'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredSoftware.map(software => [
+        software.id || '',
+        software.name || '',
+        software.vendor || '',
+        software.category || '',
+        software.licenseType || '',
+        software.totalLicenses || 0,
+        software.usedLicenses || 0,
+        software.availableLicenses || 0,
+        software.expiryDate || '',
+        software.totalCost || 0,
+        software.status || ''
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `software-licenses-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: "Software license report has been downloaded.",
+    });
+  };
 
   const getUtilizationColor = (rate) => {
     if (rate >= 90) return 'hsl(var(--destructive))';
@@ -304,6 +260,19 @@ export default function ITSoftwareCenter() {
     return null;
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading software licenses...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -313,10 +282,8 @@ export default function ITSoftwareCenter() {
             <p className="text-muted-foreground">Manage software licenses and subscriptions</p>
           </div>
           <div className="flex space-x-2">
-            <LicenseReportDialog softwareLicenses={softwareLicenses}>
-              <Button variant="outline">License Report</Button>
-            </LicenseReportDialog>
-            <AddLicenseDialog>
+            <Button variant="outline" onClick={handleExportReport}>License Report</Button>
+            <AddLicenseDialog onAdd={handleAddLicense}>
               <Button>Add License</Button>
             </AddLicenseDialog>
           </div>
@@ -403,18 +370,24 @@ export default function ITSoftwareCenter() {
                     </TableCell>
                     <TableCell className="text-center font-medium">{software.availableLicenses}</TableCell>
                     <TableCell className="text-sm">
-                      {new Date(software.expiryDate).toLocaleDateString()}
+                      {software.expiryDate ? new Date(software.expiryDate).toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell className="font-medium">${software.totalCost}</TableCell>
                     <TableCell>{getStatusBadge(software.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <ManageLicenseDialog software={software}>
+                        <ManageLicenseDialog 
+                          software={software}
+                          onManage={(licenseData) => handleManageLicense(software.id, licenseData)}
+                        >
                           <Button size="sm" variant="outline">
                             Manage
                           </Button>
                         </ManageLicenseDialog>
-                        <RenewLicenseDialog software={software}>
+                        <RenewLicenseDialog 
+                          software={software}
+                          onRenew={handleRenewLicense}
+                        >
                           <Button size="sm" variant="default">
                             Renew
                           </Button>

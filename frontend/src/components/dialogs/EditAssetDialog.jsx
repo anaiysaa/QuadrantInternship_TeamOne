@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
-export function EditAssetDialog({ children, asset }) {
+export function EditAssetDialog({ children, asset, onEdit }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -24,11 +23,21 @@ export function EditAssetDialog({ children, asset }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Updating asset:', formData);
-    toast({
-      title: "Asset Updated",
-      description: "Asset information has been updated successfully.",
-    });
+    
+    // Call the onEdit function instead of just console.log
+    if (onEdit) {
+      onEdit({
+        employeeName: formData.employee, // Map to expected field name
+        assetType: formData.assetType,
+        brand: formData.brand,
+        model: formData.model,
+        serialNumber: formData.serialNumber,
+        location: formData.location,
+        condition: formData.condition,
+        status: formData.status
+      });
+    }
+    
     setOpen(false);
   };
 

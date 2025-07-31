@@ -7,34 +7,36 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 export function ITDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const {user} = useAuth();
   const [showTasks, setShowTasks] = useState(true);
-
-  const currentTasks = [
-  {
-    id: 1,
-    title: "Update antivirus definitions",
-    description: "Ensure all systems are running the latest AV software.",
-    priority: "High",
-    category: "Security",
-    dueDate: "2025-08-01",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    title: "Reset network firewall settings",
-    description: "Update and test firewall rules as per the new policy.",
-    priority: "Medium",
-    category: "Networking",
-    dueDate: "2025-08-03",
-    status: "Not Started",
-  },
-  // Add more tasks as needed
-];
-
-
-  // ... keep existing code (current tasks data, IT stats, tickets, etc.)
+  const [currentTasks, setCurrentTasks] = useState([
+    {
+      id: 1,
+      title: "Update Antivirus Definitions",
+      priority: "High",
+      category: "Security",
+      description: "Update virus definitions on all workstations.",
+      dueDate: "2024-07-30",
+      status: "Not Started"
+    },
+    {
+      id: 2,
+      title: "Network Upgrade",
+      priority: "Medium",
+      category: "Infrastructure",
+      description: "Upgrade office switches and routers.",
+      dueDate: "2024-08-05",
+      status: "In Progress"
+    },
+    {
+      id: 3,
+      title: "User Access Review",
+      priority: "Low",
+      category: "Audit",
+      description: "Quarterly review of user permissions.",
+      dueDate: "2024-08-15",
+      status: "Not Started"
+    } ]);
 
   const getPriorityColor = (priority) => {
     // ... keep existing code (priority color logic)

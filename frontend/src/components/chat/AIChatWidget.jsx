@@ -60,56 +60,71 @@ export function AIChatWidget() {
     setIsMinimized(!isMinimized);
   };
 
-  const sendToBackend = async (userMessage) => {
-    try {
-      const res = await fetch('http://localhost:8000/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userMessage })
-      });
-      const data = await res.json();
-      return data.answer || "Sorry, I couldn't find an answer.";
-    } catch (err) {
-      console.error('Backend error:', err);
-      return "An error occurred while reaching the assistant.";
-    }
+const sendToBackend = async (userMessage, chatHistory) => {
+  try {
+    const response = await fetch("http://localhost:8000/api/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        question: userMessage,
+        history: chatHistory  // send full chat history
+      })
+    });
+
+    const data = await response.json();
+    return data.answer || "Sorry, I didn't understand that.";
+  } catch (error) {
+    console.error("Failed to fetch from backend:", error);
+    return "An error occurred while trying to reach the assistant.";
+  }
+};
+
+
+ const handleSendMessage = async () => {
+  if (!inputValue.trim()) return;
+
+  const userMessage = {
+    id: messages.length + 1,
+    text: inputValue,
+    sender: 'user',
+    timestamp: new Date().toISOString()
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+  setInputValue('');
+  setIsLoading(true);
+  setIsTyping(true);
 
-    const userMessage = {
-      id: messages.length + 1,
-      text: inputValue,
-      sender: 'user',
+  try {
+    const chatHistory = updatedMessages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.text
+    }));
+
+    const aiReply = await sendToBackend(userMessage.text, chatHistory);
+
+    const aiMessage = {
+      id: updatedMessages.length + 1,
+      text: aiReply,
+      sender: 'ai',
       timestamp: new Date().toISOString()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLoading(true);
-    setIsTyping(true);
-
-    try {
-      const aiReply = await sendToBackend(userMessage.text);
-      const aiMessage = {
-        id: messages.length + 2,
-        text: aiReply,
-        sender: 'ai',
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: 'Something went wrong. Try again later.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoading(false);
-      setIsTyping(false);
-    }
-  };
+    setMessages(prev => [...prev, aiMessage]);
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Something went wrong. Please try again.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+    setIsTyping(false);
+  }
+};
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

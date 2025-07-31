@@ -114,6 +114,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/lms"
+                element={
+                  <ProtectedRoute>
+                    <LMSDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/tickets"
                 element={
                   <ProtectedRoute>

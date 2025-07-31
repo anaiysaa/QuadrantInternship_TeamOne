@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
-export function AddInventoryDialog({ children }) {
+export function AddInventoryDialog({ children, onAdd }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -26,11 +25,23 @@ export function AddInventoryDialog({ children }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Adding inventory item:', formData);
-    toast({
-      title: "Item Added",
-      description: "New inventory item has been added successfully.",
-    });
+    
+    // Call the onAdd function instead of just console.log
+    if (onAdd) {
+      onAdd({
+        name: formData.name,
+        category: formData.category,
+        brand: formData.brand,
+        model: formData.model,
+        quantity: parseInt(formData.quantity) || 0,
+        available: parseInt(formData.quantity) || 0, // Default available = quantity
+        unitPrice: parseFloat(formData.unitPrice) || 0,
+        supplier: formData.supplier,
+        location: formData.location,
+        reorderLevel: parseInt(formData.reorderLevel) || 5
+      });
+    }
+    
     setOpen(false);
     setFormData({
       name: '', category: '', brand: '', model: '', quantity: '', unitPrice: '',

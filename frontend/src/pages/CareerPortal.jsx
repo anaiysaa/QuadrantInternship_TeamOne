@@ -42,9 +42,9 @@ export default function CareerPortal() {
 
   useEffect(() => {
     if (!employeeId) return;
-
+  
     axios
-      .get(`http://localhost:5001/job-matches/${employeeId}`)
+      .get(`/job/job-matches/${employeeId}`)
       .then((res) => {
         setJobMatches(res.data.matches || []);
         setEmployeeInfo(res.data.employee || {});
@@ -58,6 +58,7 @@ export default function CareerPortal() {
         });
       });
   }, [employeeId]);
+  
   const toggleCoursesExpanded = (jobId) => {
     const newExpanded = new Set(expandedCourses);
     if (newExpanded.has(jobId)) newExpanded.delete(jobId);

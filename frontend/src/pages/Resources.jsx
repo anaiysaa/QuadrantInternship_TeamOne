@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ResourceDetailsDialog } from '@/components/dialogs/ResourceDetailsDialog';
-import { RequestResourceDialog } from '@/components/dialogs/RequestResourceDialog';
 import { useState, useEffect } from 'react';
 
 export default function Resources() {
@@ -79,9 +78,7 @@ export default function Resources() {
             <h1 className="text-2xl font-bold">Resources</h1>
             <p className="text-muted-foreground">Access manuals, guides, and documentation</p>
           </div>
-          <Button variant="outline" onClick={() => setShowRequestDialog(true)}>
-            Request New Resource
-          </Button>
+
         </div>
 
         <Card>
@@ -196,10 +193,6 @@ export default function Resources() {
           onOpenChange={setShowResourceDialog}
         />
 
-        <RequestResourceDialog
-          open={showRequestDialog}
-          onOpenChange={setShowRequestDialog}
-        />
       </div>
     </DashboardLayout>
   );
