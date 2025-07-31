@@ -1,130 +1,178 @@
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-
-export function AddNewHireDialog({ open, onOpenChange }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    position: '',
-    department: '',
-    startDate: '',
-    manager: ''
-  });
+export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
   const { toast } = useToast();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Adding new hire:', formData);
-    toast({
-      title: "New Hire Added",
-      description: `${formData.name} has been added to the onboarding system.`,
-    });
-    onOpenChange(false);
-    setFormData({
-      name: '',
-      email: '',
-      position: '',
-      department: '',
-      startDate: '',
-      manager: ''
-    });
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    role: "",
+    dateJoined: "",
+    managerName: "", // ✅ take manager name instead of ID
+  });
+
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleAddHire = async () => {
+    const { name, email, role, dateJoined, managerName } = formData;
+
+    if (!name || !email || !role || !dateJoined) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields.",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // ✅ Fetch Manager ID if managerName is provided
+      let managerId = null;
+      if (managerName.trim() !== "") {
+        const resManager = await fetch("/onboarding/managerid", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ managerName }),
+        });
+
+        const managerResult = await resManager.json();
+        if (resManager.ok && managerResult.managerId) {
+          managerId = managerResult.managerId;
+        } else {
+          toast({
+            title: "Warning",
+            description: "Manager not found. Adding hire without Manager ID.",
+          });
+        }
+      }
+
+      // ✅ Build payload
+      const payload = {
+        name,
+        email,
+        role,
+        dateJoined: new Date(dateJoined).toISOString().split("T")[0], // format YYYY-MM-DD
+        managerId,
+      };
+
+      // ✅ Send request to backend
+      const res = await fetch("/onboarding/newhires", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to add new hire");
+
+      toast({
+        title: "Success",
+        description: `New hire ${result.name} created successfully!`,
+      });
+
+      fetchCandidates && fetchCandidates();
+      onOpenChange(false);
+
+      setFormData({
+        name: "",
+        email: "",
+        role: "",
+        dateJoined: "",
+        managerName: "",
+      });
+    } catch (err) {
+      toast({ title: "Error", description: err.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Hire</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="Jennifer Smith"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="jennifer.smith@company.com"
-                required
-              />
-            </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label>Name *</Label>
+            <Input
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Full Name"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="position">Position</Label>
-              <Input
-                id="position"
-                value={formData.position}
-                onChange={(e) => setFormData({...formData, position: e.target.value})}
-                placeholder="Frontend Developer"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="department">Department</Label>
-              <Select value={formData.department} onValueChange={(value) => setFormData({...formData, department: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Engineering">Engineering</SelectItem>
-                  <SelectItem value="Product">Product</SelectItem>
-                  <SelectItem value="Design">Design</SelectItem>
-                  <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Email *</Label>
+            <Input
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Email Address"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="manager">Manager</Label>
-              <Input
-                id="manager"
-                value={formData.manager}
-                onChange={(e) => setFormData({...formData, manager: e.target.value})}
-                placeholder="Sarah Johnson"
-                required
-              />
-            </div>
+          <div>
+            <Label>Role *</Label>
+            <Input
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              placeholder="Job Role"
+            />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Add New Hire</Button>
-          </DialogFooter>
-        </form>
+          <div>
+            <Label>Start Date *</Label>
+            <Input
+              type="date"
+              name="dateJoined"
+              value={formData.dateJoined}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <Label>Manager Name (Optional)</Label>
+            <Input
+              name="managerName"
+              value={formData.managerName}
+              onChange={handleChange}
+              placeholder="Manager Name"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddHire} disabled={loading}>
+            {loading ? "Adding..." : "Add Hire"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
