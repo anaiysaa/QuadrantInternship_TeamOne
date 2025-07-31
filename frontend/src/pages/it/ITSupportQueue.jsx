@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 import {
   Table,
   TableBody,
@@ -17,7 +20,98 @@ import { ViewTicketDialog } from '@/components/dialogs/ViewTicketDialog';
 import { AssignTicketDialog } from '@/components/dialogs/AssignTicketDialog';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { ChartBar, Eye, EyeOff } from 'lucide-react';
+import { ChartBar, Eye, EyeOff, RefreshCw, Archive, ArchiveX } from 'lucide-react';
+import axios from 'axios';
+
+
+// API Functions
+const getITTickets = async (includeArchived = false) => {
+  try {
+    console.log('Fetching IT tickets', includeArchived ? 'including archived' : 'active only');
+    const response = await axios.get(`http://localhost:8000/api/tickets/it?include_archived=${includeArchived}`);
+    console.log('IT tickets fetched:', response.data);
+    
+    // Ensure response.data is an array
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else {
+      console.error('Unexpected response format:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching IT tickets:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    return [];
+  }
+};
+
+const getEmployees = async () => {
+  try {
+    console.log('Fetching employees for name mapping');
+    const response = await axios.get('http://localhost:8000/api/employees');
+    console.log('Employees fetched:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    return [];
+  }
+};
+
+const updateITTicketStatus = async (ticketId, newStatus, assignedTo = null) => {
+  try {
+    console.log(`Updating IT Ticket ${ticketId} status to ${newStatus}`);
+    const payload = { status: newStatus };
+    if (assignedTo) {
+      payload.assigned_to = assignedTo;
+    }
+    
+    const response = await axios.put(`http://localhost:8000/api/tickets/it/${ticketId}/status`, payload);
+    console.log('IT Ticket status updated:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating IT ticket status:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    throw new Error('Failed to update IT ticket status');
+  }
+};
+
+const archiveITTicket = async (ticketId) => {
+  try {
+    console.log(`Archiving IT Ticket ${ticketId}`);
+    const response = await axios.put(`http://localhost:8000/api/tickets/it/${ticketId}/archive`);
+    console.log('IT Ticket archived:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error archiving IT ticket:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    throw new Error('Failed to archive IT ticket');
+  }
+};
+
+const unarchiveITTicket = async (ticketId) => {
+  try {
+    console.log(`Unarchiving IT Ticket ${ticketId}`);
+    const response = await axios.put(`http://localhost:8000/api/tickets/it/${ticketId}/unarchive`);
+    console.log('IT Ticket unarchived:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error unarchiving IT ticket:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    throw new Error('Failed to unarchive IT ticket');
+  }
+};
 
 export default function ITSupportQueue() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,127 +121,89 @@ export default function ITSupportQueue() {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+  const [itTickets, setItTickets] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const { toast } = useToast();
 
-  const tickets = [
-    {
-      id: 'IT-001',
-      title: 'Server down - Production',
-      employee: 'Engineering Team',
-      department: 'Engineering',
-      severity: 'Critical',
-      status: 'Open',
-      priority: 1,
-      submittedDate: '2024-02-12T09:15:00',
-      description: 'Production server is completely unresponsive',
-      category: 'Infrastructure'
-    },
-    {
-      id: 'IT-002',
-      title: 'Network connectivity issues',
-      employee: 'Sarah Johnson',
-      department: 'Sales',
-      severity: 'High',
-      status: 'In Progress',
-      priority: 2,
-      submittedDate: '2024-02-12T10:30:00',
-      description: 'Unable to connect to company VPN',
-      category: 'Network'
-    },
-    {
-      id: 'IT-003',
-      title: 'Email server slow',
-      employee: 'Marketing Team',
-      department: 'Marketing',
-      severity: 'High',
-      status: 'Open',
-      priority: 2,
-      submittedDate: '2024-02-12T11:45:00',
-      description: 'Email delivery delays of 10+ minutes',
-      category: 'Email'
-    },
-    {
-      id: 'IT-004',
-      title: 'Laptop not turning on',
-      employee: 'John Doe',
-      department: 'HR',
-      severity: 'Medium',
-      status: 'Assigned',
-      priority: 3,
-      submittedDate: '2024-02-12T08:20:00',
-      description: 'Device completely unresponsive, no power lights',
-      category: 'Hardware'
-    },
-    {
-      id: 'IT-005',
-      title: 'Software license expired',
-      employee: 'Lisa Brown',
-      department: 'Design',
-      severity: 'Medium',
-      status: 'Open',
-      priority: 3,
-      submittedDate: '2024-02-11T16:30:00',
-      description: 'Adobe Creative Suite license needs renewal',
-      category: 'Software'
-    },
-    {
-      id: 'IT-006',
-      title: 'Printer not working',
-      employee: 'Mike Wilson',
-      department: 'Operations',
-      severity: 'Low',
-      status: 'Open',
-      priority: 4,
-      submittedDate: '2024-02-11T14:15:00',
-      description: 'Office printer shows paper jam error',
-      category: 'Hardware'
-    },
-    {
-      id: 'IT-007',
-      title: 'Password reset request',
-      employee: 'Emma Davis',
-      department: 'Finance',
-      severity: 'Low',
-      status: 'Resolved',
-      priority: 4,
-      submittedDate: '2024-02-11T12:00:00',
-      description: 'Cannot remember login password',
-      category: 'Access'
+  useEffect(() => {
+    fetchData();
+  }, [showArchivedOnly]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [ticketsData, employeesData] = await Promise.all([
+        getITTickets(showArchivedOnly),
+        getEmployees()
+      ]);
+      setItTickets(ticketsData);
+      setEmployees(employeesData);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      setError('Failed to load data. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const categoryData = [
-    { name: 'Hardware', value: tickets.filter(t => t.category === 'Hardware').length },
-    { name: 'Software', value: tickets.filter(t => t.category === 'Software').length },
-    { name: 'Network', value: tickets.filter(t => t.category === 'Network').length },
-    { name: 'Infrastructure', value: tickets.filter(t => t.category === 'Infrastructure').length },
-    { name: 'Email', value: tickets.filter(t => t.category === 'Email').length },
-    { name: 'Access', value: tickets.filter(t => t.category === 'Access').length },
-  ].filter(item => item.value > 0);
+  // Create a mapping of employee IDs to employee names
+  const employeeMap = employees.reduce((acc, emp) => {
+    acc[emp.id] = emp.name;
+    return acc;
+  }, {});
 
-  const severityData = [
-    { name: 'Critical', value: tickets.filter(t => t.severity === 'Critical').length, color: '#ef4444' },
-    { name: 'High', value: tickets.filter(t => t.severity === 'High').length, color: '#f97316' },
-    { name: 'Medium', value: tickets.filter(t => t.severity === 'Medium').length, color: '#eab308' },
-    { name: 'Low', value: tickets.filter(t => t.severity === 'Low').length, color: '#22c55e' },
-  ].filter(item => item.value > 0);
+  // Transform API data to match the expected format - FIXED with safe fallbacks
+  const transformedTickets = itTickets.map(ticket => ({
+    id: ticket.TicketID,
+    title: ticket.Title || '',
+    employee: employeeMap[ticket.EmployeeID] || `Employee ${ticket.EmployeeID}`,
+    employeeId: ticket.EmployeeID,
+    department: ticket.Department || '',
+    severity: ticket.Severity || 'Low',
+    status: ticket.Status || 'Open',
+    priority: getSeverityPriority(ticket.Severity),
+    submittedDate: ticket.SubmittedDate ? new Date(ticket.SubmittedDate).toISOString() : '',
+    description: ticket.Description || '',
+    assignedTo: ticket.AssignedTo || 'Unassigned',
+    expectedResolution: ticket.ExpectedResolution || '',
+    isArchived: ticket.Status === 'Archived'
+  }));
 
-  const statusData = [
-    { name: 'Open', value: tickets.filter(t => t.status === 'Open').length },
-    { name: 'In Progress', value: tickets.filter(t => t.status === 'In Progress').length },
-    { name: 'Assigned', value: tickets.filter(t => t.status === 'Assigned').length },
-    { name: 'Resolved', value: tickets.filter(t => t.status === 'Resolved').length },
-  ].filter(item => item.value > 0);
+  // Helper function to convert severity to priority number
+  function getSeverityPriority(severity) {
+    switch (severity) {
+      case 'Critical': return 1;
+      case 'High': return 2;
+      case 'Medium': return 3;
+      case 'Low': return 4;
+      default: return 5;
+    }
+  }
 
-  const weeklyTrendData = [
-    { day: 'Mon', tickets: 4 },
-    { day: 'Tue', tickets: 6 },
-    { day: 'Wed', tickets: 8 },
-    { day: 'Thu', tickets: 5 },
-    { day: 'Fri', tickets: 7 },
-    { day: 'Sat', tickets: 2 },
-    { day: 'Sun', tickets: 1 },
-  ];
+  // Helper function to get day of week from date
+  const getDayOfWeek = (dateString) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const date = new Date(dateString);
+    return days[date.getDay()];
+  };
+
+  // Helper function to get department distribution
+  const getDepartmentData = (tickets) => {
+    const departmentCounts = {};
+    tickets.forEach(ticket => {
+      const dept = ticket.department || 'Unknown';
+      departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+    });
+    
+    return Object.entries(departmentCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6); // Top 6 departments
+  };
 
   const getSeverityBadge = (severity) => {
     switch (severity) {
@@ -174,58 +230,347 @@ export default function ITSupportQueue() {
         return <Badge variant="outline" className="text-accent border-accent">Assigned</Badge>;
       case 'Resolved':
         return <Badge variant="default" className="bg-success text-success-foreground">Resolved</Badge>;
+      case 'Closed':
+        return <Badge variant="secondary">Closed</Badge>;
+      case 'Archived':
+        return <Badge variant="outline" className="text-muted-foreground border-muted-foreground">Archived</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
-  const handleViewTicket = (ticket) => {
-    console.log('Viewing ticket:', ticket);
-    setSelectedTicket(ticket);
-    setViewDialogOpen(true);
-  };
+  // Filter tickets based on view mode and search term
+  const filteredTickets = transformedTickets
+    .filter(ticket => {
+      const matchesSearch = (filterSeverity === 'all' || ticket.severity === filterSeverity) &&
+        ((ticket.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+         (ticket.employee || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+         (ticket.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+         ticket.id.toString().toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const handleAssignTicket = (ticket) => {
-    console.log('Opening assign dialog for ticket:', ticket);
-    setSelectedTicket(ticket);
-    setAssignDialogOpen(true);
-  };
-
-  const filteredTickets = tickets
-    .filter(ticket => 
-      (filterSeverity === 'all' || ticket.severity === filterSeverity) &&
-      (ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       ticket.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       ticket.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       ticket.category.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
+      if (showArchivedOnly) {
+        return matchesSearch && ticket.isArchived;
+      } else {
+        return matchesSearch && !ticket.isArchived;
+      }
+    })
     .sort((a, b) => {
       if (sortBy === 'severity') {
         return a.priority - b.priority;
       } else if (sortBy === 'newest') {
-        return new Date(b.submittedDate) - new Date(a.submittedDate);
+        return new Date(b.submittedDate || 0) - new Date(a.submittedDate || 0);
       } else if (sortBy === 'oldest') {
-        return new Date(a.submittedDate) - new Date(b.submittedDate);
+        return new Date(a.submittedDate || 0) - new Date(b.submittedDate || 0);
       }
       return 0;
     });
 
+  // Only count active (non-archived) tickets for stats
+  const activeTickets = transformedTickets.filter(t => !t.isArchived);
+  const archivedTickets = transformedTickets.filter(t => t.isArchived);
+
   const stats = [
-    { title: 'Total Tickets', value: tickets.length, color: 'bg-primary' },
-    { title: 'Critical/High', value: tickets.filter(t => ['Critical', 'High'].includes(t.severity)).length, color: 'bg-destructive' },
-    { title: 'In Progress', value: tickets.filter(t => t.status === 'In Progress').length, color: 'bg-warning' },
-    { title: 'Resolved Today', value: tickets.filter(t => t.status === 'Resolved').length, color: 'bg-success' },
+    { title: 'Active Tickets', value: activeTickets.length, color: 'bg-primary' },
+    { title: 'Open', value: activeTickets.filter(t => t.status === 'Open').length, color: 'bg-destructive' },
+    { title: 'Critical/High', value: activeTickets.filter(t => [1,2].includes(t.severity)).length, color: 'bg-destructive' },
+    { title: 'Archived', value: archivedTickets.length, color: 'bg-secondary' },
   ];
+
+  // REAL DATA: Severity Distribution based on actual tickets
+  const severityData = [
+    { name: 'Critical', value: activeTickets.filter(t => t.severity === 1).length, color: '#ef4444' },
+    { name: 'High', value: activeTickets.filter(t => t.severity === 2).length, color: '#f97316' },
+    { name: 'Medium', value: activeTickets.filter(t => t.severity === 3,4).length, color: '#eab308' },
+    { name: 'Low', value: activeTickets.filter(t => t.severity === 5).length, color: '#22c55e' },
+  ].filter(item => item.value > 0);
+
+  // REAL DATA: Status Distribution based on actual tickets
+  const statusData = [
+    { name: 'Open', value: activeTickets.filter(t => t.status === 'Open').length, color: '#ef4444' },
+    { name: 'In Progress', value: activeTickets.filter(t => t.status === 'In Progress').length, color: '#f97316' },
+    { name: 'Assigned', value: activeTickets.filter(t => t.status === 'Assigned').length,color: '#eab308' },
+    { name: 'Resolved', value: activeTickets.filter(t => t.status === 'Resolved').length , color:'#22c55e'},
+    { name: 'Archived', value: activeTickets.filter(t => t.status === 'Archived').length, color:'#135596ff' },
+  ].filter(item => item.value > 0);
+
+  // REAL DATA: Weekly trend based on actual ticket submission dates
+  const getWeeklyTrendData = () => {
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayCounts = Array(7).fill(0);
+    
+    // Get tickets from the last 7 days
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    activeTickets.forEach(ticket => {
+      if (ticket.submittedDate) {
+        const ticketDate = new Date(ticket.submittedDate);
+        if (ticketDate >= oneWeekAgo) {
+          const dayIndex = ticketDate.getDay();
+          dayCounts[dayIndex]++;
+        }
+      }
+    });
+
+    return dayNames.map((day, index) => ({
+      day: day.substring(0, 3), // Mon, Tue, etc.
+      tickets: dayCounts[index]
+    }));
+  };
+
+  const weeklyTrendData = getWeeklyTrendData();
+
+  // REAL DATA: Department Distribution based on actual tickets
+  const departmentData = getDepartmentData(activeTickets);
+
+  // FIXED: Added safe ticket handling for ViewTicketDialog
+  const handleViewTicket = (ticketId) => {
+    const ticket = transformedTickets.find(t => t.id === ticketId);
+    console.log('Viewing ticket:', ticket);
+    
+    // Ensure all ticket properties are defined to prevent undefined errors
+    const safeTicket = ticket ? {
+      ...ticket,
+      title: ticket.title || '',
+      description: ticket.description || '',
+      employee: ticket.employee || '',
+      department: ticket.department || '',
+      severity: ticket.severity || '',
+      status: ticket.status || '',
+      assignedTo: ticket.assignedTo || 'Unassigned',
+      submittedDate: ticket.submittedDate || '',
+      expectedResolution: ticket.expectedResolution || ''
+    } : null;
+    
+    setSelectedTicket(safeTicket);
+    setViewDialogOpen(true);
+  };
+
+  // FIXED: Added safe ticket handling for AssignTicketDialog
+  const handleAssignTicket = (ticketId) => {
+    const ticket = transformedTickets.find(t => t.id === ticketId);
+    console.log('Opening assign dialog for ticket:', ticket);
+    
+    // Ensure all ticket properties are defined to prevent undefined errors
+    const safeTicket = ticket ? {
+      ...ticket,
+      title: ticket.title || '',
+      description: ticket.description || '',
+      employee: ticket.employee || '',
+      department: ticket.department || '',
+      severity: ticket.severity || '',
+      status: ticket.status || '',
+      assignedTo: ticket.assignedTo || 'Unassigned',
+      submittedDate: ticket.submittedDate || '',
+      expectedResolution: ticket.expectedResolution || ''
+    } : null;
+    
+    setSelectedTicket(safeTicket);
+    setAssignDialogOpen(true);
+  };
+
+  // Add this handler to properly close the assign dialog and refresh data
+  const handleAssignTicketComplete = async (ticketId, assignedTo) => {
+    try {
+      // Update the ticket status and assignment
+      await updateITTicketStatus(ticketId, 'Assigned', assignedTo);
+      
+      // Refresh the data
+      await fetchData();
+      
+      // Close the dialog
+      setAssignDialogOpen(false);
+      setSelectedTicket(null);
+      
+      toast({
+        title: "Ticket Assigned",
+        description: `Ticket ${ticketId} has been assigned to ${assignedTo}`,
+      });
+    } catch (error) {
+      console.error('Failed to assign ticket:', error);
+      toast({
+        title: "Assignment Failed",
+        description: "Failed to assign ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateStatus = async (ticketId, newStatus) => {
+    try {
+      // Call the API to update the status
+      await updateITTicketStatus(ticketId, newStatus);
+
+      // Update local state
+      setItTickets(prevTickets =>
+        prevTickets.map(t =>
+          t.TicketID === ticketId
+            ? { ...t, Status: newStatus }
+            : t
+        )
+      );
+
+      toast({
+        title: "Ticket Updated",
+        description: `Ticket ${ticketId} status updated to ${newStatus}`,
+      });
+
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update ticket status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleArchive = async (ticketId) => {
+    if (!window.confirm(`Are you sure you want to archive ticket ${ticketId}? You can unarchive it later if needed.`)) {
+      return;
+    }
+
+    try {
+      // Call the API to archive the ticket
+      await archiveITTicket(ticketId);
+
+      // Update local state by changing the status to 'Archived'
+      setItTickets(prevTickets =>
+        prevTickets.map(t =>
+          t.TicketID === ticketId
+            ? { ...t, Status: 'Archived' }
+            : t
+        )
+      );
+
+      toast({
+        title: "Ticket Archived",
+        description: `Ticket ${ticketId} has been archived`,
+      });
+
+    } catch (error) {
+      console.error('Failed to archive ticket:', error);
+      toast({
+        title: "Archive Failed",
+        description: "Failed to archive ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUnarchive = async (ticketId) => {
+    if (!window.confirm(`Are you sure you want to unarchive ticket ${ticketId}? It will be moved back to active tickets.`)) {
+      return;
+    }
+
+    try {
+      // Call the API to unarchive the ticket (sets status back to Resolved)
+      await unarchiveITTicket(ticketId);
+
+      // Update local state by changing the status back to 'Resolved'
+      setItTickets(prevTickets =>
+        prevTickets.map(t =>
+          t.TicketID === ticketId
+            ? { ...t, Status: 'Resolved' }
+            : t
+        )
+      );
+
+      toast({
+        title: "Ticket Unarchived",
+        description: `Ticket ${ticketId} has been unarchived and moved back to active tickets`,
+      });
+
+    } catch (error) {
+      console.error('Failed to unarchive ticket:', error);
+      toast({
+        title: "Unarchive Failed",
+        description: "Failed to unarchive ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleArchivedView = () => {
+    setShowArchivedOnly(!showArchivedOnly);
+    setSearchTerm(''); // Clear search when switching views
+  };
+
+  const handleRefresh = () => {
+    fetchData();
+    toast({
+      title: "Data Refreshed",
+      description: "Ticket data has been refreshed from the server.",
+    });
+  };
+
+  const handleExportReport = () => {
+  if (!transformedTickets || transformedTickets.length === 0) {
+    toast({
+      title: 'No Tickets Found',
+      description: 'There are no tickets to export.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text('IT TICKETS REPORT', 14, 20);
+
+  const ticketText = transformedTickets.map(ticket => `
+ID: ${ticket.id}
+Title: ${ticket.title}
+Employee: ${ticket.employee}
+Category: ${ticket.category}
+Priority: ${ticket.priority}
+Status: ${ticket.status}
+Submitted: ${ticket.createdDate}
+Assigned To: ${ticket.assignedTo}
+Department: ${ticket.department}
+------------------------------
+  `).join('\n');
+
+  const lines = doc.splitTextToSize(ticketText, 180);
+  doc.setFontSize(10);
+  doc.text(lines, 14, 30);
+
+  doc.save('tickets_report.pdf');
+
+  toast({
+    title: 'Tickets Report Downloaded',
+    description: 'Your tickets have been downloaded as a PDF.',
+  });
+};
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Support Queue</h1>
-            <p className="text-muted-foreground">Manage support tickets from employees</p>
+            <h1 className="text-2xl font-bold">IT Support Queue</h1>
+            <p className="text-muted-foreground">
+              {showArchivedOnly ? 'Viewing archived IT support tickets' : 'Manage active IT support tickets from employees'}
+            </p>
           </div>
           <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              className="flex items-center space-x-2"
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleToggleArchivedView}
+              className="flex items-center space-x-2"
+            >
+              {showArchivedOnly ? <ArchiveX className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+              <span>{showArchivedOnly ? 'Show Active' : 'Show Archived'}</span>
+            </Button>
             <Button 
               variant="outline" 
               onClick={() => setShowAnalytics(!showAnalytics)}
@@ -234,12 +579,35 @@ export default function ITSupportQueue() {
               {showAnalytics ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span>{showAnalytics ? 'Hide' : 'Show'} Analytics</span>
             </Button>
-            <Button variant="outline">Export Report</Button>
-            <CreateTicketDialog>
-              <Button>Create Ticket</Button>
-            </CreateTicketDialog>
+            <Button variant="outline" onClick={handleExportReport} >Export Report</Button>
+            {!showArchivedOnly && (
+              <CreateTicketDialog>
+                <Button>Create Ticket</Button>
+              </CreateTicketDialog>
+            )}
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <div className="text-red-600">⚠️</div>
+                <p className="text-red-700">{error}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchData}
+                  className="ml-auto"
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -256,21 +624,21 @@ export default function ITSupportQueue() {
           ))}
         </div>
 
-        {/* Analytics Section */}
-        {showAnalytics && (
+        {/* Analytics Section - Only show for active tickets with REAL DATA */}
+        {showAnalytics && !showArchivedOnly && (
           <div className="space-y-6 animate-fade-in">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <ChartBar className="w-5 h-5" />
-                  <span>Support Analytics</span>
+                  <span>IT Support Analytics (Active Only)</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Weekly Ticket Trend */}
+                  {/* Weekly Ticket Trend - REAL DATA */}
                   <div>
-                    <h4 className="text-sm font-medium mb-3">Weekly Ticket Trend</h4>
+                    <h4 className="text-sm font-medium mb-3">Weekly Ticket Trend (Last 7 Days)</h4>
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={weeklyTrendData}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -282,56 +650,74 @@ export default function ITSupportQueue() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Tickets by Category */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Tickets by Category</h4>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={categoryData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#3b82f6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Severity Distribution */}
+                  {/* Severity Distribution - REAL DATA */}
                   <div>
                     <h4 className="text-sm font-medium mb-3">Severity Distribution</h4>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={severityData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={60}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {severityData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    {severityData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={severityData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={60}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {severityData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                        No severity data available
+                      </div>
+                    )}
                   </div>
 
-                  {/* Status Distribution */}
+                  {/* Status Distribution - REAL DATA */}
                   <div>
                     <h4 className="text-sm font-medium mb-3">Status Distribution</h4>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={statusData} layout="horizontal">
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis type="category" dataKey="name" width={80} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#22c55e" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {statusData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={statusData} layout="horizontal">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <YAxis type="number" />
+                          <XAxis type="category" dataKey="name" width={80} />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#22c55e" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                        No status data available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Department Distribution - REAL DATA */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Top Departments (Active Tickets)</h4>
+                    {departmentData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={departmentData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#8b5cf6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                        No department data available
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -342,7 +728,9 @@ export default function ITSupportQueue() {
         {/* Filters and Search */}
         <Card>
           <CardHeader>
-            <CardTitle>Filter Tickets</CardTitle>
+            <CardTitle>
+              Filter {showArchivedOnly ? 'Archived' : 'Active'} IT Support Tickets
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-4">
@@ -353,17 +741,6 @@ export default function ITSupportQueue() {
                 className="flex-1"
               />
               <select
-                value={filterSeverity}
-                onChange={(e) => setFilterSeverity(e.target.value)}
-                className="px-3 py-2 border rounded-md"
-              >
-                <option value="all">All Severities</option>
-                <option value="Critical">Critical</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-              <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-3 py-2 border rounded-md"
@@ -372,6 +749,19 @@ export default function ITSupportQueue() {
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
               </select>
+              {!showArchivedOnly && (
+                <select
+                  value={filterSeverity}
+                  onChange={(e) => setFilterSeverity(e.target.value)}
+                  className="px-3 py-2 border rounded-md"
+                >
+                  <option value="all">All Severities</option>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -379,72 +769,139 @@ export default function ITSupportQueue() {
         {/* Tickets Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Support Tickets ({filteredTickets.length})</CardTitle>
+            <CardTitle>
+              {showArchivedOnly ? 'Archived' : 'Active'} IT Support Tickets ({filteredTickets.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ticket ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{ticket.title}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">{ticket.description}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{ticket.employee}</TableCell>
-                    <TableCell>{ticket.department}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{ticket.category}</Badge>
-                    </TableCell>
-                    <TableCell>{getSeverityBadge(ticket.severity)}</TableCell>
-                    <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(ticket.submittedDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleViewTicket(ticket)}>
-                          View
-                        </Button>
-                        <Button size="sm" variant="default" onClick={() => handleAssignTicket(ticket)}>
-                          Assign
-                        </Button>
-                      </div>
-                    </TableCell>
+            {loading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                <p>Loading tickets...</p>
+              </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No {showArchivedOnly ? 'archived' : 'active'} IT support tickets found.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ticket ID</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredTickets.map((ticket) => (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{ticket.title || 'No title'}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-1">{ticket.description || 'No description'}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{ticket.employee}</p>
+                          <p className="text-sm text-muted-foreground">ID: {ticket.employeeId}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{ticket.department || 'N/A'}</TableCell>
+                      <TableCell>{getSeverityBadge(ticket.severity)}</TableCell>
+                      <TableCell>{getStatusBadge(ticket.status)}</TableCell>
+                      <TableCell className="text-sm">
+                        {ticket.submittedDate ? new Date(ticket.submittedDate).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {ticket.assignedTo}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => handleViewTicket(ticket.id)}>
+                            View
+                          </Button>
+
+                          {/* Actions for archived tickets */}
+                          {showArchivedOnly ? (
+                            <Button 
+                              size="sm" 
+                              variant="default" 
+                              onClick={() => handleUnarchive(ticket.id)}
+                              className="flex items-center space-x-1"
+                            >
+                              <ArchiveX className="w-3 h-3" />
+                              <span>Unarchive</span>
+                            </Button>
+                          ) : (
+                            /* Actions for active tickets */
+                            <>
+                              {ticket.status === 'Open' && (
+                                <Button size="sm" variant="default" onClick={() => handleUpdateStatus(ticket.id, 'In Progress')}>
+                                  Start
+                                </Button>
+                              )}
+                              
+                              {ticket.status === 'In Progress' && (
+                                <Button size="sm" variant="default" onClick={() => handleAssignTicket(ticket.id)}>
+                                  Assign
+                                </Button>
+                              )}
+                              
+                              {(ticket.status === 'Assigned' || ticket.status === 'In Progress') && (
+                                <Button size="sm" variant="default" onClick={() => handleUpdateStatus(ticket.id, 'Resolved')}>
+                                  Resolve
+                                </Button>
+                              )}
+                              
+                              {ticket.status === 'Resolved' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleArchive(ticket.id)}
+                                  className="flex items-center space-x-1"
+                                >
+                                  <Archive className="w-3 h-3" />
+                                  <span>Archive</span>
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
-        {/* Dialogs */}
-        <ViewTicketDialog
-          open={viewDialogOpen}
-          onOpenChange={setViewDialogOpen}
-          ticket={selectedTicket}
-        />
-
-        <AssignTicketDialog
-          open={assignDialogOpen}
-          onOpenChange={setAssignDialogOpen}
-          ticket={selectedTicket}
-        />
+        {/* Dialogs with error handling - FIXED: Only render when selectedTicket exists */}
+        {selectedTicket && (
+          <>
+            <ViewTicketDialog 
+              open={viewDialogOpen} 
+              onOpenChange={setViewDialogOpen} 
+              ticket={selectedTicket} 
+              context="it" 
+            />
+            <AssignTicketDialog
+              open={assignDialogOpen}
+              onOpenChange={setAssignDialogOpen}
+              ticket={selectedTicket}
+              employees={employees}
+              onAssign={handleAssignTicketComplete}
+            />
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

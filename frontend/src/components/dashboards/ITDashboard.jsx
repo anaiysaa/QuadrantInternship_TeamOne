@@ -11,6 +11,29 @@ export function ITDashboard() {
   const navigate = useNavigate();
   const [showTasks, setShowTasks] = useState(true);
 
+  const currentTasks = [
+  {
+    id: 1,
+    title: "Update antivirus definitions",
+    description: "Ensure all systems are running the latest AV software.",
+    priority: "High",
+    category: "Security",
+    dueDate: "2025-08-01",
+    status: "In Progress",
+  },
+  {
+    id: 2,
+    title: "Reset network firewall settings",
+    description: "Update and test firewall rules as per the new policy.",
+    priority: "Medium",
+    category: "Networking",
+    dueDate: "2025-08-03",
+    status: "Not Started",
+  },
+  // Add more tasks as needed
+];
+
+
   // ... keep existing code (current tasks data, IT stats, tickets, etc.)
 
   const getPriorityColor = (priority) => {

@@ -66,37 +66,6 @@ export function CreateHRTicketDialog({ open, onOpenChange }) {
                 required
               />
             </div>
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Compensation">Compensation</SelectItem>
-                  <SelectItem value="Policy">Policy</SelectItem>
-                  <SelectItem value="Complaint">Complaint</SelectItem>
-                  <SelectItem value="Benefits">Benefits</SelectItem>
-                  <SelectItem value="Performance">Performance</SelectItem>
-                  <SelectItem value="General">General</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="priority">Priority</Label>
-            <Select value={formData.priority} onValueChange={(value) => setFormData({...formData, priority: value})}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Critical">Critical</SelectItem>
-                <SelectItem value="High">High</SelectItem>
-                <SelectItem value="Medium">Medium</SelectItem>
-                <SelectItem value="Low">Low</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <div>

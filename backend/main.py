@@ -9,6 +9,8 @@ import ai_utils
 from openai import AzureOpenAI
 import requests
 
+from ticketAi.it_ticket_bot import classify_it_ticket
+from ticketAi.hr_ticket_bot import classify_hr_ticket
 
 load_dotenv()
 app = Flask(__name__)
@@ -464,6 +466,470 @@ Question: {user_question}
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/tickets/it', methods=['GET'])
+def get_it_tickets():
+    include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    if include_archived:
+        cursor.execute("SELECT * FROM IT_Tickets WHERE Status = 'Archived'")
+    else:
+        cursor.execute("SELECT * FROM IT_Tickets WHERE Status != 'Archived'")
+    
+    rows = cursor.fetchall()
+    tickets = [dict(zip([column[0] for column in cursor.description], row)) for row in rows]
+    conn.close()
+    return jsonify(tickets)
+
+@app.route('/api/tickets/it', methods=['POST'])
+def post_it_ticket():
+    data = request.get_json()
+    required_fields = ["EmployeeID", "Status", "title", "description", "department"]
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing {field} parameter"}), 400
+    employee_id = data['EmployeeID']
+    status = data['Status']
+    title = data['title']
+    description = data['description']
+    department = data['department']
+    summary = data.get('summary', '')
+    assigned_to = data.get('assignedTo', None)
+    expected_resolution = data.get('expectedResolution', None)
+    severity = classify_it_ticket(description)
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO IT_Tickets (EmployeeID, Severity, Status, Title, Description, Summary, AssignedTo, ExpectedResolution, Department, SubmittedDate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+    """, (employee_id, severity, status, title, description, summary, assigned_to, expected_resolution, department))
+    conn.commit()
+    return jsonify({"message": "IT Ticket created successfully!"}), 201
+
+@app.route('/api/tickets/hr', methods=['GET'])
+def get_hr_tickets():
+    include_archived = request.args.get('include_archived', 'false').lower() == 'true'
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    if include_archived:
+        # Get only archived tickets
+        cursor.execute("SELECT * FROM hr_tickets WHERE Status = 'Archived'")
+    else:
+        # Get only active tickets (not archived)
+        cursor.execute("SELECT * FROM hr_tickets WHERE Status != 'Archived'")
+    
+    rows = cursor.fetchall()
+    tickets = [dict(zip([column[0] for column in cursor.description], row)) for row in rows]
+    conn.close()
+    return jsonify(tickets)
+
+
+@app.route('/api/tickets/hr', methods=['POST'])
+def post_hr_ticket():
+    try:
+        data = request.get_json()
+        print(f"Received HR ticket data: {data}")
+        
+        required_fields = ["EmployeeID", "Status", "title", "description", "department"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing {field} parameter"}), 400
+        employee_id = data['EmployeeID']
+        status = data['Status']
+        title = data['title']
+        description = data['description']
+        summary = data.get('summary', '')
+        department = data['department']
+        severity = classify_hr_ticket(description)
+        print(f"Classified severity: {severity}")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+    INSERT INTO hr_tickets (EmployeeID, Severity, Status, Title, Description, Summary, SubmittedDate, Department)
+    VALUES (?, ?, ?, ?, ?, ?, GETDATE(), ?)
+""", (employee_id, severity, status, title, description, summary, department))
+
+        conn.commit()
+        conn.close()
+        print(f"HR Ticket created successfully!")
+        return jsonify({"message": "HR Ticket created successfully!"}), 201
+        
+    except Exception as e:
+        print(f"Error in post_hr_ticket: {str(e)}")  # Add error logging
+        return jsonify({"error": str(e)}), 500
+@app.route('/api/tickets/personal', methods=['GET'])
+def get_personal_tickets():
+    employee = request.args.get('EmployeeID')
+    if not employee:
+        return jsonify({"error": "Missing EmployeeID parameter"}), 400
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM IT_Tickets WHERE EmployeeID = ?", (employee,))
+    it_rows = cursor.fetchall()
+    it_tickets = [dict(zip([column[0] for column in cursor.description], row)) for row in it_rows]
+    cursor.execute("SELECT * FROM hr_tickets WHERE EmployeeID = ?", (employee,))
+    hr_rows = cursor.fetchall()
+    hr_tickets = [dict(zip([column[0] for column in cursor.description], row)) for row in hr_rows]
+    return jsonify({
+        "it_tickets": it_tickets,
+        "hr_tickets": hr_tickets
+    })
+# NEW ENDPOINT: Delete HR Ticket
+@app.route('/api/tickets/it/<int:ticket_id>/archive', methods=['PUT'])
+def archive_it_ticket(ticket_id):
+    """Archive an IT ticket by setting its status to 'Archived'."""
+    try:
+        print(f"Received archive request for IT ticket {ticket_id}")
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT TicketID, Status FROM IT_Tickets WHERE TicketID = ?", (ticket_id,))
+        ticket = cursor.fetchone()
+        
+        if not ticket:
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        if ticket[1] == 'Archived':
+            conn.close()
+            return jsonify({"error": "Ticket is already archived"}), 400
+        
+        cursor.execute("UPDATE IT_Tickets SET Status = 'Archived' WHERE TicketID = ?", (ticket_id,))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({"error": "No ticket was archived"}), 400
+        
+        print(f"IT Ticket {ticket_id} archived successfully")
+        return jsonify({
+            "message": f"Ticket {ticket_id} archived successfully",
+            "ticket_id": ticket_id,
+            "status": "Archived"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in archive_it_ticket: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/tickets/hr/<int:ticket_id>/archive', methods=['PUT'])
+def archive_hr_ticket(ticket_id):
+    """Archive an HR ticket by setting its status to 'Archived'."""
+    try:
+        print(f"Received archive request for HR ticket {ticket_id}")
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT TicketID, Status FROM hr_tickets WHERE TicketID = ?", (ticket_id,))
+        ticket = cursor.fetchone()
+        
+        if not ticket:
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        if ticket[1] == 'Archived':
+            conn.close()
+            return jsonify({"error": "Ticket is already archived"}), 400
+        
+        cursor.execute("UPDATE hr_tickets SET Status = 'Archived' WHERE TicketID = ?", (ticket_id,))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({"error": "No ticket was archived"}), 400
+        
+        print(f"HR Ticket {ticket_id} archived successfully")
+        return jsonify({
+            "message": f"Ticket {ticket_id} archived successfully",
+            "ticket_id": ticket_id,
+            "status": "Archived"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in archive_hr_ticket: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/tickets/hr/<int:ticket_id>/status', methods=['PUT'])
+def update_hr_ticket_status(ticket_id):
+    """
+    Update the status of an HR ticket.
+    Expected payload: {"status": "Open|In Progress|Resolved|Closed", "assigned_to": "optional"}
+    """
+    try:
+        data = request.get_json()
+        print(f"Received status update for ticket {ticket_id}: {data}")
+        
+        if not data or 'status' not in data:
+            return jsonify({"error": "Missing status in request body"}), 400
+        
+        new_status = data['status']
+        assigned_to = data.get('assigned_to', None)
+        
+        # Validate status values
+        valid_statuses = ['Open', 'In Progress', 'Resolved', 'Closed']
+        if new_status not in valid_statuses:
+            return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Check if ticket exists
+        cursor.execute("SELECT TicketID FROM hr_tickets WHERE TicketID = ?", (ticket_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        # Update the ticket status and assigned_to if provided
+        if assigned_to:
+            cursor.execute("""
+                UPDATE hr_tickets 
+                SET Status = ?
+                WHERE TicketID = ?
+            """, (new_status, ticket_id))
+        else:
+            cursor.execute("""
+                UPDATE hr_tickets 
+                SET Status = ?
+                WHERE TicketID = ?
+            """, (new_status, ticket_id))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({"error": "No ticket was updated"}), 400
+        
+        print(f"HR Ticket {ticket_id} status updated to {new_status}")
+        return jsonify({
+            "message": f"Ticket {ticket_id} status updated successfully",
+            "ticket_id": ticket_id,
+            "new_status": new_status,
+            "assigned_to": assigned_to
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in update_hr_ticket_status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+@app.route('/api/tickets/it/<int:ticket_id>/status', methods=['PUT'])
+def update_it_ticket_status(ticket_id):
+    """
+    Update the status of an IT ticket.
+    Expected payload: {"status": "Open|In Progress|Resolved|Closed", "assigned_to": "optional"}
+    """
+    try:
+        data = request.get_json()
+        print(f"Received status update for IT ticket {ticket_id}: {data}")
+        
+        if not data or 'status' not in data:
+            return jsonify({"error": "Missing status in request body"}), 400
+        
+        new_status = data['status']
+        assigned_to = data.get('assigned_to', None)
+        
+        # Validate status values
+        valid_statuses = ['Open', 'In Progress', 'Assigned', 'Resolved', 'Closed']  # Added 'Assigned'
+        if new_status not in valid_statuses:
+            return jsonify({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Check if ticket exists
+        cursor.execute("SELECT TicketID FROM IT_Tickets WHERE TicketID = ?", (ticket_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        # Update the ticket status and assigned_to if provided
+        if assigned_to:
+            print(f"Updating ticket {ticket_id} with status='{new_status}' and assigned_to='{assigned_to}'")
+            cursor.execute("""
+                UPDATE IT_Tickets 
+                SET Status = ?, AssignedTo = ?
+                WHERE TicketID = ?
+            """, (new_status, assigned_to, ticket_id))
+        else:
+            print(f"Updating ticket {ticket_id} with status='{new_status}' only")
+            cursor.execute("""
+                UPDATE IT_Tickets 
+                SET Status = ?
+                WHERE TicketID = ?
+            """, (new_status, ticket_id))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        
+        # Verify the update worked
+        if rows_affected == 0:
+            conn.close()
+            return jsonify({"error": "No ticket was updated - check if ticket exists"}), 400
+        
+        # Get the updated ticket to confirm changes
+        cursor.execute("SELECT Status, AssignedTo FROM IT_Tickets WHERE TicketID = ?", (ticket_id,))
+        updated_ticket = cursor.fetchone()
+        conn.close()
+        
+        print(f"IT Ticket {ticket_id} successfully updated. Status: {updated_ticket[0]}, AssignedTo: {updated_ticket[1]}")
+        
+        return jsonify({
+            "message": f"Ticket {ticket_id} status updated successfully",
+            "ticket_id": ticket_id,
+            "new_status": new_status,
+            "assigned_to": assigned_to,
+            "updated_status": updated_ticket[0],
+            "updated_assigned_to": updated_ticket[1]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in update_it_ticket_status: {str(e)}")
+        import traceback
+        traceback.print_exc()  # This will help debug the exact SQL error
+        return jsonify({"error": str(e)}), 500
+@app.route('/api/ticket-comments', methods=['POST'])
+def post_comment():
+    data = request.json
+    ticket_id = data.get('ticket_id')
+    ticket_type = data.get('ticket_type')
+    author = data.get('author')
+    content = data.get('content')
+    
+    # Check for missing data
+    if not all([ticket_id, ticket_type, author, content]):
+        logger.error("Missing required fields: ticket_id, ticket_type, author, content")
+        return jsonify({'error': 'Missing required fields'}), 400
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = """
+            INSERT INTO ViewTicketComments (ticket_id, ticket_type, author, content)
+            VALUES (?, ?, ?, ?)
+        """
+        cursor.execute(query, (ticket_id, ticket_type, author, content))
+        conn.commit()
+        logger.info(f"Comment successfully added to ticket {ticket_id}")
+        return jsonify({'message': 'Comment added successfully'}), 201
+    except Exception as e:
+        logger.error(f"Error while adding comment: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/ticket-comments', methods=['GET'])
+def get_comments():
+    ticket_id = request.args.get('ticket_id')
+    ticket_type = request.args.get('ticket_type')
+    conn = get_connection()
+    if not ticket_id or not ticket_type:
+        return jsonify({'error': 'Missing ticket_id or ticket_type'}), 400
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT comment_id, author, content, created_at
+            FROM ViewTicketComments
+            WHERE ticket_id = ? AND ticket_type = ?
+            ORDER BY created_at ASC
+        """
+        cursor.execute(query, (ticket_id, ticket_type))
+        rows = cursor.fetchall()
+        comments = [{
+            'comment_id': row[0],
+            'author': row[1],
+            'content': row[2],
+            'created_at': row[3].strftime('%Y-%m-%d %H:%M:%S')
+        } for row in rows]
+        return jsonify(comments)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/tickets/hr/<int:ticket_id>/unarchive', methods=['PUT'])
+def unarchive_hr_ticket(ticket_id):
+    """Unarchive an HR ticket by setting its status back to 'Resolved'."""
+    try:
+        print(f"Received unarchive request for HR ticket {ticket_id}")
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT TicketID, Status FROM hr_tickets WHERE TicketID = ?", (ticket_id,))
+        ticket = cursor.fetchone()
+        
+        if not ticket:
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        if ticket[1] != 'Archived':
+            conn.close()
+            return jsonify({"error": "Ticket is not archived"}), 400
+        
+        cursor.execute("UPDATE hr_tickets SET Status = 'Resolved' WHERE TicketID = ?", (ticket_id,))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({"error": "No ticket was unarchived"}), 400
+        
+        print(f"HR Ticket {ticket_id} unarchived successfully")
+        return jsonify({
+            "message": f"Ticket {ticket_id} unarchived successfully",
+            "ticket_id": ticket_id,
+            "status": "Resolved"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in unarchive_hr_ticket: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+# Add this endpoint to your main.py file after the archive_it_ticket endpoint
+
+@app.route('/api/tickets/it/<int:ticket_id>/unarchive', methods=['PUT'])
+def unarchive_it_ticket(ticket_id):
+    """Unarchive an IT ticket by setting its status back to 'Resolved'."""
+    try:
+        print(f"Received unarchive request for IT ticket {ticket_id}")
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT TicketID, Status FROM IT_Tickets WHERE TicketID = ?", (ticket_id,))
+        ticket = cursor.fetchone()
+        
+        if not ticket:
+            conn.close()
+            return jsonify({"error": "Ticket not found"}), 404
+        
+        if ticket[1] != 'Archived':
+            conn.close()
+            return jsonify({"error": "Ticket is not archived"}), 400
+        
+        cursor.execute("UPDATE IT_Tickets SET Status = 'Resolved' WHERE TicketID = ?", (ticket_id,))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({"error": "No ticket was unarchived"}), 400
+        
+        print(f"IT Ticket {ticket_id} unarchived successfully")
+        return jsonify({
+            "message": f"Ticket {ticket_id} unarchived successfully",
+            "ticket_id": ticket_id,
+            "status": "Resolved"
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in unarchive_it_ticket: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 # ------------------ RUN ------------------
 
 if __name__ == "__main__":
