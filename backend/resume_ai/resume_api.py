@@ -1,48 +1,76 @@
 from flask import Blueprint, request, jsonify
 from flask_cors import CORS
 from .resume_nor import process_resume_file
-
 import pyodbc
 import os
 import re
 import json
 from dotenv import load_dotenv
 
-resume_api = Blueprint('resume_api', __name__)
 load_dotenv()
 
-# -- Enable CORS if needed  for this blueprint (not for the whole app here) --
-# (You may also enable CORS globally in main.py)
+resume_api = Blueprint("resume_api", __name__)
+CORS(resume_api)  # ✅ Enable CORS for this blueprint
 
+# ---------------------- Database Helper ----------------------
 def get_connection():
     return pyodbc.connect(os.getenv("DB_CONN_STR"))
 
+def fetch_all(query, params=()):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def fetch_one(query, params=()):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+def execute_query(query, params=()):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    conn.commit()
+    conn.close()
+
+# ---------------------- Resume Text Parsing ----------------------
 def extract_basic_sections(text):
-    """Extract summary, experience, education, skills from raw text. For display only."""
     sections = {"summary": "", "experience": [], "education": [], "skills": []}
-    summary_match = re.search(r'^(.*?)(WORK EXPERIENCE|EXPERIENCE|EDUCATION|SKILLS)', text, re.I | re.S)
+
+    summary_match = re.search(r"^(.*?)(WORK EXPERIENCE|EXPERIENCE|EDUCATION|SKILLS)", text, re.I | re.S)
     if summary_match:
         sections["summary"] = summary_match.group(1).strip()
-    exp_match = re.search(r'(WORK EXPERIENCE|EXPERIENCE)[:\s]*(.*?)(EDUCATION|SKILLS|$)', text, re.I | re.S)
+
+    exp_match = re.search(r"(WORK EXPERIENCE|EXPERIENCE)[:\s]*(.*?)(EDUCATION|SKILLS|$)", text, re.I | re.S)
     if exp_match:
         exp_text = exp_match.group(2).strip()
-        jobs = [j.strip() for j in re.split(r'\n{2,}|•{3,}', exp_text) if j.strip()]
+        jobs = [j.strip() for j in re.split(r"\n{2,}|•{3,}", exp_text) if j.strip()]
         for job in jobs:
-            sections["experience"].append({"title": "", "company": "", "period": "", "description": job})
-    edu_match = re.search(r'EDUCATION[:\s]*(.*?)(SKILLS|$)', text, re.I | re.S)
+            sections["experience"].append({
+                "title": "", "company": "", "period": "", "description": job
+            })
+
+    edu_match = re.search(r"EDUCATION[:\s]*(.*?)(SKILLS|$)", text, re.I | re.S)
     if edu_match:
-        edu_text = edu_match.group(1).strip()
-        sections["education"] = [{"degree": edu_text, "institution": "", "year": ""}]
-    skills_match = re.search(r'SKILLS[:\s]*(.*?)(?:\n[A-Z ]{3,}|$)', text, re.I | re.S)
+        sections["education"] = [{"degree": edu_match.group(1).strip(), "institution": "", "year": ""}]
+
+    skills_match = re.search(r"SKILLS[:\s]*(.*?)(?:\n[A-Z ]{3,}|$)", text, re.I | re.S)
     if skills_match:
-        skills_block = skills_match.group(1)
-        skills = re.split(r'[\n·•,.;|-]+', skills_block)
+        skills = re.split(r"[\n·•,.;|-]+", skills_match.group(1))
         sections["skills"] = [s.strip() for s in skills if len(s.strip()) > 1]
+
     return sections
 
-@resume_api.route('/upload', methods=['POST'])
+# ---------------------- Upload Resume ----------------------
+@resume_api.route("/upload", methods=["POST"])
 def upload_resume():
-    file = request.files.get('resume')
+    file = request.files.get("resume")
     if not file:
         return jsonify({"status": "error", "message": "No file received"}), 400
 
@@ -51,111 +79,215 @@ def upload_resume():
         file.stream.seek(0)
         raw_text = file.read().decode(errors="ignore")
         sections = extract_basic_sections(raw_text)
-        return jsonify({
-            "status": "success",
-            "result": result,
-            "sections": sections
-        }), 200
+        return jsonify({"status": "success", "result": result, "sections": sections}), 200
     except Exception as e:
         print("ERROR processing resume:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@resume_api.route('/employee-resume', methods=['GET'])
+# ---------------------- Get Employee Resume ----------------------
+@resume_api.route("/employee-resume", methods=["GET"])
 def get_employee_resume():
-    username = request.args.get('username')
+    username = request.args.get("username")
     if not username:
         return jsonify({"success": False, "message": "No username provided"}), 400
 
     try:
-        conn_str = os.getenv("DB_CONN_STR")
-        conn = pyodbc.connect(conn_str)
-        cursor = conn.cursor()
-        query = """
+        row = fetch_one("""
             SELECT Skills, EducationDegree, EducationField, EducationInstitution, EducationYear
-            FROM Employees
-            WHERE Username = ?
-        """
-        cursor.execute(query, username)
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        if row:
-            return jsonify({
-                "skills": json.loads(row.Skills),
-                "education": [{
-                    "degree": row.EducationDegree,
-                    "field": row.EducationField,
-                    "institution": row.EducationInstitution,
-                    "year": row.EducationYear
-                }]
-            }), 200
-        else:
+            FROM Employees WHERE Username = ?
+        """, (username,))
+        if not row:
             return jsonify({"success": False, "message": "Employee not found"}), 404
+
+        return jsonify({
+            "skills": json.loads(row.Skills) if row.Skills else [],
+            "education": [{
+                "degree": row.EducationDegree,
+                "field": row.EducationField,
+                "institution": row.EducationInstitution,
+                "year": row.EducationYear
+            }]
+        }), 200
     except Exception as e:
         print("DB error:", e)
         return jsonify({"success": False, "message": "DB error"}), 500
 
-@resume_api.route("/api/employees/<int:emp_id>", methods=["GET"])
+# ---------------------- Apply for a Job ----------------------
+@resume_api.route("/apply", methods=["POST"])
+def apply_job():
+    data = request.get_json()
+    job_id, employee_id = data.get("jobId"), data.get("employeeId")
+
+    if not job_id or not employee_id:
+        return jsonify({"success": False, "message": "Job ID and Employee ID required"}), 400
+
+    try:
+        execute_query("INSERT INTO JobApplications (JobID, EmployeeID) VALUES (?, ?)", (job_id, employee_id))
+        return jsonify({"success": True, "message": "Application submitted successfully"})
+    except Exception as e:
+        print("DB Error:", e)
+        return jsonify({"success": False, "message": "Database error"}), 500
+
+# ---------------------- Get Applications for an Employee ----------------------
+@resume_api.route("/applications/<int:employee_id>", methods=["GET"])
+def get_employee_applications(employee_id):
+    try:
+        rows = fetch_all("""
+            SELECT JA.ApplicationID, JA.JobID, IJ.JobTitle, JA.Status, JA.ApplicationDate
+            FROM JobApplications JA
+            JOIN InternalJobs IJ ON JA.JobID = IJ.JobID
+            WHERE JA.EmployeeID = ?
+        """, (employee_id,))
+
+        applications = [{
+            "applicationId": r.ApplicationID,
+            "jobId": r.JobID,
+            "title": r.JobTitle,
+            "status": r.Status or "Applied",
+            "appliedDate": str(r.ApplicationDate) if r.ApplicationDate else ""
+        } for r in rows]
+
+        return jsonify({"applications": applications}), 200
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"error": "Database error", "details": str(e)}), 500
+
+# ---------------------- Get Application Details ----------------------
+@resume_api.route("/applications/details/<int:application_id>", methods=["GET"])
+def get_application_details(application_id):
+    try:
+        row = fetch_one("""
+            SELECT JA.ApplicationID, JA.Status, JA.ApplicationDate,
+                   IJ.JobID, IJ.JobTitle, IJ.Department, IJ.Location, IJ.JobType,
+                   IJ.JobDescription, IJ.MandatorySkills, IJ.OptionalSkills
+            FROM JobApplications JA
+            JOIN InternalJobs IJ ON JA.JobID = IJ.JobID
+            WHERE JA.ApplicationID = ?
+        """, (application_id,))
+        if not row:
+            return jsonify({"error": "Application not found"}), 404
+
+        return jsonify({
+            "applicationId": row.ApplicationID,
+            "status": row.Status or "Applied",
+            "appliedDate": str(row.ApplicationDate) if row.ApplicationDate else "",
+            "jobId": row.JobID,
+            "title": row.JobTitle,
+            "department": row.Department,
+            "location": row.Location,
+            "jobType": row.JobType,
+            "jobDescription": row.JobDescription,
+            "mandatorySkills": row.MandatorySkills,
+            "optionalSkills": row.OptionalSkills
+        }), 200
+    except Exception as e:
+        print("DB Error:", e)
+        return jsonify({"error": "Database error"}), 500
+
+# ---------------------- Get Job Details ----------------------
+@resume_api.route("/jobs/<int:job_id>", methods=["GET"])
+def get_job_details(job_id):
+    try:
+        row = fetch_one("""
+            SELECT JobID, JobTitle, MandatorySkills, OptionalSkills,
+                   RecommendedCertifications, JobDescription,
+                   Department, Location, JobType, Status, ClosingDate
+            FROM InternalJobs WHERE JobID = ?
+        """, (job_id,))
+        if not row:
+            return jsonify({"error": "Job not found"}), 404
+
+        return jsonify({
+            "jobId": row.JobID,
+            "title": row.JobTitle,
+            "mandatorySkills": row.MandatorySkills,
+            "optionalSkills": row.OptionalSkills,
+            "recommendedCertifications": row.RecommendedCertifications,
+            "jobDescription": row.JobDescription,
+            "department": row.Department,
+            "location": row.Location,
+            "jobType": row.JobType,
+            "status": row.Status,
+            "closingDate": str(row.ClosingDate) if row.ClosingDate else None
+        }), 200
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"error": "Database error"}), 500
+
+# ---------------------- Get Employee ----------------------
+@resume_api.route("/employees/<int:emp_id>", methods=["GET"])
 def get_employee(emp_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT ID, Name, Email, Phone, Address, Username, PasswordHash, Department, Role, ManagerID, TeamID,
-               DateJoined, Status, PaidLeavesLeft, Gender, TrainingsDone, TrainingsLeft, Salary, Campus,
-               EmploymentStatus, PhotoURL, HireDate, SkillCategory, YearsInCompany, Skills, AppliedJobs,
-               Certifications, EducationDegree, EducationField, EducationInstitution, EducationYear
-        FROM Employees
-        WHERE ID = ?
-    """, (emp_id,))
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return jsonify({"error": "Not found"}), 404
+    try:
+        row = fetch_one("""
+            SELECT ID, Name, Email, Phone, Address, Username,
+                   Department, Role, ManagerID, TeamID, DateJoined, Status,
+                   PaidLeavesLeft, Gender, TrainingsDone, TrainingsLeft,
+                   Salary, Campus, EmploymentStatus, PhotoURL, HireDate,
+                   SkillCategory, YearsInCompany, Skills, AppliedJobs,
+                   Certifications, EducationDegree, EducationField,
+                   EducationInstitution, EducationYear
+            FROM Employees WHERE ID = ?
+        """, (emp_id,))
+        if not row:
+            return jsonify({"error": "Employee not found"}), 404
 
-    manager_name = ""
-    if row[9]:
-        conn2 = get_connection()
-        cursor2 = conn2.cursor()
-        cursor2.execute("SELECT Name FROM Employees WHERE ID = ?", (row[9],))
-        manager_row = cursor2.fetchone()
-        if manager_row:
-            manager_name = manager_row[0]
-        conn2.close()
+        return jsonify({
+            "id": row.ID,
+            "name": row.Name,
+            "email": row.Email,
+            "phone": row.Phone,
+            "address": row.Address,
+            "department": row.Department,
+            "role": row.Role,
+            "managerId": row.ManagerID,
+            "teamId": row.TeamID,
+            "joinDate": str(row.DateJoined) if row.DateJoined else "",
+            "status": row.Status,
+            "paidLeavesLeft": row.PaidLeavesLeft,
+            "gender": row.Gender,
+            "trainingsDone": row.TrainingsDone,
+            "trainingsLeft": row.TrainingsLeft,
+            "salary": row.Salary,
+            "campus": row.Campus,
+            "employmentStatus": row.EmploymentStatus,
+            "photoUrl": row.PhotoURL,
+            "hireDate": str(row.HireDate) if row.HireDate else "",
+            "skills": json.loads(row.Skills) if row.Skills else [],
+            "appliedJobs": json.loads(row.AppliedJobs) if row.AppliedJobs else [],
+            "certifications": json.loads(row.Certifications) if row.Certifications else [],
+            "educationDegree": row.EducationDegree,
+            "educationField": row.EducationField,
+            "educationInstitution": row.EducationInstitution,
+            "educationYear": row.EducationYear
+        })
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"error": "Database error"}), 500
 
-    return jsonify({
-        "id": row[0],
-        "name": row[1],
-        "email": row[2],
-        "phone": row[3],
-        "address": row[4],
-        "username": row[5],
-        "department": row[7],
-        "role": row[8],
-        "managerId": row[9],
-        "managerName": manager_name,
-        "teamId": row[10],
-        "joinDate": str(row[11]) if row[11] else "",
-        "status": row[12],
-        "paidLeavesLeft": row[13],
-        "gender": row[14],
-        "trainingsDone": row[15],
-        "trainingsLeft": row[16],
-        "salary": row[17],
-        "campus": row[18],
-        "employmentStatus": row[19],
-        "photoUrl": row[20],
-        "hireDate": str(row[21]) if row[21] else "",
-        "skillCategory": row[22],
-        "yearsInCompany": row[23],
-        "skills": row[24],
-        "appliedJobs": row[25],
-        "certifications": row[26],
-        "educationDegree": row[27],
-        "educationField": row[28],
-        "educationInstitution": row[29],
-        "educationYear": row[30]
-    })
+# ---------------------- Get Employee Assets ----------------------
+@resume_api.route("/employees/<int:emp_id>/assets", methods=["GET"])
+def get_employee_assets(emp_id):
+    try:
+        rows = fetch_all("""
+            SELECT AssetID, EmployeeID, Department, AssetType, BrandModel,
+                   SerialNumber, Status, Condition, Location, DateAssigned
+            FROM IT_Assets WHERE EmployeeID = ?
+        """, (emp_id,))
 
-# No app.run() or CORS(app, ...) here—do that in main.py
+        assets = [{
+            "assetId": r.AssetID,
+            "employeeId": r.EmployeeID,
+            "department": r.Department,
+            "type": r.AssetType,
+            "brand": r.BrandModel,
+            "serialNumber": r.SerialNumber,
+            "status": r.Status,
+            "condition": r.Condition,
+            "location": r.Location,
+            "assignedDate": str(r.DateAssigned) if r.DateAssigned else ""
+        } for r in rows]
 
+        return jsonify({"assets": assets}), 200
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"error": "Database error"}), 500

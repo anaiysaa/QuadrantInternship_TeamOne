@@ -21,6 +21,7 @@ export default function Profile() {
   // Employee state
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [assets, setAssets] = useState([]);
 
   
   // Fetch employee data
@@ -30,7 +31,7 @@ export default function Profile() {
       return;
     }
     setLoading(true);
-    fetch(`/resume/api/employees/${employeeId}`)
+    fetch(`/resume/employees/${employeeId}`)
       .then((res) => res.json())
       .then((data) => {
         setEmployee(data);
@@ -46,6 +47,16 @@ export default function Profile() {
       });
   }, [employeeId, toast]);
   
+  // 🔹 Fetch assigned assets
+useEffect(() => {
+  if (!employeeId) return;
+
+  fetch(`/resume/employees/${employeeId}/assets`)
+    .then((res) => res.json())
+    .then((data) => setAssets(data.assets || []))
+    .catch((err) => console.error("Error fetching assets:", err));
+}, [employeeId]);
+
   // Resume upload handler
   const handleResumeUpload = async (event) => {
     const file = event.target.files[0];
@@ -65,7 +76,7 @@ export default function Profile() {
           variant: "success",
         });
         // Refresh employee data
-        fetch(`/resume/api/employees/${employeeId}`)
+        fetch(`/resume/employees/${employeeId}`)
           .then((res) => res.json())
           .then((data) => setEmployee(data));
       } else {
@@ -94,6 +105,8 @@ export default function Profile() {
     { id: "skills", label: "Skills", icon: "🎯" },
     { id: "certifications", label: "Certifications", icon: "🏆" },
     { id: "education", label: "Education", icon: "📚" }, 
+    { id: "assets", label: "Assigned Assets", icon: "💻" },
+
   ];
 
   const getInitials = (name) => {
@@ -178,8 +191,8 @@ export default function Profile() {
           {/* Right: Tabs */}
           <Card className="md:col-span-2">
             <CardHeader>
-              <div className="flex space-x-4 border-b">
-                {tabs.map((tab) => (
+            <div className="flex flex-wrap gap-4 border-b overflow-x-auto">
+            {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
@@ -294,23 +307,37 @@ export default function Profile() {
               {activeTab === "skills" && (
   <div className="space-y-4">
     <h3 className="text-lg font-semibold">My Skills</h3>
-    {employee.skills ? (
-      <div className="flex flex-wrap gap-2">
-        {(employee.skills.trim().startsWith("[") 
+    {employee.skills && employee.skills.length > 0 ? (
+  <div className="flex flex-wrap gap-2">
+    {(() => {
+      let skillsArray = [];
+
+      if (Array.isArray(employee.skills)) {
+        skillsArray = employee.skills;
+      } else if (typeof employee.skills === "string") {
+        try {
+          skillsArray = employee.skills.trim().startsWith("[")
             ? JSON.parse(employee.skills)
-            : employee.skills.split(",")
-         ).map((skill, idx) => (
-            <span
-              key={idx}
-              className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
-            >
-              {skill.trim()}
-            </span>
-          ))}
-      </div>
-    ) : (
-      <p>No skills listed.</p>
-    )}
+            : employee.skills.split(",");
+        } catch {
+          skillsArray = employee.skills.split(",");
+        }
+      }
+
+      return skillsArray.map((skill, idx) => (
+        <span
+          key={idx}
+          className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
+        >
+          {typeof skill === "string" ? skill.trim() : String(skill)}
+        </span>
+      ));
+    })()}
+  </div>
+) : (
+  <p>No skills listed.</p>
+)}
+
   </div>
 )}
   
@@ -321,20 +348,28 @@ export default function Profile() {
     <h3 className="text-lg font-semibold">Certifications</h3>
     {employee.certifications ? (
       <div className="flex flex-wrap gap-2">
-        {(
-          employee.certifications.trim().startsWith("[")
-            ? JSON.parse(employee.certifications)
-            : employee.certifications.split(",")
-        )
-        .filter(cert => !!cert)
-        .map((cert, idx) => (
-          <span
-            key={idx}
-            className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
-          >
-            {String(cert).trim().replace(/^"|"$/g, "").replace(/,+$/, "")}
-          </span>
-        ))}
+        {(() => {
+  let certs = [];
+  if (employee.certifications) {
+    try {
+      certs = typeof employee.certifications === "string" 
+        ? JSON.parse(employee.certifications) 
+        : employee.certifications;
+    } catch {
+      certs = [];
+    }
+  }
+
+  return certs.map((cert, idx) => (
+    <span
+      key={idx}
+      className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
+    >
+      {cert.certificationName || String(cert)}
+    </span>
+  ));
+})()}
+
       </div>
     ) : (
       <p>No certifications listed.</p>
@@ -342,6 +377,65 @@ export default function Profile() {
   </div>
 )}
 
+{/* ASSETS TAB */}
+{activeTab === "assets" && (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold">Assigned Assets</h3>
+    {assets.length === 0 ? (
+      <p className="text-muted-foreground">No assets assigned.</p>
+    ) : (
+      <div className="space-y-4">
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-muted/50 border-b">
+            <div className="grid grid-cols-4 gap-4 p-4 text-sm font-medium text-muted-foreground">
+              <div>Asset ID</div>
+              <div>Type & Model</div>
+              <div>Serial Number</div>
+              <div>Status</div>
+            </div>
+          </div>
+          <div className="divide-y">
+            {assets.map((asset) => (
+              <div
+                key={asset.id}
+                className="grid grid-cols-4 gap-4 p-4 text-sm hover:bg-muted/30 transition-colors"
+              >
+                <div>
+                  <p className="font-medium">{asset.assetId}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Assigned: {asset.assignedDate}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">{asset.type}</p>
+                  <p className="text-muted-foreground">
+                    {asset.brand} {asset.model}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                    {asset.serialNumber}
+                  </p>
+                </div>
+                <div>
+                  <Badge
+                    className={
+                      asset.status === "Active"
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-400 text-white"
+                    }
+                  >
+                    {asset.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
 {activeTab === "education" && (
   <div className="space-y-4">
