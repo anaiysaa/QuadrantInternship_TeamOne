@@ -633,6 +633,156 @@ app.register_blueprint(it_inventory_api)
 app.register_blueprint(software_center_api)
 
 
+# --- Course API ---
+# ---- List All Courses ----
+@app.route("/api/courses", methods=["GET"])
+def get_courses():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT CourseID, CourseName, SkillsCovered, Link, category, difficulty,
+                   duration, instructor, rating, enrolled, price, description, image
+            FROM LMSCourses
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        courses = []
+        for row in rows:
+            courses.append({
+                "id": row[0],
+                "title": row[1],
+                "skills": row[2],
+                "link": row[3],
+                "category": row[4],
+                "difficulty": row[5],
+                "duration": row[6],
+                "instructor": row[7],
+                "rating": row[8],
+                "enrolled": row[9],
+                "price": row[10],
+                "description": row[11],
+                "image": row[12],
+            })
+        return jsonify(courses)
+    except Exception as e:
+        print("Error in get_courses:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ---- Get Course Details ----
+@app.route("/api/courses/<int:course_id>", methods=["GET"])
+def get_course_by_id(course_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT CourseID, CourseName, SkillsCovered, Link, category, difficulty,
+                   duration, instructor, rating, enrolled, price, description, image
+            FROM LMSCourses
+            WHERE CourseID = ?
+        """, (course_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Course not found"}), 404
+        course = {
+            "id": row[0],
+            "title": row[1],
+            "skills": row[2],
+            "link": row[3],
+            "category": row[4],
+            "difficulty": row[5],
+            "duration": row[6],
+            "instructor": row[7],
+            "rating": row[8],
+            "enrolled": row[9],
+            "price": row[10],
+            "description": row[11],
+            "image": row[12],
+        }
+        return jsonify(course)
+    except Exception as e:
+        print("Error in get_course_by_id:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ---- Enroll User in Course ----
+@app.route("/api/user-courses/<int:user_id>/enroll", methods=["POST"])
+def enroll_user_in_course(user_id):
+    try:
+        data = request.json
+        course_id = data.get("course_id")
+        if not course_id:
+            return jsonify({"error": "Missing course_id"}), 400
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Check if already enrolled
+        cursor.execute(
+            "SELECT COUNT(*) FROM LMSEnrollments WHERE UserID=? AND CourseID=?",
+            (user_id, course_id)
+        )
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            return jsonify({"error": "Already enrolled"}), 400
+
+        # Insert new enrollment: UserID, CourseID, Status, Progress
+        cursor.execute(
+            "INSERT INTO LMSEnrollments (UserID, CourseID, Status, Progress) VALUES (?, ?, ?, ?)",
+            (user_id, course_id, "Not Started", 0)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 201
+
+    except Exception as e:
+        print("Error in enroll_user_in_course:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+
+# ---- Get All Courses a User is Enrolled In ----
+@app.route("/api/user-courses/<int:user_id>", methods=["GET"])
+def get_user_enrollments(user_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                c.CourseID, c.CourseName, c.SkillsCovered, c.Link, c.category, c.difficulty, c.duration, 
+                c.instructor, c.rating, c.enrolled, c.price, c.description, c.image,
+                e.Progress, e.Status, e.DueDate
+            FROM LMSEnrollments e
+            JOIN LMSCourses c ON e.CourseID = c.CourseID
+            WHERE e.UserID = ?
+        """, (user_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        enrolled_courses = []
+        for row in rows:
+            enrolled_courses.append({
+                "id": row[0],
+                "title": row[1],
+                "skills": row[2],
+                "link": row[3],
+                "category": row[4],
+                "difficulty": row[5],
+                "duration": row[6],
+                "instructor": row[7],
+                "rating": row[8],
+                "enrolled": row[9],
+                "price": row[10],
+                "description": row[11],
+                "image": row[12],
+                "progress": row[13],
+                "status": row[14],
+                "dueDate": row[15],
+            })
+        return jsonify(enrolled_courses)
+    except Exception as e:
+        print("Error in get_user_enrollments:", e)
+        return jsonify({"error": str(e)}), 500
+
 # ------------------ RUN ------------------
 
 if __name__ == "__main__":
