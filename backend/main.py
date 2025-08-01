@@ -9,6 +9,9 @@ from werkzeug.utils import secure_filename
 import ai_utils
 from openai import AzureOpenAI
 import requests
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 from it_asset_api import it_asset_api
 from it_inventory_api import it_inventory_api
