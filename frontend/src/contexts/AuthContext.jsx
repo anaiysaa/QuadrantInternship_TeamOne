@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
     currentPortal: "Employee Portal"
   });
 
+  const logAdminAction = (action, details) => {
+    // For now, just log to console (replace with API call if needed)
+    console.log("ADMIN ACTION:", action, details);
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem("portalUser");
     const storedPortal = localStorage.getItem("currentPortal");
@@ -41,13 +46,15 @@ export function AuthProvider({ children }) {
       // Always set id and employeeId
       const transformedUser = {
         ...user,
-        name: user.username,
-        email: user.username,
+        name: user.name, // <-- This is the real name from backend
+        email: user.username, // Username is still email for login purposes
         role: user.department?.toLowerCase(),
         id: user.employee_id,            // always set id
         employeeId: user.employee_id     // always set employeeId
       };
+
       localStorage.setItem("portalUser", JSON.stringify(transformedUser));
+
       let portals = ["Employee Portal"];
       if (user.department === "Admin") {
         portals = ["Admin Dashboard", "HR Portal", "IT Portal", "Employee Portal"];
@@ -58,6 +65,7 @@ export function AuthProvider({ children }) {
       }
       const defaultPortal = portals[0];
       localStorage.setItem("currentPortal", defaultPortal);
+
       setAuthState({
         user: transformedUser,
         isAuthenticated: true,
@@ -65,6 +73,7 @@ export function AuthProvider({ children }) {
         currentPortal: defaultPortal,
         portals
       });
+
       return { success: true };
     } catch (err) {
       setAuthState((prev) => ({ ...prev, isLoading: false }));
@@ -132,7 +141,8 @@ export function AuthProvider({ children }) {
         switchPortal,
         canAccessPortal,
         getAvailablePortals,
-        canShowPortalToggle
+        canShowPortalToggle,
+        logAdminAction // <-- Make sure this is included!
       }}
     >
       {children}

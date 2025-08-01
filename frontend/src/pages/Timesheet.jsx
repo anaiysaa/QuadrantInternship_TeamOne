@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { ViewTimesheetDialog } from '@/components/dialogs/ViewTimesheetDialog';
 import {
   Table,
@@ -16,8 +18,61 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+const API_URL = 'http://localhost:8000/api/timesheets';
+
+function getCurrentWeekDates() {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // Sunday=0, Monday=1, etc.
+  const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  return Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+function formatWeekRange(datesArr) {
+  const fmt = (date) => date.toLocaleString('en-US', { month: 'short', day: 'numeric' });
+  const year = datesArr[0].getFullYear();
+  return `${fmt(datesArr[0])} - ${fmt(datesArr[6])}, ${year}`;
+}
+
+function exportTimesheetsToCSV(timesheets) {
+  if (!timesheets.length) return;
+  const header = [
+    "Timesheet ID",
+    "Week Period",
+    "Total Hours",
+    "Status",
+    "Submitted"
+  ];
+  const rows = timesheets.map(ts => [
+    ts.id,
+    ts.week,
+    ts.totalHours,
+    ts.status,
+    ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : ''
+  ]);
+  const csv = [header, ...rows].map(row =>
+    row.map(field => `"${(field ?? '').toString().replace(/"/g, '""')}"`).join(",")
+  ).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "timesheet_history.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export default function Timesheet() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const weekDates = getCurrentWeekDates();
+  const [currentWeek] = useState(formatWeekRange(weekDates));
   const [weekHours, setWeekHours] = useState({
     monday: 8,
     tuesday: 8,
@@ -27,60 +82,51 @@ export default function Timesheet() {
     saturday: 0,
     sunday: 0
   });
-
-  const [currentWeek] = useState('February 12 - 18, 2024');
+  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [timesheetStatus, setTimesheetStatus] = useState('draft'); // draft, submitted, approved
+  const [timesheetStatus, setTimesheetStatus] = useState('draft');
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [timesheetHistory, setTimesheetHistory] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
-  // Load draft from localStorage on component mount
   useEffect(() => {
-    const savedDraft = localStorage.getItem(`timesheet-draft-${currentWeek}`);
+    if (!user?.employeeId) return;
+    const savedDraft = localStorage.getItem(`timesheet-draft-${currentWeek}-${user.employeeId}`);
     if (savedDraft) {
       try {
         const parsedDraft = JSON.parse(savedDraft);
         setWeekHours(parsedDraft.hours);
+        setNote(parsedDraft.note || '');
         setTimesheetStatus(parsedDraft.status || 'draft');
       } catch (error) {
         console.error('Error loading draft:', error);
       }
     }
-  }, [currentWeek]);
-
-  const timesheetHistory = [
-    {
-      id: 'TS001',
-      week: 'Feb 5 - 11, 2024',
-      totalHours: 40,
-      status: 'Approved',
-      submittedDate: '2024-02-11'
-    },
-    {
-      id: 'TS002',
-      week: 'Jan 29 - Feb 4, 2024',
-      totalHours: 42,
-      status: 'Approved',
-      submittedDate: '2024-02-04'
-    },
-    {
-      id: 'TS003',
-      week: 'Jan 22 - 28, 2024',
-      totalHours: 38,
-      status: 'Approved',
-      submittedDate: '2024-01-28'
-    }
-  ];
+    Promise.all([
+      fetch(`${API_URL}?employeeId=${encodeURIComponent(user.employeeId)}`).then(res => res.json()),
+      fetch('http://localhost:8000/api/employees').then(res => res.json())
+    ])
+      .then(([timesheets, employees]) => {
+        setTimesheetHistory(timesheets);
+        setEmployees(employees);
+      })
+      .catch(() => {
+        setTimesheetHistory([]);
+        setEmployees([]);
+        toast({ title: 'Error', description: 'Failed to load timesheet or employee data.' });
+      });
+  }, [currentWeek, toast, user]);
 
   const days = [
-    { key: 'monday', name: 'Monday', date: 'Feb 12' },
-    { key: 'tuesday', name: 'Tuesday', date: 'Feb 13' },
-    { key: 'wednesday', name: 'Wednesday', date: 'Feb 14' },
-    { key: 'thursday', name: 'Thursday', date: 'Feb 15' },
-    { key: 'friday', name: 'Friday', date: 'Feb 16' },
-    { key: 'saturday', name: 'Saturday', date: 'Feb 17' },
-    { key: 'sunday', name: 'Sunday', date: 'Feb 18' }
+    { key: 'monday', name: 'Monday', date: weekDates[0] },
+    { key: 'tuesday', name: 'Tuesday', date: weekDates[1] },
+    { key: 'wednesday', name: 'Wednesday', date: weekDates[2] },
+    { key: 'thursday', name: 'Thursday', date: weekDates[3] },
+    { key: 'friday', name: 'Friday', date: weekDates[4] },
+    { key: 'saturday', name: 'Saturday', date: weekDates[5] },
+    { key: 'sunday', name: 'Sunday', date: weekDates[6] }
   ];
 
   const totalHours = Object.values(weekHours).reduce((sum, hours) => sum + hours, 0);
@@ -92,63 +138,96 @@ export default function Timesheet() {
     setWeekHours(prev => ({ ...prev, [day]: hours }));
   };
 
+  const monthFormatted = `${weekDates[0].getFullYear()}-${String(weekDates[0].getMonth() + 1).padStart(2, '0')}`;
+
   const saveDraft = async () => {
     setIsSaving(true);
     try {
-      // Save to localStorage
-      const draftData = {
-        hours: weekHours,
-        status: 'draft',
-        lastSaved: new Date().toISOString()
+      const payload = {
+        employeeId: user.employeeId,
+        employeeName: user.name,
+        month: monthFormatted,
+        week: currentWeek,
+        totalHours,
+        regularHours,
+        overtimeHours,
+        notes: note,
+        MondayHours: weekHours.monday,
+        TuesdayHours: weekHours.tuesday,
+        WednesdayHours: weekHours.wednesday,
+        ThursdayHours: weekHours.thursday,
+        FridayHours: weekHours.friday,
+        SaturdayHours: weekHours.saturday,
+        SundayHours: weekHours.sunday
       };
-      localStorage.setItem(`timesheet-draft-${currentWeek}`, JSON.stringify(draftData));
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      const res = await fetch("/api/timesheets/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("Failed to save draft");
+      toast({ title: "Draft Saved", description: "Your timesheet has been saved as a draft." });
       setTimesheetStatus('draft');
-      toast({
-        title: "Draft Saved",
-        description: "Your timesheet has been saved as a draft.",
-      });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to save draft.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const submitTimesheet = async () => {
+  const submitForApproval = async () => {
     if (totalHours === 0) {
       toast({
         title: "Invalid Submission",
-        description: "Please enter hours before submitting.",
+        description: "Please enter hours before submitting for approval.",
         variant: "destructive"
       });
       return;
     }
-
     setIsSubmitting(true);
     try {
-      // Simulate API submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Update status and clear draft
-      setTimesheetStatus('submitted');
-      localStorage.removeItem(`timesheet-draft-${currentWeek}`);
-      
-      toast({
-        title: "Timesheet Submitted",
-        description: `Your timesheet for ${currentWeek} has been submitted for approval.`,
+      const payload = {
+        employeeId: user.employeeId,
+        employeeName: user.name,
+        month: monthFormatted,
+        week: currentWeek,
+        totalHours,
+        regularHours,
+        overtimeHours,
+        status: 'Submitted',
+        submittedDate: new Date().toISOString(),
+        notes: note,
+        MondayHours: weekHours.monday,
+        TuesdayHours: weekHours.tuesday,
+        WednesdayHours: weekHours.wednesday,
+        ThursdayHours: weekHours.thursday,
+        FridayHours: weekHours.friday,
+        SaturdayHours: weekHours.saturday,
+        SundayHours: weekHours.sunday
+      };
+
+      const res = await fetch("http://localhost:8000/api/timesheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Unknown error");
+      }
+
+      setTimesheetStatus('submitted');
+      localStorage.removeItem(`timesheet-draft-${currentWeek}-${user.employeeId}`);
+      toast({
+        title: "Submitted for Approval",
+        description: `Your timesheet for ${currentWeek} has been submitted and is pending approval.`,
+      });
+      setNote("");
     } catch (error) {
       toast({
         title: "Submission Failed",
-        description: "Failed to submit timesheet. Please try again.",
+        description: error.message || "Failed to submit for approval. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -166,50 +245,14 @@ export default function Timesheet() {
       saturday: 0,
       sunday: 0
     };
-    
     setWeekHours(resetHours);
+    setNote('');
     setTimesheetStatus('draft');
-    
-    // Clear saved draft
-    localStorage.removeItem(`timesheet-draft-${currentWeek}`);
-    
+    localStorage.removeItem(`timesheet-draft-${currentWeek}-${user.employeeId}`);
     toast({
       title: "Timesheet Reset",
       description: "All hours have been cleared.",
     });
-  };
-
-  const submitForApproval = async () => {
-    if (totalHours === 0) {
-      toast({
-        title: "Invalid Submission",
-        description: "Please enter hours before submitting for approval.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // Simulate API submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setTimesheetStatus('submitted');
-      localStorage.removeItem(`timesheet-draft-${currentWeek}`);
-      
-      toast({
-        title: "Submitted for Approval",
-        description: `Your timesheet for ${currentWeek} has been submitted and is pending approval.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Submission Failed",
-        description: "Failed to submit for approval. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleViewDetails = (timesheet) => {
@@ -235,29 +278,7 @@ export default function Timesheet() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Timesheet</h1>
-            <p className="text-muted-foreground">Track your working hours</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={saveDraft}
-              disabled={isDisabled}
-            >
-              {isSaving ? 'Saving...' : 'Save Draft'}
-            </Button>
-            <Button 
-              onClick={submitTimesheet}
-              disabled={isDisabled}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Timesheet'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Current Week Summary */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -298,66 +319,15 @@ export default function Timesheet() {
         </div>
 
         {/* Time Entry Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Time Entry - {currentWeek}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {days.map((day) => (
-                <div key={day.key} className="space-y-2">
-                  <Label htmlFor={day.key} className="text-sm font-medium">
-                    {day.name}
-                    <span className="text-muted-foreground ml-1">({day.date})</span>
-                  </Label>
-                  <Input
-                    id={day.key}
-                    type="number"
-                    min="0"
-                    max="24"
-                    value={weekHours[day.key]}
-                    onChange={(e) => handleHoursChange(day.key, e.target.value)}
-                    className="w-full"
-                    disabled={isDisabled}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                {timesheetStatus === 'draft' && 'Remember to submit your timesheet by end of day Sunday'}
-                {timesheetStatus === 'submitted' && 'Your timesheet has been submitted and is pending approval'}
-              </div>
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  onClick={resetTimesheet}
-                  disabled={isDisabled}
-                >
-                  Reset
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={saveDraft}
-                  disabled={isDisabled}
-                >
-                  {isSaving ? 'Saving...' : 'Save Draft'}
-                </Button>
-                <Button 
-                  onClick={submitForApproval}
-                  disabled={isDisabled}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit for Approval'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ...Keep the rest of your component as is... */}
 
         {/* Timesheet History */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Timesheet History</CardTitle>
+            <Button variant="outline" onClick={() => exportTimesheetsToCSV(timesheetHistory)}>
+              Export as CSV
+            </Button>
           </CardHeader>
           <CardContent>
             <Table>
@@ -372,16 +342,27 @@ export default function Timesheet() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {timesheetHistory.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">
+                      No timesheets found.
+                    </TableCell>
+                  </TableRow>
+                )}
                 {timesheetHistory.map((timesheet) => (
                   <TableRow key={timesheet.id}>
                     <TableCell className="font-medium">{timesheet.id}</TableCell>
                     <TableCell>{timesheet.week}</TableCell>
                     <TableCell>{timesheet.totalHours}h</TableCell>
                     <TableCell>{getStatusBadge(timesheet.status)}</TableCell>
-                    <TableCell>{new Date(timesheet.submittedDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button 
-                        size="sm" 
+                      {timesheet.submittedDate
+                        ? new Date(timesheet.submittedDate).toLocaleDateString()
+                        : ''}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleViewDetails(timesheet)}
                       >
@@ -396,10 +377,11 @@ export default function Timesheet() {
         </Card>
       </div>
 
-      <ViewTimesheetDialog 
+      <ViewTimesheetDialog
         timesheet={selectedTimesheet}
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
+        employees={employees}
       />
     </DashboardLayout>
   );

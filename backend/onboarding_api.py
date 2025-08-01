@@ -87,55 +87,30 @@ def get_new_hire(hire_id):
 def add_new_hire():
     data = request.json
     print("Received data:", data)
+
     name = data.get("name")
     email = data.get("email")
     role = data.get("role")
-    department = data.get("department")
     date_joined = data.get("dateJoined")
-    manager_id = data.get("managerId")
+    manager_id = data.get("managerId")  # optional
 
-    if not all([name, email, role, department, date_joined, manager_id]):
-        return jsonify({"error": "All fields are required"}), 400
+    # ✅ Only require basic fields
+    if not all([name, email, role, date_joined]):
+        return jsonify({"error": "Name, Email, Role, and DateJoined are required"}), 400
 
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Validate department and get checklist
-    cursor.execute("SELECT ChecklistID FROM dbo.Checklists WHERE Department = ?", department)
-    row = cursor.fetchone()
-    if not row:
-        return jsonify({"error": "No checklist found for department or Employee"}), 400
-    checklist_id = row[0]
-
-
-    # Get checklist tasks using true item IDs
-    cursor.execute("SELECT ItemID, TaskDesc, IsMandatory FROM dbo.ChecklistItems WHERE ChecklistID = ?", checklist_id)
-    db_tasks = cursor.fetchall()
-    if not db_tasks:
-        conn.close()
-        return jsonify({"error": f"No tasks found for the checklist of department '{department}'."}), 400
-
-    tasks = [
-        {
-            "itemId": task[0],  # Use DB ItemID, not i+1
-            "taskDesc": task[1],
-            "isMandatory": bool(task[2]),
-            "completed": False
-        }
-        for task in db_tasks
-    ]
-    tasks_json = json.dumps(tasks)
-
-    # Generate new ID (if not using auto-increment)
+    # Generate new ID
     cursor.execute("SELECT ISNULL(MAX(ID), 0) + 1 FROM dbo.NewHires")
     new_id = cursor.fetchone()[0]
 
-    # Insert new hire
+    # ✅ Insert new hire without department or checklist yet
     cursor.execute("""
         INSERT INTO dbo.NewHires
         (ID, Name, Email, Role, DateJoined, ManagerID, OnboardingStatus, ChecklistAssigned, ChecklistTasksStatus, ChecklistStatus, Department)
-        VALUES (?, ?, ?, ?, ?, ?, 'Not Started', 1, ?, 'Not Started', ?)
-    """, (new_id, name, email, role, date_joined, manager_id, tasks_json, department))
+        VALUES (?, ?, ?, ?, ?, ?, 'Not Started', 0, '[]', 'Not Started', NULL)
+    """, (new_id, name, email, role, date_joined, manager_id))
 
     conn.commit()
     conn.close()
@@ -145,14 +120,13 @@ def add_new_hire():
         "name": name,
         "email": email,
         "role": role,
-        "department": department,
+        "department": None,
         "dateJoined": date_joined,
         "managerId": manager_id,
         "onboardingStatus": "Not Started",
-        "checklistTasksStatus": tasks
+        "checklistAssigned": False,
+        "checklistTasksStatus": []
     }), 201
-
-
 
 
 @onboarding_api.route('/newhires/<int:hire_id>', methods=['PUT'])
@@ -606,3 +580,57 @@ def update_employee_onboarding(onboarding_id):
     conn.commit()
     conn.close()
     return jsonify({"success": True})
+
+@onboarding_api.route("/newhires/<int:hire_id>/assign_checklist", methods=["POST"])
+def assign_checklist_to_hire(hire_id):
+    data = request.json
+
+    try:
+        checklist_id = int(data.get("checklistId"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid checklistId"}), 400
+
+    if not checklist_id:
+        return jsonify({"error": "Checklist ID is required"}), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT ChecklistName, Department FROM dbo.Checklists WHERE ChecklistID = ?", (checklist_id,))
+    checklist_row = cursor.fetchone()
+    if not checklist_row:
+        conn.close()
+        return jsonify({"error": "Invalid checklist ID"}), 400
+
+    checklist_name, department = checklist_row
+
+    cursor.execute("SELECT ItemID, TaskDesc, IsMandatory FROM dbo.ChecklistItems WHERE ChecklistID = ?", (checklist_id,))
+    task_rows = cursor.fetchall()
+
+    tasks = [
+        {"itemId": r[0], "taskDesc": r[1], "isMandatory": bool(r[2]), "completed": False}
+        for r in task_rows
+    ]
+
+    cursor.execute("""
+        UPDATE dbo.NewHires
+        SET ChecklistAssigned = 1,
+            ChecklistStatus = 'Not Started',
+            ChecklistTasksStatus = ?,
+            OnboardingStatus = 'Not Started',
+            Department = ?,
+            ChecklistID = ?
+        WHERE ID = ?
+    """, (json.dumps(tasks), department, checklist_id, hire_id))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "hireId": hire_id,
+        "department": department,
+        "checklistId": checklist_id,
+        "tasksAssigned": len(tasks),
+        "tasks": tasks
+    })

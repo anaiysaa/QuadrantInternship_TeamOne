@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
 from azure.core.credentials import AzureKeyCredential
+import re
+
 
 load_dotenv()
 
@@ -14,7 +16,7 @@ key = os.getenv("AZURE_INFERENCE_SDK_KEY", "5KW1rps1l6JBaMaoTktaghezYRPa9xI4y3rk
 
 client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
-with open("hr_severity.json", "r", encoding="utf-8") as f:
+with open("ticketAi/hr_severity.json", "r", encoding="utf-8") as f:
     severity_data = json.load(f)
 
 def build_system_message_from_severity(severity_data):
@@ -36,7 +38,15 @@ def classify_hr_ticket(ticket_text):
         model=model_name,
         max_tokens=1000
     )
-    return response.choices[0].message.content.strip()
+
+    print(f"LLM Response: {response.choices[0].message.content.strip()}")
+    full_response = response.choices[0].message.content.strip()
+    match = re.search(r"Final Classification[:\s]*\**Severity\s*(\d)\**", full_response, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    else:
+        print("⚠️ Could not extract severity from LLM output")
+        return None
 
 # individual ticket classification test
 #if __name__ == "__main__":

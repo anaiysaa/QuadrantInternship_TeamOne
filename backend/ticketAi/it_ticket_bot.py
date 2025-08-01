@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
 from azure.core.credentials import AzureKeyCredential
+import re
 
 load_dotenv()
 
@@ -15,7 +16,7 @@ key = os.getenv("AZURE_INFERENCE_SDK_KEY", "5KW1rps1l6JBaMaoTktaghezYRPa9xI4y3rk
 client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
 # Load IT severity data instead of HR severity data
-with open("it_severity.json", "r", encoding="utf-8") as f:
+with open("ticketAi/it_severity.json", "r", encoding="utf-8") as f:
     severity_data = json.load(f)
 
 def build_system_message_from_severity(severity_data):
@@ -48,7 +49,7 @@ def classify_it_ticket(ticket_text):
     print(full_response)
 
     # Extract only the number after "Final Classification: Severity X"
-    match = re.search(r"Final Classification: Severity (\d)", full_response)
+    match = re.search(r"Final Classification[:\s]*\**Severity\s*(\d)\**", full_response, re.IGNORECASE)
     if match:
         severity_number = int(match.group(1))
         return severity_number

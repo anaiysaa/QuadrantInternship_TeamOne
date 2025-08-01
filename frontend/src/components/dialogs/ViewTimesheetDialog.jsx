@@ -1,5 +1,3 @@
-
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,33 +7,36 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { CalendarDays, Clock, User, FileText } from 'lucide-react';
 
-export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
+export function ViewTimesheetDialog({ timesheet, open, onOpenChange, employees = [] }) {
   if (!timesheet) return null;
 
-  // Mock detailed data for the timesheet
-  const timesheetDetails = {
-    ...timesheet,
-    employee: {
-      name: 'John Doe',
-      id: 'EMP001',
-      department: 'Engineering',
-      position: 'Software Developer'
-    },
-    dailyHours: {
-      monday: 8,
-      tuesday: 8,
-      wednesday: 8,
-      thursday: 8,
-      friday: 8,
-      saturday: 0,
-      sunday: 0
-    },
-    notes: timesheet.id === 'TS001' ? 'Regular work week with standard hours' : '',
-    approvedBy: timesheet.status === 'Approved' ? 'Jane Smith (Manager)' : null,
-    approvedDate: timesheet.status === 'Approved' ? '2024-02-12' : null
+  // --- Find Employee Info ---
+  const employeeInfo = employees.find(emp =>
+    String(emp.id) === String(timesheet.employeeId)
+  ) || {};
+
+  // --- Find Manager/Approver ---
+  let managerName = "";
+  if (String(timesheet.employeeId) === "10001") {
+    managerName = "Approved by Admin";
+  } else if (employeeInfo.managerName) {
+    managerName = employeeInfo.managerName + " (Manager)";
+  } else if (employeeInfo.managerId) {
+    const mgr = employees.find(emp => String(emp.id) === String(employeeInfo.managerId));
+    managerName = mgr ? mgr.name + " (Manager)" : "";
+  }
+
+  // --- Daily Hours from Timesheet ---
+  const dailyHours = {
+    monday: Number(timesheet.MondayHours ?? 0),
+    tuesday: Number(timesheet.TuesdayHours ?? 0),
+    wednesday: Number(timesheet.WednesdayHours ?? 0),
+    thursday: Number(timesheet.ThursdayHours ?? 0),
+    friday: Number(timesheet.FridayHours ?? 0),
+    saturday: Number(timesheet.SaturdayHours ?? 0),
+    sunday: Number(timesheet.SundayHours ?? 0),
   };
 
   const days = [
@@ -48,8 +49,8 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
     { key: 'sunday', name: 'Sunday' }
   ];
 
-  const regularHours = Math.min(timesheetDetails.totalHours, 40);
-  const overtimeHours = Math.max(timesheetDetails.totalHours - 40, 0);
+  const regularHours = Math.min(Number(timesheet.totalHours) || 0, 40);
+  const overtimeHours = Math.max((Number(timesheet.totalHours) || 0) - 40, 0);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -66,15 +67,15 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="dialog-desc">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Timesheet Details - {timesheetDetails.id}
+            Timesheet Details - {timesheet.id}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6" id="dialog-desc">
           {/* Header Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -87,23 +88,22 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Name:</span>
-                  <span className="font-medium">{timesheetDetails.employee.name}</span>
+                  <span className="font-medium">{employeeInfo.name || timesheet.employeeName || ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Employee ID:</span>
-                  <span className="font-medium">{timesheetDetails.employee.id}</span>
+                  <span className="font-medium">{timesheet.employeeId || ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Department:</span>
-                  <span className="font-medium">{timesheetDetails.employee.department}</span>
+                  <span className="font-medium">{employeeInfo.department || ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Position:</span>
-                  <span className="font-medium">{timesheetDetails.employee.position}</span>
+                  <span className="font-medium">{employeeInfo.position || ""}</span>
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -114,25 +114,31 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Week Period:</span>
-                  <span className="font-medium">{timesheetDetails.week}</span>
+                  <span className="font-medium">{timesheet.week}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status:</span>
-                  <div>{getStatusBadge(timesheetDetails.status)}</div>
+                  <div>{getStatusBadge(timesheet.status)}</div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Submitted:</span>
-                  <span className="font-medium">{new Date(timesheetDetails.submittedDate).toLocaleDateString()}</span>
+                  <span className="font-medium">
+                    {timesheet.submittedDate ? new Date(timesheet.submittedDate).toLocaleDateString() : ""}
+                  </span>
                 </div>
-                {timesheetDetails.approvedBy && (
+                {timesheet.status === "Approved" && (
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Approved By:</span>
-                      <span className="font-medium">{timesheetDetails.approvedBy}</span>
+                      <span className="font-medium">
+                        {timesheet.approvedBy || "—"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Approved Date:</span>
-                      <span className="font-medium">{new Date(timesheetDetails.approvedDate).toLocaleDateString()}</span>
+                      <span className="font-medium">
+                        {timesheet.approvedDate ? new Date(timesheet.approvedDate).toLocaleDateString() : "—"}
+                      </span>
                     </div>
                   </>
                 )}
@@ -151,7 +157,7 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{timesheetDetails.totalHours}h</div>
+                  <div className="text-2xl font-bold text-primary">{timesheet.totalHours}h</div>
                   <div className="text-sm text-muted-foreground">Total Hours</div>
                 </div>
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
@@ -177,7 +183,7 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
                   <div key={day.key} className="text-center p-3 border rounded-lg">
                     <div className="font-medium text-sm mb-1">{day.name}</div>
                     <div className="text-2xl font-bold">
-                      {timesheetDetails.dailyHours[day.key]}h
+                      {dailyHours[day.key]}h
                     </div>
                   </div>
                 ))}
@@ -186,13 +192,13 @@ export function ViewTimesheetDialog({ timesheet, open, onOpenChange }) {
           </Card>
 
           {/* Notes Section */}
-          {timesheetDetails.notes && (
+          {timesheet.notes && (
             <Card>
               <CardHeader>
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">{timesheetDetails.notes}</p>
+                <p className="text-muted-foreground">{timesheet.notes}</p>
               </CardContent>
             </Card>
           )}
