@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => ({
     "/login": "http://127.0.0.1:8000",
     "/summarize-hr-tickets": "http://127.0.0.1:8000",
     "/apply-internal-transfer": "http://127.0.0.1:8000",
+    "/resume": "http://127.0.0.1:8000",
+    "/job": "http://127.0.0.1:8000"
   }
 },
 

@@ -1,140 +1,228 @@
-import React, { useEffect, useState } from "react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { EditProfileDialog } from "@/components/dialogs/EditProfileDialog";
-import { EditSkillsDialog } from "@/components/dialogs/EditSkillsDialog";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
+import { EditProfileDialog } from '@/components/dialogs/EditProfileDialog';
+import { EditSkillsDialog } from '@/components/dialogs/EditSkillsDialog';
+import { EditResumeDialog } from '@/components/dialogs/EditResumeDialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Profile() {
   const { user } = useAuth();
-  const employeeId = user?.employeeId;
-
-  const [activeTab, setActiveTab] = useState("personal");
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('personal');
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editSkillsOpen, setEditSkillsOpen] = useState(false);
-  const { toast } = useToast();
-
-  // Employee state
-  const [employee, setEmployee] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  
-  // Fetch employee data
-  useEffect(() => {
-    if (!employeeId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    fetch(`/resume/api/employees/${employeeId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setEmployee(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        toast({
-          title: "Failed to load employee",
-          description: err.message,
-          variant: "destructive",
-        });
-        setLoading(false);
-      });
-  }, [employeeId, toast]);
-  
-  // Resume upload handler
-  const handleResumeUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append("resume", file);
-  
-    try {
-      const response = await fetch("/resume/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (response.ok) {
-        toast({
-          title: "Resume uploaded!",
-          description: "Resume uploaded and parsed successfully.",
-          variant: "success",
-        });
-        // Refresh employee data
-        fetch(`/resume/api/employees/${employeeId}`)
-          .then((res) => res.json())
-          .then((data) => setEmployee(data));
-      } else {
-        toast({
-          title: "Upload failed.",
-          description: "Resume upload failed.",
-          variant: "destructive",
-        });
-      }
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "An error occurred during upload.",
-        variant: "destructive",
-      });
-    }
-  };
-
-
-
-
-  // Tabs
-  const tabs = [
-    { id: "personal", label: "Personal Info", icon: "👤" },
-    { id: "professional", label: "Professional Info", icon: "🎓" },
-    { id: "skills", label: "Skills", icon: "🎯" },
-    { id: "certifications", label: "Certifications", icon: "🏆" },
-    { id: "education", label: "Education", icon: "📚" }, 
-  ];
+  const [editResumeOpen, setEditResumeOpen] = useState(false);
 
   const getInitials = (name) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (!employee) return <div className="p-8">Employee not found</div>;
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'hr': return 'bg-success text-success-foreground';
+      case 'it': return 'bg-warning text-warning-foreground';
+      default: return 'bg-primary text-primary-foreground';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    return status === 'active' ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground';
+  };
+
+  // Calculate age from birthdate
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 'Not provided';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Mock additional user data - in real app this would come from user profile
+  const extendedUser = {
+    ...user,
+    nationality: user?.nationality || 'United States',
+    gender: user?.gender || 'Male',
+    birthDate: user?.birthDate || '1990-05-15',
+    status: user?.status || 'active',
+    hireType: user?.hireType || 'Full-time',
+    education: user?.education || {
+      level: 'Bachelor\'s Degree',
+      degree: 'Computer Science',
+      institution: 'State University',
+      graduationYear: '2019',
+      gpa: '3.8'
+    },
+    address: user?.address || {
+      street: '123 Main Street',
+      city: 'San Francisco',
+      state: 'CA',
+      zipCode: '94102',
+      country: 'United States'
+    }
+  };
+
+  const certifications = [
+    {
+      id: 1,
+      name: 'Cybersecurity Fundamentals',
+      issuer: 'Company LMS',
+      date: '2024-02-10',
+      status: 'Active',
+      credentialId: 'CSF-2024-001'
+    },
+    {
+      id: 2,
+      name: 'Advanced Excel Training',
+      issuer: 'Company LMS',
+      date: '2024-01-15',
+      status: 'Active',
+      credentialId: 'AET-2024-002'
+    },
+    {
+      id: 3,
+      name: 'Project Management Basics',
+      issuer: 'Company LMS',
+      date: '2023-12-20',
+      status: 'Active',
+      credentialId: 'PMB-2023-045'
+    }
+  ];
+
+  const [resumeData, setResumeData] = useState({
+    summary: "Dedicated professional with 5+ years of experience in software development and team leadership. Skilled in multiple programming languages and frameworks.",
+    experience: [
+      {
+        title: "Senior Software Developer",
+        company: "Current Company",
+        period: "2022 - Present",
+        description: "Lead development team of 5 engineers, architected microservices solutions, improved system performance by 40%"
+      },
+      {
+        title: "Software Developer",
+        company: "Previous Company",
+        period: "2019 - 2022",
+        description: "Developed full-stack applications, collaborated with cross-functional teams, mentored junior developers"
+      }
+    ],
+    education: [
+      {
+        degree: "Bachelor of Science in Computer Science",
+        institution: "State University",
+        year: "2019"
+      }
+    ],
+    skills: ["JavaScript", "React", "Node.js", "Python", "SQL", "AWS", "Docker", "Git"]
+  });
+
+  // Mock skills data - in real app this would come from user profile
+  const userSkills = user?.skills || ["JavaScript", "React", "Node.js", "Python", "Project Management", "Team Leadership", "Agile", "SQL"];
+
+  // Mock assigned assets data - in real app this would come from API
+  const assignedAssets = [
+    {
+      id: 'AST-001',
+      assetId: 'LT-2024-001',
+      type: 'Laptop',
+      brand: 'Dell',
+      model: 'Latitude 7420',
+      serialNumber: 'DL7420240101',
+      assignedDate: '2024-01-15',
+      status: 'Active'
+    },
+    {
+      id: 'AST-002',
+      assetId: 'MON-2024-045',
+      type: 'Monitor',
+      brand: 'Samsung',
+      model: '27" 4K UHD',
+      serialNumber: 'SM27240045',
+      assignedDate: '2024-01-15',
+      status: 'Active'
+    },
+    {
+      id: 'AST-003',
+      assetId: 'PH-2024-078',
+      type: 'Phone',
+      brand: 'Apple',
+      model: 'iPhone 14 Pro',
+      serialNumber: 'APH14240078',
+      assignedDate: '2024-02-01',
+      status: 'Active'
+    }
+  ];
+
+  const tabs = [
+    { id: 'personal', label: 'Personal Info', icon: '👤' },
+    { id: 'professional', label: 'Professional Info', icon: '🎓' },
+    { id: 'skills', label: 'Skills', icon: '🎯' },
+    { id: 'certifications', label: 'Certifications', icon: '🏆' },
+    { id: 'assets', label: 'Assigned Assets', icon: '💻' },
+    { id: 'resume', label: 'Resume', icon: '📄' },
+  ];
+
+  const handleDownloadPDF = () => {
+    const resumeContent = `
+      RESUME - ${user?.name}
+      
+      PROFESSIONAL SUMMARY
+      ${resumeData.summary}
+      
+      WORK EXPERIENCE
+      ${resumeData.experience.map(exp => `
+        ${exp.title} at ${exp.company} (${exp.period})
+        ${exp.description}
+      `).join('\n')}
+      
+      EDUCATION
+      ${resumeData.education.map(edu => `
+        ${edu.degree}
+        ${edu.institution} - ${edu.year}
+      `).join('\n')}
+      
+      SKILLS
+      ${resumeData.skills.join(', ')}
+    `;
+
+    const blob = new Blob([resumeContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${user?.name || 'resume'}_resume.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Resume Downloaded",
+      description: "Your resume has been downloaded as a text file.",
+    });
+  };
+
+  const handleSaveResume = (updatedResumeData) => {
+    setResumeData(updatedResumeData);
+  };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-      <div className="flex items-center justify-between">
-  <h1 className="text-3xl font-bold">My Profile</h1>
-  <div className="flex gap-4">
-    <Button onClick={() => setEditProfileOpen(true)}>Edit Profile</Button>
-    <label
-      htmlFor="resume-upload"
-      className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition"
-      style={{ marginBottom: 0 }}
-    >
-      Upload Resume
-      <input
-        id="resume-upload"
-        type="file"
-        accept=".pdf,.doc,.docx"
-        className="hidden"
-        onChange={handleResumeUpload}
-      />
-    </label>
-  </div>
-</div>
-
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">My Profile</h1>
+          <Button onClick={() => setEditProfileOpen(true)}>Edit Profile</Button>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Left: Profile Overview */}
+          {/* Profile Overview */}
           <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>Profile Overview</CardTitle>
@@ -142,40 +230,90 @@ export default function Profile() {
             <CardContent className="space-y-6">
               <div className="flex flex-col items-center space-y-4">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={employee.photoUrl} alt={employee.name} />
-                  <AvatarFallback className="text-xl">{getInitials(employee.name)}</AvatarFallback>
+                  <AvatarImage src={user?.avatar} alt={user?.name} />
+                  <AvatarFallback className="text-xl">
+                    {user ? getInitials(user.name) : 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="text-center space-y-2">
-                  <h3 className="text-xl font-semibold">{employee.name}</h3>
-                  <p className="text-muted-foreground">{employee.email}</p>
+                  <h3 className="text-xl font-semibold">{user?.name}</h3>
+                  <p className="text-muted-foreground">{user?.email}</p>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    <Badge>{employee.role}</Badge>
-                    <Badge>{employee.status}</Badge>
+                    <Badge className={getRoleColor(user?.role || '')}>
+                      {user?.role?.toUpperCase()}
+                    </Badge>
+                    <Badge className={getStatusColor(extendedUser.status)}>
+                      {extendedUser.status?.toUpperCase()}
+                    </Badge>
                   </div>
                 </div>
               </div>
+
               <div className="grid gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Employee ID</label>
-                  <p className="text-sm">{employee.id}</p>
+                  <p className="text-sm">{user?.employeeId}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Department</label>
-                  <p className="text-sm">{employee.department}</p>
+                  <p className="text-sm">{user?.department}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Manager</label>
-                  <p className="text-sm">{employee.managerName || "Not assigned"}</p>
+                  <p className="text-sm">{user?.manager || 'Not assigned'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Join Date</label>
-                  <p className="text-sm">{employee.joinDate || employee.hireDate}</p>
+                  <p className="text-sm">{user?.joinDate}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Type of Hire</label>
+                  <p className="text-sm">{extendedUser.hireType}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Nationality</label>
+                  <p className="text-sm">{extendedUser.nationality}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Gender</label>
+                  <p className="text-sm">{extendedUser.gender}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Age</label>
+                  <p className="text-sm">{calculateAge(extendedUser.birthDate)}</p>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Quick Stats</h4>
+                <div className="grid gap-3">
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Skills</span>
+                    <span className="text-sm font-bold">{userSkills.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Certifications</span>
+                    <span className="text-sm font-bold">{certifications.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Leave Balance</span>
+                    <span className="text-sm font-bold">18 days</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Assigned Assets</span>
+                    <span className="text-sm font-bold">{assignedAssets.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-lg">
+                    <span className="text-sm">Performance</span>
+                    <span className="text-sm font-bold">95%</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Right: Tabs */}
+          {/* Main Content */}
           <Card className="md:col-span-2">
             <CardHeader>
               <div className="flex space-x-4 border-b">
@@ -185,8 +323,8 @@ export default function Profile() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors ${
                       activeTab === tab.id
-                        ? "border-b-2 border-primary text-primary"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? 'border-b-2 border-primary text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     <span>{tab.icon}</span>
@@ -196,188 +334,369 @@ export default function Profile() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              {/* PERSONAL TAB */}
-              {activeTab === "personal" && (
+              {activeTab === 'personal' && (
                 <div className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                      <p className="text-sm mt-1">{employee.name}</p>
+                      <p className="text-sm mt-1">{user?.name}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Email</label>
-                      <p className="text-sm mt-1">{employee.email}</p>
+                      <p className="text-sm mt-1">{user?.email}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                      <p className="text-sm mt-1">{employee.phone || "Not provided"}</p>
+                      <p className="text-sm mt-1">{user?.phone || 'Not provided'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Location</label>
-                      <p className="text-sm mt-1">{employee.campus || "Not provided"}</p>
+                      <p className="text-sm mt-1">{user?.location || 'Not provided'}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Date of Hire</label>
-                      <p className="text-sm mt-1">{employee.hireDate || employee.joinDate}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
+                      <p className="text-sm mt-1">{extendedUser.birthDate}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Gender</label>
-                      <p className="text-sm mt-1">{employee.gender || "Not provided"}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Nationality</label>
+                      <p className="text-sm mt-1">{extendedUser.nationality}</p>
                     </div>
                   </div>
+                  
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Home Address</label>
                     <div className="text-sm mt-1 space-y-1">
-                      <p>{employee.address || "Not provided"}</p>
+                      <p>{extendedUser.address.street}</p>
+                      <p>{extendedUser.address.city}, {extendedUser.address.state} {extendedUser.address.zipCode}</p>
+                      <p>{extendedUser.address.country}</p>
                     </div>
                   </div>
-                  {/* Add bio or other fields as needed */}
+                  
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Bio</label>
+                    <p className="text-sm mt-1 text-muted-foreground">
+                      {user?.bio || 'No bio provided yet. Click edit to add your professional summary.'}
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {/* PROFESSIONAL TAB */}
-              {activeTab === "professional" && (
-  <div className="space-y-6">
-    <div className="grid gap-4 md:grid-cols-2">
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Department</label>
-        <p className="text-sm mt-1">{employee.department}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Role</label>
-        <p className="text-sm mt-1">{employee.role}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Manager</label>
-        <p className="text-sm mt-1">{employee.managerName || "Not assigned"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Employment Status</label>
-        <p className="text-sm mt-1">{employee.status || "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Paid Leaves Left</label>
-        <p className="text-sm mt-1">{employee.paidLeavesLeft ?? "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Years in Company</label>
-        <p className="text-sm mt-1">{employee.yearsInCompany ?? "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Team ID</label>
-        <p className="text-sm mt-1">{employee.teamId ?? "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Trainings Done</label>
-        <p className="text-sm mt-1">{employee.trainingsDone ?? "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Trainings Left</label>
-        <p className="text-sm mt-1">{employee.trainingsLeft ?? "Not provided"}</p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-muted-foreground">Applied Jobs</label>
-        <p className="text-sm mt-1">
-          {employee.appliedJobs
-            ? Array.isArray(employee.appliedJobs)
-              ? employee.appliedJobs.join(", ")
-              : employee.appliedJobs
-            : "None"}
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+              {activeTab === 'professional' && (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Education Level</label>
+                      <p className="text-sm mt-1">{extendedUser.education.level}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Degree</label>
+                      <p className="text-sm mt-1">{extendedUser.education.degree}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Institution</label>
+                      <p className="text-sm mt-1">{extendedUser.education.institution}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Graduation Year</label>
+                      <p className="text-sm mt-1">{extendedUser.education.graduationYear}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">GPA</label>
+                      <p className="text-sm mt-1">{extendedUser.education.gpa}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Employment Status</label>
+                      <Badge className={getStatusColor(extendedUser.status)}>
+                        {extendedUser.status?.toUpperCase()}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-3">Work Information</h4>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Position</label>
+                        <p className="text-sm mt-1">{user?.role || 'Not specified'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Department</label>
+                        <p className="text-sm mt-1">{user?.department}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Hire Type</label>
+                        <p className="text-sm mt-1">{extendedUser.hireType}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Start Date</label>
+                        <p className="text-sm mt-1">{user?.joinDate}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              {activeTab === 'skills' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">My Skills</h3>
+                    <Button onClick={() => setEditSkillsOpen(true)} size="sm">
+                      Edit Skills
+                    </Button>
+                  </div>
+                  
+                  {userSkills.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-4">No skills added yet.</p>
+                      <Button onClick={() => setEditSkillsOpen(true)}>
+                        Add Your First Skill
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid gap-3">
+                        <div className="flex flex-wrap gap-2">
+                          {userSkills.map((skill, index) => (
+                            <Badge key={index} variant="outline" className="text-sm">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <strong>{userSkills.length}</strong> skills total
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* SKILLS TAB */}
-              {activeTab === "skills" && (
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold">My Skills</h3>
-    {employee.skills ? (
-      <div className="flex flex-wrap gap-2">
-        {(employee.skills.trim().startsWith("[") 
-            ? JSON.parse(employee.skills)
-            : employee.skills.split(",")
-         ).map((skill, idx) => (
-            <span
-              key={idx}
-              className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
-            >
-              {skill.trim()}
-            </span>
-          ))}
-      </div>
-    ) : (
-      <p>No skills listed.</p>
-    )}
-  </div>
-)}
-  
+              {activeTab === 'certifications' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">My Certifications</h3>
+                    <Badge variant="outline">{certifications.length} Active</Badge>
+                  </div>
+                  <div className="grid gap-4">
+                    {certifications.map((cert) => (
+                      <div key={cert.id} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{cert.name}</h4>
+                          <Badge variant="default" className="bg-success text-success-foreground">
+                            {cert.status}
+                          </Badge>
+                        </div>
+                        <div className="grid gap-2 text-sm text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span>Issued by:</span>
+                            <span>{cert.issuer}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Date:</span>
+                            <span>{cert.date}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Credential ID:</span>
+                            <span className="font-mono">{cert.credentialId}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-3">
+                          <Button variant="outline" size="sm">View Certificate</Button>
+                          <Button variant="outline" size="sm">Download PDF</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {/* CERTIFICATIONS TAB */}
-              {activeTab === "certifications" && (
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold">Certifications</h3>
-    {employee.certifications ? (
-      <div className="flex flex-wrap gap-2">
-        {(
-          employee.certifications.trim().startsWith("[")
-            ? JSON.parse(employee.certifications)
-            : employee.certifications.split(",")
-        )
-        .filter(cert => !!cert)
-        .map((cert, idx) => (
-          <span
-            key={idx}
-            className="px-4 py-1 rounded-full bg-white border border-black text-black text-base font-medium shadow-sm"
-          >
-            {String(cert).trim().replace(/^"|"$/g, "").replace(/,+$/, "")}
-          </span>
-        ))}
-      </div>
-    ) : (
-      <p>No certifications listed.</p>
-    )}
-  </div>
-)}
+              {activeTab === 'assets' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Assigned Assets</h3>
+                    <Badge variant="outline">{assignedAssets.length} Assets</Badge>
+                  </div>
+                  
+                  {assignedAssets.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                        <span className="text-2xl">💻</span>
+                      </div>
+                      <h4 className="text-lg font-medium mb-2">No assets currently assigned</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Contact IT support if you need equipment or have questions about asset assignment.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Assets Table */}
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="bg-muted/50 border-b">
+                          <div className="grid grid-cols-4 gap-4 p-4 text-sm font-medium text-muted-foreground">
+                            <div>Asset ID</div>
+                            <div>Type & Model</div>
+                            <div>Serial Number</div>
+                            <div>Status</div>
+                          </div>
+                        </div>
+                        <div className="divide-y">
+                          {assignedAssets.map((asset) => (
+                            <div key={asset.id} className="grid grid-cols-4 gap-4 p-4 text-sm hover:bg-muted/30 transition-colors">
+                              <div>
+                                <p className="font-medium">{asset.assetId}</p>
+                                <p className="text-muted-foreground text-xs">Assigned: {asset.assignedDate}</p>
+                              </div>
+                              <div>
+                                <p className="font-medium">{asset.type}</p>
+                                <p className="text-muted-foreground">{asset.brand} {asset.model}</p>
+                              </div>
+                              <div>
+                                <p className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                  {asset.serialNumber}
+                                </p>
+                              </div>
+                              <div>
+                                <Badge 
+                                  className={asset.status === 'Active' 
+                                    ? 'bg-success text-success-foreground' 
+                                    : 'bg-muted text-muted-foreground'
+                                  }
+                                >
+                                  {asset.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Assets Summary */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-lg font-bold text-primary">{assignedAssets.length}</div>
+                          <div className="text-xs text-muted-foreground">Total Assets</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-lg font-bold text-success">{assignedAssets.filter(a => a.status === 'Active').length}</div>
+                          <div className="text-xs text-muted-foreground">Active</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-lg font-bold">{assignedAssets.filter(a => a.type === 'Laptop').length}</div>
+                          <div className="text-xs text-muted-foreground">Laptops</div>
+                        </div>
+                        <div className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-lg font-bold">{assignedAssets.filter(a => a.type === 'Phone').length}</div>
+                          <div className="text-xs text-muted-foreground">Mobile</div>
+                        </div>
+                      </div>
+                      
+                      {/* Asset Management Notice */}
+                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <div className="flex items-start space-x-3">
+                          <div className="text-blue-600 dark:text-blue-400 mt-0.5">ℹ</div>
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                              Asset Management
+                            </h4>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                              All assigned assets are tracked for security and compliance. For support, asset returns, 
+                              or to report issues, contact the IT department at <strong>techsupport@company.com</strong>.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
+              {activeTab === 'resume' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">My Resume</h3>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
+                        Download PDF
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setEditResumeOpen(true)}>
+                        Edit Resume
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Summary */}
+                    <div>
+                      <h4 className="font-medium mb-2">Professional Summary</h4>
+                      <p className="text-sm text-muted-foreground">{resumeData.summary}</p>
+                    </div>
 
-{activeTab === "education" && (
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold">Education</h3>
-    {employee.educationDegree || employee.educationField || employee.educationInstitution || employee.educationYear ? (
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Degree</label>
-          <p className="text-sm mt-1">{employee.educationDegree || "Not provided"}</p>
+                    {/* Experience */}
+                    <div>
+                      <h4 className="font-medium mb-3">Work Experience</h4>
+                      <div className="space-y-4">
+                        {resumeData.experience.map((exp, index) => (
+                          <div key={index} className="border-l-2 border-primary pl-4">
+                            <div className="flex justify-between items-start mb-1">
+                              <h5 className="font-medium">{exp.title}</h5>
+                              <span className="text-sm text-muted-foreground">{exp.period}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{exp.company}</p>
+                            <p className="text-sm">{exp.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Education */}
+                    <div>
+                      <h4 className="font-medium mb-3">Education</h4>
+                      <div className="space-y-2">
+                        {resumeData.education.map((edu, index) => (
+                          <div key={index} className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{edu.degree}</p>
+                              <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                            </div>
+                            <span className="text-sm text-muted-foreground">{edu.year}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Skills */}
+                    <div>
+                      <h4 className="font-medium mb-3">Skills</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {resumeData.skills.map((skill, index) => (
+                          <Badge key={index} variant="outline">{skill}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Field of Study</label>
-          <p className="text-sm mt-1">{employee.educationField || "Not provided"}</p>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Institution</label>
-          <p className="text-sm mt-1">{employee.educationInstitution || "Not provided"}</p>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-muted-foreground">Year</label>
-          <p className="text-sm mt-1">{employee.educationYear || "Not provided"}</p>
-        </div>
-      </div>
-    ) : (
-      <p>No education info listed.</p>
-    )}
-  </div>
-)}
 
-</CardContent>
-</Card>
-</div>
-        {/* Dialogs */}
-<EditProfileDialog open={editProfileOpen} onOpenChange={setEditProfileOpen} />
-<EditSkillsDialog open={editSkillsOpen} onOpenChange={setEditSkillsOpen} />
+        <EditProfileDialog 
+          open={editProfileOpen} 
+          onOpenChange={setEditProfileOpen} 
+        />
+        
+        <EditSkillsDialog 
+          open={editSkillsOpen} 
+          onOpenChange={setEditSkillsOpen} 
+        />
+
+        <EditResumeDialog 
+          open={editResumeOpen} 
+          onOpenChange={setEditResumeOpen}
+          resumeData={resumeData}
+          onSave={handleSaveResume}
+        />
       </div>
-</DashboardLayout>
-);
+    </DashboardLayout>
+  );
 }

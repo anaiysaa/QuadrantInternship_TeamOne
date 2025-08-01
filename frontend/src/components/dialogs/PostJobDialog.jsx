@@ -32,31 +32,61 @@ export function PostJobDialog({ open, onOpenChange }) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Job Posted",
-        description: `${jobData.title} position has been posted successfully.`,
-      });
-      setJobData({
-        title: '',
-        department: '',
-        location: '',
-        type: 'Full-time',
-        level: '',
-        description: '',
-        requirements: '',
-        hiringManager: ''
-      });
-      setClosingDate(undefined);
-      setLoading(false);
-      onOpenChange(false);
-    }, 1000);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+
+  const payload = {
+    title: jobData.title,
+    department: jobData.department,
+    location: jobData.location,
+    type: jobData.type,
+    level: jobData.level, // not used in DB, but keeping for future
+    description: jobData.description,
+    mandatorySkills: jobData.requirements
+  .split('\n')
+  .filter(line => line.trim() !== '')
+  .join(','),
+
+    optionalSkills: '',
+    certifications: '',
+    hiringManager: jobData.hiringManager,
+    closingDate: closingDate ? new Date(closingDate).toISOString() : null,
   };
+
+  try {
+    const res = await fetch('/api/post-job', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error('Failed to post job');
+
+    toast({
+      title: "Job Posted",
+      description: `${payload.title} has been posted successfully.`,
+    });
+
+    setJobData({
+      title: '',
+      department: '',
+      location: '',
+      type: 'Full-time',
+      level: '',
+      description: '',
+      requirements: '',
+      hiringManager: ''
+    });
+    setClosingDate(undefined);
+    onOpenChange(false);
+  } catch (err) {
+    toast({ title: 'Error', description: err.message });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

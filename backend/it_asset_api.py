@@ -28,21 +28,22 @@ def get_all_assets():
         
         # Join IT_Assets with Employees to get employee details
         query = """
-            SELECT 
-                a.AssetID,
-                e.Name as EmployeeName,
-                a.Department,
-                a.AssetType,
-                a.BrandModel,
-                a.SerialNumber,
-                a.Status,
-                a.Condition,
-                a.Location,
-                a.EmployeeID
-            FROM dbo.IT_Assets a
-            LEFT JOIN dbo.Employees e ON a.EmployeeID = e.ID
-            ORDER BY a.AssetID
-        """
+    SELECT 
+        a.AssetID,
+        e.Name as EmployeeName,
+        a.Department,
+        a.AssetType,
+        a.BrandModel,
+        a.SerialNumber,
+        a.Status,
+        a.Condition,
+        a.Location,
+        a.EmployeeID,
+        a.DateAssigned
+    FROM dbo.IT_Assets a
+    LEFT JOIN dbo.Employees e ON a.EmployeeID = e.ID
+    ORDER BY a.AssetID
+"""
         
         cursor.execute(query)
         rows = cursor.fetchall()
@@ -68,7 +69,7 @@ def get_all_assets():
                 "brand": brand,
                 "model": model,
                 "serialNumber": row[5] or "",
-                "assignedDate": "",  # You may want to add this field to your DB
+                "DateAssigned": row[10].strftime("%Y-%m-%d") if row[10] else None,
                 "status": row[6] or "Unknown",
                 "condition": row[7] or "Unknown",
                 "location": row[8] or "",
@@ -111,8 +112,8 @@ def add_asset():
         
         cursor.execute("""
             INSERT INTO dbo.IT_Assets 
-            (AssetID, EmployeeID, Department, AssetType, BrandModel, SerialNumber, Status, Condition, Location)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (AssetID, EmployeeID, Department, AssetType, BrandModel, SerialNumber, Status, Condition, Location, DateAssigned)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             asset_id,
             employee_id,
@@ -122,7 +123,8 @@ def add_asset():
             data.get('serialNumber', ''),
             data.get('status', 'Active'),
             data.get('condition', 'Good'),
-            data.get('location', '')
+            data.get('location', ''),
+            datetime.now()  # or parse from frontend: datetime.strptime(data['DateAssigned'], '%Y-%m-%d')
         ))
         
         conn.commit()
