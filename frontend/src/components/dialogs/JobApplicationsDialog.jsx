@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,41 +19,21 @@ import { useToast } from '@/hooks/use-toast';
 
 export function JobApplicationsDialog({ job, open, onOpenChange }) {
   const { toast } = useToast();
+  const [applications, setApplications] = useState([]);
+
+  useEffect(() => {
+    if (job) {
+      fetch(`/api/job-applications`)
+        .then(res => res.json())
+        .then(data => {
+          const filtered = data.filter(app => app.JobID === job.id);
+          setApplications(filtered);
+        })
+        .catch(err => console.error("Failed to fetch job applications:", err));
+    }
+  }, [job]);
 
   if (!job) return null;
-
-  const applications = [
-    {
-      id: 'APP001',
-      candidateName: 'Jennifer Smith',
-      email: 'jennifer.smith@email.com',
-      status: 'Interview Scheduled',
-      appliedDate: '2024-02-08',
-      stage: 'Technical Interview',
-      rating: 4,
-      resume: 'resume_jennifer_smith.pdf'
-    },
-    {
-      id: 'APP002',
-      candidateName: 'David Chen',
-      email: 'david.chen@email.com',
-      status: 'Under Review',
-      appliedDate: '2024-02-10',
-      stage: 'Application Review',
-      rating: 3,
-      resume: 'resume_david_chen.pdf'
-    },
-    {
-      id: 'APP003',
-      candidateName: 'Maria Rodriguez',
-      email: 'maria.rodriguez@email.com',
-      status: 'Offer Extended',
-      appliedDate: '2024-02-03',
-      stage: 'Final Decision',
-      rating: 5,
-      resume: 'resume_maria_rodriguez.pdf'
-    }
-  ];
 
   const getApplicationStatusBadge = (status) => {
     switch (status) {
@@ -91,22 +70,14 @@ export function JobApplicationsDialog({ job, open, onOpenChange }) {
         <DialogHeader>
           <DialogTitle>Applications for {job.title}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="bg-muted/50 p-4 rounded-lg">
             <div className="grid grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Job ID:</span> {job.id}
-              </div>
-              <div>
-                <span className="font-medium">Department:</span> {job.department}
-              </div>
-              <div>
-                <span className="font-medium">Total Applications:</span> {applications.length}
-              </div>
-              <div>
-                <span className="font-medium">Status:</span> {job.status}
-              </div>
+              <div><span className="font-medium">Job ID:</span> {job.id}</div>
+              <div><span className="font-medium">Department:</span> {job.department}</div>
+              <div><span className="font-medium">Total Applications:</span> {applications.length}</div>
+              <div><span className="font-medium">Status:</span> {job.status}</div>
             </div>
           </div>
 
@@ -115,37 +86,29 @@ export function JobApplicationsDialog({ job, open, onOpenChange }) {
               <TableRow>
                 <TableHead>Candidate</TableHead>
                 <TableHead>Applied Date</TableHead>
-                <TableHead>Stage</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Rating</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {applications.map((app) => (
-                <TableRow key={app.id}>
+                <TableRow key={app.ApplicationID}>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{app.candidateName}</p>
-                      <p className="text-sm text-muted-foreground">{app.email}</p>
+                      <p className="font-medium">{app.Name}</p>
+                      <p className="text-sm text-muted-foreground">{app.Email}</p>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {new Date(app.appliedDate).toLocaleDateString()}
+                    {new Date(app.ApplicationDate).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-sm">{app.stage}</TableCell>
-                  <TableCell>{getApplicationStatusBadge(app.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <span className="text-lg">{'★'.repeat(app.rating)}{'☆'.repeat(5 - app.rating)}</span>
-                    </div>
-                  </TableCell>
+                  <TableCell>{getApplicationStatusBadge(app.Status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => handleReview(app.id)}>
+                      <Button size="sm" variant="outline" onClick={() => handleReview(app.ApplicationID)}>
                         Review
                       </Button>
-                      <Button size="sm" variant="default" onClick={() => handleSchedule(app.id)}>
+                      <Button size="sm" variant="default" onClick={() => handleSchedule(app.ApplicationID)}>
                         Schedule
                       </Button>
                     </div>
@@ -157,9 +120,7 @@ export function JobApplicationsDialog({ job, open, onOpenChange }) {
         </div>
 
         <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </div>
       </DialogContent>
     </Dialog>

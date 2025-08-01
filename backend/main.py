@@ -680,6 +680,182 @@ def update_employee(emp_id):
     conn.close()
     return jsonify({"success": True})
 
+@app.route('/api/internal-jobs', methods=['GET'])
+def get_internal_jobs():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications,
+                   JobDescription, Department, Location, JobType, Applicants, Status, ClosingDate
+            FROM dbo.InternalJobs
+            ORDER BY JobID
+        """)
+        rows = cursor.fetchall()
+
+        jobs = []
+        for row in rows:
+            jobs.append({
+                "id": f"JP{row[0]:03d}",
+                "title": row[1],
+                "mandatorySkills": row[2],
+                "optionalSkills": row[3],
+                "certifications": row[4],
+                "description": row[5],
+                "department": row[6],
+                "location": row[7],
+                "type": row[8],
+                "applicants": row[9],
+                "status": row[10],
+                "closingDate": row[11].strftime("%Y-%m-%d") if row[11] else None,
+            })
+
+        cursor.close()
+        conn.close()
+        return jsonify(jobs)
+
+    except Exception as e:
+        print("Error loading internal jobs:", str(e))
+        return jsonify({"error": "Failed to load jobs"}), 500
+    
+
+
+@app.route('/api/internal-jobs/<job_id>', methods=['PUT'])
+def update_internal_job(job_id):
+    try:
+        data = request.json
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE dbo.InternalJobs SET
+                JobTitle = ?, Department = ?, Location = ?, JobType = ?, Status = ?,
+                ClosingDate = ?, JobDescription = ?, Applicants = ?, MandatorySkills = ?,
+                OptionalSkills = ?, RecommendedCertifications = ?
+            WHERE JobID = ?
+        """, (
+            data.get('title'),
+            data.get('department'),
+            data.get('location'),
+            data.get('type'),
+            data.get('status'),
+            data.get('closingDate'),
+            data.get('description'),
+            data.get('applicants', 0),
+            ', '.join(data.get('mandatorySkills', [])),
+            ', '.join(data.get('optionalSkills', [])),
+            data.get('certifications', ''),
+            int(job_id.replace("JP", ""))  # Extract numeric JobID from JP001
+        ))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Job updated successfully"})
+
+    except Exception as e:
+        print("Error updating job:", str(e))
+        return jsonify({"error": "Failed to update job"}), 500
+    
+
+
+
+@app.route("/api/job-applications")
+def get_job_applications():
+    conn = get_connection()
+    cursor = conn.cursor()
+    job_id = request.args.get("jobId")
+
+    if job_id:
+        query = """
+            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
+                   e.Name, e.Email
+            FROM JobApplications ja
+            JOIN InternalJobs ij ON ja.JobID = ij.JobID
+            JOIN Employees e ON ja.EmployeeID = e.ID
+            WHERE ja.JobID = ?
+        """
+        cursor.execute(query, (job_id,))
+    else:
+        query = """
+            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
+                   ij.JobTitle AS JobTitle, e.Name, e.Email
+            FROM JobApplications ja
+            JOIN InternalJobs ij ON ja.JobID = ij.JobID
+            JOIN Employees e ON ja.EmployeeID = e.ID
+        """
+        cursor.execute(query)
+
+    rows = cursor.fetchall()
+    columns = [column[0] for column in cursor.description]
+    return jsonify([dict(zip(columns, row)) for row in rows])
+
+
+@app.route('/api/post-job', methods=['POST'])
+def post_job():
+    data = request.get_json()
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        INSERT INTO InternalJobs (
+            JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications,
+            JobDescription, Department, Location, JobType,
+            Applicants, Status, ClosingDate
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'Active', ?)
+    """
+    cursor.execute(query, (
+        data.get('title'),
+        data.get('mandatorySkills', ''),
+        data.get('optionalSkills', ''),
+        data.get('certifications', ''),
+        data.get('description'),
+        data.get('department'),
+        data.get('location'),
+        data.get('type'),
+        data.get('closingDate')
+    ))
+    conn.commit()
+    return jsonify({'message': 'Job posted successfully'})
+
+
+
+@app.route("/api/update-application-status", methods=["POST"])
+def update_application_status():
+    data = request.get_json()
+    application_id = data.get("applicationId")
+    new_status = data.get("status")
+
+    if not application_id or not new_status:
+        return jsonify({"error": "Missing applicationId or status"}), 400
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        query = """
+            UPDATE JobApplications
+            SET Status = ?
+            WHERE ApplicationID = ?
+        """
+        cursor.execute(query, (new_status, application_id))
+        conn.commit()
+
+        return jsonify({"message": "Status updated successfully"}), 200
+
+    except Exception as e:
+        print("Error updating application status:", e)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 
 app.register_blueprint(it_asset_api)
 app.register_blueprint(it_inventory_api)

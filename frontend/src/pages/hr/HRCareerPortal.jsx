@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,122 +32,25 @@ export default function HRCareerPortal() {
   const [showReviewApplication, setShowReviewApplication] = useState(false);
   const [showScheduleInterview, setShowScheduleInterview] = useState(false);
 
-  const [jobPostings, setJobPostings] = useState([
-    {
-      id: 'JP001',
-      title: 'Senior Frontend Developer',
-      department: 'Engineering',
-      location: 'Remote',
-      type: 'Full-time',
-      level: 'Senior',
-      status: 'Active',
-      applicants: 24,
-      postedDate: '2024-02-01',
-      closingDate: '2024-03-01',
-      hiringManager: 'Sarah Johnson',
-      description: 'Join our engineering team to build cutting-edge web applications using React and TypeScript.',
-      requirements: ['5+ years React experience', 'TypeScript proficiency', 'Team leadership skills']
-    },
-    {
-      id: 'JP002',
-      title: 'Product Manager',
-      department: 'Product',
-      location: 'New York, NY',
-      type: 'Full-time',
-      level: 'Mid-level',
-      status: 'Active',
-      applicants: 18,
-      postedDate: '2024-02-05',
-      closingDate: '2024-03-05',
-      hiringManager: 'Mike Wilson',
-      description: 'Drive product strategy and work with cross-functional teams to deliver exceptional user experiences.',
-      requirements: ['3+ years PM experience', 'Analytics background', 'User research skills']
-    },
-    {
-      id: 'JP003',
-      title: 'UX/UI Designer',
-      department: 'Design',
-      location: 'San Francisco, CA',
-      type: 'Full-time',
-      level: 'Mid-level',
-      status: 'Draft',
-      applicants: 0,
-      postedDate: null,
-      closingDate: '2024-02-28',
-      hiringManager: 'Lisa Brown',
-      description: 'Create beautiful and intuitive user interfaces that delight our customers.',
-      requirements: ['Portfolio of design work', 'Figma expertise', 'User testing experience']
-    },
-    {
-      id: 'JP004',
-      title: 'Sales Development Representative',
-      department: 'Sales',
-      location: 'Chicago, IL',
-      type: 'Full-time',
-      level: 'Entry-level',
-      status: 'Active',
-      applicants: 31,
-      postedDate: '2024-01-28',
-      closingDate: '2024-02-25',
-      hiringManager: 'Tom Wilson',
-      description: 'Generate new business opportunities and build relationships with potential clients.',
-      requirements: ['Strong communication skills', 'CRM experience preferred', 'Goal-oriented mindset']
-    },
-    {
-      id: 'JP005',
-      title: 'Marketing Coordinator',
-      department: 'Marketing',
-      location: 'Remote',
-      type: 'Part-time',
-      level: 'Entry-level',
-      status: 'Closed',
-      applicants: 42,
-      postedDate: '2024-01-15',
-      closingDate: '2024-02-10',
-      hiringManager: 'Alex Brown',
-      description: 'Support marketing campaigns and coordinate promotional activities.',
-      requirements: ['Bachelor\'s degree in Marketing', 'Social media experience', 'Creative mindset']
-    }
-  ]);
-
-  const [applications, setApplications] = useState([
-    {
-      id: 'APP001',
-      candidateName: 'Jennifer Smith',
-      email: 'jennifer.smith@email.com',
-      jobTitle: 'Senior Frontend Developer',
-      jobId: 'JP001',
-      status: 'Interview Scheduled',
-      appliedDate: '2024-02-08',
-      stage: 'Technical Interview',
-      rating: 4
-    },
-    {
-      id: 'APP002',
-      candidateName: 'David Chen',
-      email: 'david.chen@email.com',
-      jobTitle: 'Product Manager',
-      jobId: 'JP002',
-      status: 'Under Review',
-      appliedDate: '2024-02-10',
-      stage: 'Application Review',
-      rating: 3
-    },
-    {
-      id: 'APP003',
-      candidateName: 'Maria Rodriguez',
-      email: 'maria.rodriguez@email.com',
-      jobTitle: 'Senior Frontend Developer',
-      jobId: 'JP001',
-      status: 'Offer Extended',
-      appliedDate: '2024-02-03',
-      stage: 'Final Decision',
-      rating: 5
-    }
-  ]);
+  const [jobPostings, setJobPostings] = useState([]);
+  const [applications, setApplications] = useState([]);
 
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetch("/api/internal-jobs")
+      .then(res => res.json())
+      .then(data => setJobPostings(data))
+      .catch(err => console.error("Failed to fetch jobs", err));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/job-applications')
+      .then(res => res.json())
+      .then(data => setApplications(data))
+      .catch(err => console.error("Failed to fetch applications:", err));
+  }, []);
 
   const filteredPostings = jobPostings.filter(job =>
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -199,23 +102,17 @@ export default function HRCareerPortal() {
 
   const stats = [
     { title: 'Active Jobs', value: jobPostings.filter(j => j.status === 'Active').length, color: 'bg-success' },
-    { title: 'Total Applications', value: jobPostings.reduce((acc, job) => acc + job.applicants, 0), color: 'bg-primary' },
-    { title: 'Interviews This Week', value: applications.filter(a => a.status === 'Interview Scheduled').length, color: 'bg-warning' },
-    { title: 'Offers Extended', value: applications.filter(a => a.status === 'Offer Extended').length, color: 'bg-accent' },
+    { title: 'Total Applications', value: applications.length, color: 'bg-primary' },
+    { title: 'Interviews This Week', value: applications.filter(a => a.Status === 'Interview Scheduled').length, color: 'bg-warning' },
+    { title: 'Offers Extended', value: applications.filter(a => a.Status === 'Offer Extended').length, color: 'bg-accent' },
   ];
 
-  const handleJobTemplates = () => {
-    setShowJobTemplates(true);
-  };
-
-  const handlePostNewJob = () => {
-    setShowPostJob(true);
-  };
-
-  const handleEdit = (job) => {
-    setSelectedJob(job);
-    setShowEditJob(true);
-  };
+  const handleJobTemplates = () => setShowJobTemplates(true);
+  const handlePostNewJob = () => setShowPostJob(true);
+  const handleEdit = (job) => { setSelectedJob(job); setShowEditJob(true); };
+  const handleViewApps = (job) => { setSelectedJob(job); setShowJobApplications(true); };
+  const handleReview = (application) => { setSelectedApplication(application); setShowReviewApplication(true); };
+  const handleSchedule = (application) => { setSelectedApplication(application); setShowScheduleInterview(true); };
 
   const handleSaveJob = (updatedJob) => {
     setJobPostings(prevJobs =>
@@ -223,26 +120,9 @@ export default function HRCareerPortal() {
     );
   };
 
-  const handleViewApps = (job) => {
-    setSelectedJob(job);
-    setShowJobApplications(true);
-  };
-
-  const handleReview = (application) => {
-    setSelectedApplication(application);
-    setShowReviewApplication(true);
-  };
-
-  const handleSchedule = (application) => {
-    setSelectedApplication(application);
-    setShowScheduleInterview(true);
-  };
-
   const handleApplicationStatusUpdate = (updatedApplication) => {
     setApplications(prevApps =>
-      prevApps.map(app => 
-        app.id === updatedApplication.id ? updatedApplication : app
-      )
+      prevApps.map(app => app.id === updatedApplication.id ? updatedApplication : app)
     );
   };
 
@@ -267,7 +147,6 @@ export default function HRCareerPortal() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
@@ -282,7 +161,6 @@ export default function HRCareerPortal() {
           ))}
         </div>
 
-        {/* Search */}
         <Card>
           <CardHeader>
             <CardTitle>Search Job Postings</CardTitle>
@@ -300,7 +178,6 @@ export default function HRCareerPortal() {
           </CardContent>
         </Card>
 
-        {/* Job Postings Table */}
         <Card>
           <CardHeader>
             <CardTitle>Job Postings ({filteredPostings.length})</CardTitle>
@@ -340,17 +217,11 @@ export default function HRCareerPortal() {
                     </TableCell>
                     <TableCell className="text-center font-medium">{job.applicants}</TableCell>
                     <TableCell>{getStatusBadge(job.status)}</TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(job.closingDate).toLocaleDateString()}
-                    </TableCell>
+                    <TableCell className="text-sm">{new Date(job.closingDate).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(job)}>
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="default" onClick={() => handleViewApps(job)}>
-                          View Apps
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(job)}>Edit</Button>
+                        <Button size="sm" variant="default" onClick={() => handleViewApps(job)}>View Apps</Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -360,52 +231,39 @@ export default function HRCareerPortal() {
           </CardContent>
         </Card>
 
-        {/* Recent Applications */}
         <Card>
           <CardHeader>
             <CardTitle>Recent Applications</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Candidate</TableHead>
                   <TableHead>Job Title</TableHead>
                   <TableHead>Applied Date</TableHead>
-                  <TableHead>Stage</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Rating</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {applications.map((app) => (
-                  <TableRow key={app.id}>
+                  <TableRow key={app.ApplicationID}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{app.candidateName}</p>
-                        <p className="text-sm text-muted-foreground">{app.email}</p>
+                        <p className="font-medium">{app.Name}</p>
+                        <p className="text-sm text-muted-foreground">{app.Email}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{app.jobTitle}</TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(app.appliedDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-sm">{app.stage}</TableCell>
-                    <TableCell>{getApplicationStatusBadge(app.status)}</TableCell>
+                    <TableCell>{app.JobTitle}</TableCell>
+                    <TableCell>{new Date(app.ApplicationDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <div className="flex items-center">
-                        <span className="text-lg">{'★'.repeat(app.rating)}{'☆'.repeat(5 - app.rating)}</span>
-                      </div>
+                      <Badge variant="outline">{app.Status}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleReview(app)}>
-                          Review
-                        </Button>
-                        <Button size="sm" variant="default" onClick={() => handleSchedule(app)}>
-                          Schedule
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleReview(app)}>Review</Button>
+                        <Button size="sm" variant="default" onClick={() => handleSchedule(app)}>Schedule</Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -417,37 +275,12 @@ export default function HRCareerPortal() {
       </div>
 
       {/* Dialogs */}
-      <JobTemplateDialog
-        open={showJobTemplates}
-        onOpenChange={setShowJobTemplates}
-      />
-      <PostJobDialog
-        open={showPostJob}
-        onOpenChange={setShowPostJob}
-      />
-      <JobApplicationsDialog
-        job={selectedJob}
-        open={showJobApplications}
-        onOpenChange={setShowJobApplications}
-      />
-      <EditJobDialog
-        job={selectedJob}
-        open={showEditJob}
-        onOpenChange={setShowEditJob}
-        onSave={handleSaveJob}
-      />
-      <ReviewApplicationDialog
-        application={selectedApplication}
-        open={showReviewApplication}
-        onOpenChange={setShowReviewApplication}
-        onStatusUpdate={handleApplicationStatusUpdate}
-      />
-      <ScheduleInterviewDialog
-        application={selectedApplication}
-        open={showScheduleInterview}
-        onOpenChange={setShowScheduleInterview}
-        onSchedule={handleApplicationStatusUpdate}
-      />
+      <JobTemplateDialog open={showJobTemplates} onOpenChange={setShowJobTemplates} />
+      <PostJobDialog open={showPostJob} onOpenChange={setShowPostJob} />
+      <JobApplicationsDialog job={selectedJob} open={showJobApplications} onOpenChange={setShowJobApplications} />
+      <EditJobDialog job={selectedJob} open={showEditJob} onOpenChange={setShowEditJob} onSave={handleSaveJob} />
+      <ReviewApplicationDialog application={selectedApplication} open={showReviewApplication} onOpenChange={setShowReviewApplication} onStatusUpdate={handleApplicationStatusUpdate} />
+      <ScheduleInterviewDialog application={selectedApplication} open={showScheduleInterview} onOpenChange={setShowScheduleInterview} onSchedule={handleApplicationStatusUpdate} />
     </DashboardLayout>
   );
 }

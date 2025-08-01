@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,38 +8,94 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
 export function EditJobDialog({ job, open, onOpenChange, onSave }) {
   const { toast } = useToast();
+
   const [formData, setFormData] = useState({
-    title: job?.title || '',
-    department: job?.department || '',
-    location: job?.location || '',
-    type: job?.type || '',
-    level: job?.level || '',
-    status: job?.status || '',
-    closingDate: job?.closingDate || '',
-    hiringManager: job?.hiringManager || '',
-    description: job?.description || '',
-    requirements: job?.requirements?.join('\n') || ''
+    title: '',
+    department: '',
+    location: '',
+    type: '',
+    level: '',
+    status: '',
+    closingDate: '',
+    hiringManager: '',
+    description: '',
+    requirements: '',
+    optionalSkills: '',
+    mandatorySkills: '',
+    certifications: ''
   });
+
+  const toMultilineText = (val) => {
+    if (Array.isArray(val)) return val.join('\n');
+    if (typeof val === 'string') return val;
+    return '';
+  };
+
+  useEffect(() => {
+    if (job) {
+      setFormData({
+        title: job.title || '',
+        department: job.department || '',
+        location: job.location || '',
+        type: job.type || '',
+        level: job.level || '',
+        status: job.status || '',
+        closingDate: job.closingDate || '',
+        hiringManager: job.hiringManager || '',
+        description: job.description || '',
+        requirements: toMultilineText(job.requirements),
+        optionalSkills: toMultilineText(job.optionalSkills),
+        mandatorySkills: toMultilineText(job.mandatorySkills),
+        certifications: toMultilineText(job.certifications),
+      });
+    }
+  }, [job]);
 
   const handleSave = () => {
     const updatedJob = {
       ...job,
       ...formData,
-      requirements: formData.requirements.split('\n').filter(req => req.trim())
+      requirements: formData.requirements.split('\n').map(s => s.trim()).filter(Boolean),
+      optionalSkills: formData.optionalSkills.split('\n').map(s => s.trim()).filter(Boolean),
+      mandatorySkills: formData.mandatorySkills.split('\n').map(s => s.trim()).filter(Boolean),
+      certifications: formData.certifications
     };
-    
-    onSave(updatedJob);
-    toast({
-      title: "Job Updated",
-      description: `${formData.title} has been updated successfully.`,
-    });
-    onOpenChange(false);
+
+    fetch(`/api/internal-jobs/${job.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedJob)
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update job');
+        return res.json();
+      })
+      .then(() => {
+        toast({
+          title: 'Job Updated',
+          description: `${formData.title} has been updated successfully.`
+        });
+        onSave(updatedJob);
+        onOpenChange(false);
+      })
+      .catch(err => {
+        toast({
+          title: 'Update Failed',
+          description: err.message
+        });
+      });
   };
 
   const handleInputChange = (field, value) => {
@@ -55,7 +110,7 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
         <DialogHeader>
           <DialogTitle>Edit Job Posting - {job.id}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -69,9 +124,7 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
             <div>
               <Label htmlFor="department">Department</Label>
               <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Engineering">Engineering</SelectItem>
                   <SelectItem value="Product">Product</SelectItem>
@@ -95,9 +148,7 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
             <div>
               <Label htmlFor="type">Employment Type</Label>
               <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Full-time">Full-time</SelectItem>
                   <SelectItem value="Part-time">Part-time</SelectItem>
@@ -112,9 +163,7 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
             <div>
               <Label htmlFor="level">Level</Label>
               <Select value={formData.level} onValueChange={(value) => handleInputChange('level', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Entry-level">Entry-level</SelectItem>
                   <SelectItem value="Mid-level">Mid-level</SelectItem>
@@ -126,9 +175,7 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
             <div>
               <Label htmlFor="status">Status</Label>
               <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Draft">Draft</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
@@ -178,15 +225,45 @@ export function EditJobDialog({ job, open, onOpenChange, onSave }) {
               placeholder="Enter requirements, one per line..."
             />
           </div>
+
+          <div>
+            <Label htmlFor="optionalSkills">Optional Skills (one per line)</Label>
+            <Textarea
+              id="optionalSkills"
+              rows={3}
+              value={formData.optionalSkills}
+              onChange={(e) => handleInputChange('optionalSkills', e.target.value)}
+              placeholder="Enter optional skills, one per line..."
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="mandatorySkills">Mandatory Skills (one per line)</Label>
+            <Textarea
+              id="mandatorySkills"
+              rows={3}
+              value={formData.mandatorySkills}
+              onChange={(e) => handleInputChange('mandatorySkills', e.target.value)}
+              placeholder="Enter mandatory skills, one per line..."
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="certifications">Recommended Certifications</Label>
+            <Input
+              id="certifications"
+              value={formData.certifications}
+              onChange={(e) => handleInputChange('certifications', e.target.value)}
+              placeholder="E.g. Azure DevOps, PMP"
+            />
+          </div>
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
-            Save Changes
-          </Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </div>
       </DialogContent>
     </Dialog>
