@@ -7,10 +7,12 @@ import { useState, useEffect } from 'react';
 import LeaveRequestDialog from '@/components/dialogs/LeaveRequestDialog';
 import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
 import axios from 'axios';
-
+import { useAuth } from '@/contexts/AuthContext';
 const API_URL = 'http://localhost:8000/api/leave-requests';
 
 export default function LeaveManagement() {
+  const { user } = useAuth();
+  const employeeId = user ? user.employeeId : null;
   const [date, setDate] = useState(new Date());
   const [leaveRequestOpen, setLeaveRequestOpen] = useState(false);
   const [leaveDetailsOpen, setLeaveDetailsOpen] = useState(false);
@@ -24,12 +26,12 @@ export default function LeaveManagement() {
     'Personal Leave': { used: 0, total: 5 },
   });
 
-  const USER_ID = localStorage.getItem('employee_id');
+  const USER_ID = user ? user.employeeId : null;
 
   useEffect(() => {
     if (!USER_ID) {
       alert("No employee ID found. Please log in again.");
-      window.location.href = '/login'; // Change this to your login page
+      window.location.href = 'api/login';
       return;
     }
 

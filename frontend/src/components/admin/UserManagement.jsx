@@ -265,10 +265,10 @@ export function UserManagement() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Access</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="hr">HR</SelectItem>
-              <SelectItem value="it">IT</SelectItem>
-              <SelectItem value="employee">Employee</SelectItem>
+              <SelectItem value="Admin">Admin</SelectItem>
+              <SelectItem value="HR">HR</SelectItem>
+              <SelectItem value="IT">IT</SelectItem>
+              <SelectItem value="Employee">Employee</SelectItem>
             </SelectContent>
           </Select>
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
@@ -367,10 +367,10 @@ export function UserManagement() {
                             )}
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="employee">Employee</SelectItem>
-                            <SelectItem value="hr">HR</SelectItem>
-                            <SelectItem value="it">IT</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="Employee">Employee</SelectItem>
+                            <SelectItem value="HR">HR</SelectItem>
+                            <SelectItem value="IT">IT</SelectItem>
+                            <SelectItem value="Admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
