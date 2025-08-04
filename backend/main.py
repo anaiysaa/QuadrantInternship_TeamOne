@@ -821,7 +821,32 @@ def post_job():
     conn.commit()
     return jsonify({'message': 'Job posted successfully'})
 
-
+@app.route("/api/job-applications/<int:application_id>", methods=["DELETE"])
+def delete_job_application(application_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        check_query = "SELECT ApplicationID FROM JobApplications WHERE ApplicationID = ?"
+        cursor.execute(check_query, (application_id,))
+        
+        if not cursor.fetchone():
+            return jsonify({"success": False, "message": "Application not found"}), 404
+   
+        delete_query = "DELETE FROM JobApplications WHERE ApplicationID = ?"
+        cursor.execute(delete_query, (application_id,))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            return jsonify({"success": True, "message": "Application rescinded successfully"})
+        else:
+            return jsonify({"success": False, "message": "Failed to rescind application"}), 500
+            
+    except Exception as e:
+        print(f"Error rescinding application: {e}")
+        return jsonify({"success": False, "message": "Database error occurred"}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route("/api/update-application-status", methods=["POST"])
 def update_application_status():
@@ -1353,49 +1378,63 @@ def update_it_ticket_status(ticket_id):
         import traceback
         traceback.print_exc()  # This will help debug the exact SQL error
         return jsonify({"error": str(e)}), 500
+
 @app.route('/api/ticket-comments', methods=['POST'])
 def post_comment():
     data = request.json
     ticket_id = data.get('ticket_id')
-    ticket_type = data.get('ticket_type')
     author = data.get('author')
     content = data.get('content')
     
-    # Check for missing data
-    if not all([ticket_id, ticket_type, author, content]):
-        logger.error("Missing required fields: ticket_id, ticket_type, author, content")
+    # Check for missing data (no need for created_at)
+    if not all([ticket_id, author, content]):
+        logger.error("Missing required fields: ticket_id author, content")
         return jsonify({'error': 'Missing required fields'}), 400
+
     try:
         conn = get_connection()
         cursor = conn.cursor()
+
+        # Calculate the next comment_id based ticket_id
+        #cursor.execute("""
+        #        SELECT ISNULL(MAX(comment_id), 0) + 1
+        #        FROM ViewTicketComments
+        #        WHERE ticket_id = ?
+        #    """, (ticket_id,))
+
+        #new_comment_id = cursor.fetchone()[0]
+
         query = """
-            INSERT INTO ViewTicketComments (ticket_id, ticket_type, author, content)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO ViewTicketComments (ticket_id, author, content, created_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
         """
-        cursor.execute(query, (ticket_id, ticket_type, author, content))
+        cursor.execute(query, (ticket_id, author, content))
         conn.commit()
+
         logger.info(f"Comment successfully added to ticket {ticket_id}")
         return jsonify({'message': 'Comment added successfully'}), 201
+
     except Exception as e:
         logger.error(f"Error while adding comment: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
     
 @app.route('/api/ticket-comments', methods=['GET'])
 def get_comments():
     ticket_id = request.args.get('ticket_id')
-    ticket_type = request.args.get('ticket_type')
     conn = get_connection()
-    if not ticket_id or not ticket_type:
-        return jsonify({'error': 'Missing ticket_id or ticket_type'}), 400
+    if not ticket_id:
+        return jsonify({'error': 'Missing ticket_id'}), 400
     try:
         cursor = conn.cursor()
         query = """
             SELECT comment_id, author, content, created_at
             FROM ViewTicketComments
-            WHERE ticket_id = ? AND ticket_type = ?
+            WHERE ticket_id = ?
             ORDER BY created_at ASC
         """
-        cursor.execute(query, (ticket_id, ticket_type))
+        cursor.execute(query, (ticket_id))
         rows = cursor.fetchall()
         comments = [{
             'comment_id': row[0],

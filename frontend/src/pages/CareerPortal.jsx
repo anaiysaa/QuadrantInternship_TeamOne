@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { JobDetailsDialog } from "@/components/dialogs/JobDetailsDialog";
-import { JobApplicationDetailsDialog } from "@/components/dialogs/JobApplicationDetailsDialog"; // ✅ NEW
+import { JobApplicationDetailsDialog } from "@/components/dialogs/JobApplicationDetailsDialog";
 import { JobApplicationDialog } from "@/components/dialogs/JobApplicationDialog";
+import ConfirmationDialog from "@/components/ui/ConfirmationDialog"; // Import the confirmation dialog
+
 import {
   ChevronDown,
   ChevronUp,
@@ -25,9 +27,14 @@ export default function CareerPortal() {
   const [expandedCourses, setExpandedCourses] = useState(new Set());
   const [enrolledCourses, setEnrolledCourses] = useState(new Set());
   const [selectedJob, setSelectedJob] = useState(null);
-  const [selectedApplicationId, setSelectedApplicationId] = useState(null); // ✅ NEW
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
-  const [showApplicationDetails, setShowApplicationDetails] = useState(false); // ✅ NEW
+  const [showApplicationDetails, setShowApplicationDetails] = useState(false);
+
+  // New state for handling rescind confirmation
+  const [showRescindConfirmation, setShowRescindConfirmation] = useState(false);
+  const [applicationToRescind, setApplicationToRescind] = useState(null);
+
   const { toast } = useToast();
   const { user } = useAuth();
   const employeeId = user?.employeeId;
@@ -70,6 +77,7 @@ export default function CareerPortal() {
       const data = await res.json();
       if (data.success) {
         toast({ title: "Application submitted", variant: "success" });
+        window.location.reload()
       } else {
         toast({ title: "Failed to apply", variant: "destructive" });
       }
@@ -78,23 +86,66 @@ export default function CareerPortal() {
     }
   };
 
-  const toggleCoursesExpanded = (jobId) => {
-    const newExpanded = new Set(expandedCourses);
-    newExpanded.has(jobId) ? newExpanded.delete(jobId) : newExpanded.add(jobId);
-    setExpandedCourses(newExpanded);
-  };
-
   const handleViewDetails = async (jobId) => {
     try {
       const res = await fetch(`/resume/jobs/${jobId}`);
       const data = await res.json();
-      setSelectedJob(data); // ✅ Store full job details
+      setSelectedJob(data);
       setShowJobDetails(true);
     } catch (err) {
       console.error("Error fetching job details", err);
     }
   };
-  
+
+  const handleViewApplication = async (applicationId) => {
+    try {
+      setSelectedApplicationId(applicationId);
+      setShowApplicationDetails(true);
+    } catch (err) {
+      console.error("Error opening application details", err);
+    }
+  };
+
+  const handleRescindApplication = async (applicationId) => {
+    try {
+      const res = await fetch(`/api/job-applications/${applicationId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+      if (data.success || res.ok) {
+        toast({
+          title: "Application rescinded",
+          description: "Your application has been successfully withdrawn.",
+          variant: "success",
+        });
+        const updatedApplications = applications.filter(
+          (app) => app.applicationId !== applicationId
+        );
+        setApplications(updatedApplications);
+      } else {
+        toast({
+          title: "Failed to rescind application",
+          description: data.message || "Please try again later.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error("Error rescinding application:", err);
+      toast({
+        title: "Error",
+        description: "Failed to rescind application. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRescindClick = (app) => {
+    setApplicationToRescind(app);
+    setShowRescindConfirmation(true);
+  };
+
   return (
     <TooltipProvider>
       <DashboardLayout>
@@ -122,11 +173,24 @@ export default function CareerPortal() {
                       Applied: {app.appliedDate || "N/A"}
                     </p>
                   </div>
-                  <Badge>{app.status}</Badge>
-
-
-                  
-
+                  <div className="flex gap-2 items-center">
+                    <Badge>{app.status}</Badge>
+                    {/* View Application Button */}
+                    <Button
+                      variant="outline"
+                      onClick={() => handleViewApplication(app.applicationId || app.jobId)}
+                    >
+                      View Application
+                    </Button>
+                    {/* Rescind Application Button */}
+                    <Button
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleRescindClick(app)}
+                    >
+                      Rescind
+                    </Button>
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -152,33 +216,31 @@ export default function CareerPortal() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-xl font-semibold">{job.title}</h3>
-
                       </div>
 
                       <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          fetch(`/resume/jobs/${job.job_id}`)
-                            .then((res) => res.json())
-                            .then((data) => {
-                              setSelectedJob({
-                                title: data.title,
-                                department: data.department,
-                                location: data.location,
-                                jobType: data.jobType,
-                                jobDescription: data.jobDescription,
-                                mandatorySkills: data.mandatorySkills,
-                                optionalSkills: data.optionalSkills,
-                              });
-                              setShowJobDetails(true);
-                            })
-                            .catch((err) => console.error("Error fetching application details:", err));
-                        }}
-                      >
-                        View Details
-                      </Button>
-
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            fetch(`/resume/jobs/${job.job_id}`)
+                              .then((res) => res.json())
+                              .then((data) => {
+                                setSelectedJob({
+                                  title: data.title,
+                                  department: data.department,
+                                  location: data.location,
+                                  jobType: data.jobType,
+                                  jobDescription: data.jobDescription,
+                                  mandatorySkills: data.mandatorySkills,
+                                  optionalSkills: data.optionalSkills,
+                                });
+                                setShowJobDetails(true);
+                              })
+                              .catch((err) => console.error("Error fetching application details:", err));
+                          }}
+                        >
+                          View Details
+                        </Button>
 
                         <Button onClick={() => handleApply(job.job_id)}>
                           Apply
@@ -188,9 +250,7 @@ export default function CareerPortal() {
 
                     <div className="flex justify-between mb-2">
                       <span className="font-medium text-sm">Skill Match</span>
-                      <span className="text-sm font-bold">
-                        {matchPercentage}%
-                      </span>
+                      <span className="text-sm font-bold">{matchPercentage}%</span>
                     </div>
 
                     <Progress value={matchPercentage} className="h-2" />
@@ -200,9 +260,7 @@ export default function CareerPortal() {
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex gap-2 items-center">
                             <BookOpen className="h-4 w-4 text-primary" />
-                            <h4 className="text-sm font-medium">
-                              Recommended Courses
-                            </h4>
+                            <h4 className="text-sm font-medium">Recommended Courses</h4>
                           </div>
                           <Button
                             size="icon"
@@ -216,26 +274,16 @@ export default function CareerPortal() {
                         {isExpanded && (
                           <div className="grid gap-4 md:grid-cols-2">
                             {recommendedCourses.map((course, i) => (
-                              <div
-                                key={i}
-                                className="border rounded-lg p-4 shadow-sm"
-                              >
-                                <h5 className="font-medium text-sm">
-                                  {course.name}
-                                </h5>
-                                <p className="text-xs text-muted-foreground">
-                                  {course.skill}
-                                </p>
+                              <div key={i} className="border rounded-lg p-4 shadow-sm">
+                                <h5 className="font-medium text-sm">{course.name}</h5>
+                                <p className="text-xs text-muted-foreground">{course.skill}</p>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   className="mt-2"
-                                  onClick={() =>
-                                    window.open(course.url, "_blank")
-                                  }
+                                  onClick={() => window.open(course.url, "_blank")}
                                 >
-                                  Enroll Now{" "}
-                                  <ExternalLink className="h-3 w-3 ml-1" />
+                                  Enroll Now <ExternalLink className="h-3 w-3 ml-1" />
                                 </Button>
                               </div>
                             ))}
@@ -249,7 +297,7 @@ export default function CareerPortal() {
             </CardContent>
           </Card>
 
-          {/* ✅ Dialogs */}
+          {/* Dialogs */}
           <JobDetailsDialog
             job={selectedJob}
             open={showJobDetails}
@@ -260,6 +308,21 @@ export default function CareerPortal() {
             applicationId={selectedApplicationId}
             open={showApplicationDetails}
             onOpenChange={setShowApplicationDetails}
+          />
+
+          {/* Confirmation Dialog */}
+          <ConfirmationDialog
+            open={showRescindConfirmation}
+            onOpenChange={setShowRescindConfirmation}
+            title="Are you sure?"
+            description="Are you sure you want to rescind your application? This action cannot be undone."
+            onConfirm={() => {
+              if (applicationToRescind) {
+                handleRescindApplication(applicationToRescind.applicationId);
+                setShowRescindConfirmation(false);
+              }
+            }}
+            onCancel={() => setShowRescindConfirmation(false)}
           />
         </div>
       </DashboardLayout>

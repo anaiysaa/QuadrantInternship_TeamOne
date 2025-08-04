@@ -8,17 +8,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Bot, Sparkles } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 
-
-
-export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" }) {
+export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
   const [newComment, setNewComment] = useState("");
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [comments, setComments] = useState([]);
   const { user } = useAuth();
+  const { toast } = useToast();
+  
   const employee = user ? user.name : null;
 
   // Get context-specific configuration
@@ -27,7 +29,6 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
       case "hr":
         return {
           author: "HR Support",
-          defaultMessage: "Thank you for submitting this HR ticket. We are reviewing your request.",
           commentAuthor: "HR Support",
           commentPlaceholder: "Add an HR comment or update...",
           department: "HR"
@@ -35,7 +36,6 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
       case "employee":
         return {
           author: employee,
-          defaultMessage: "I have submitted this ticket and am awaiting response.",
           commentAuthor: employee,
           commentPlaceholder: "Add a comment or additional information...",
           department: "Employee"
@@ -43,7 +43,6 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
       default:
         return {
           author: "IT Support",
-          defaultMessage: "Investigating the issue...",
           commentAuthor: "IT Support",
           commentPlaceholder: "Add a comment or update...",
           department: "IT"
@@ -51,22 +50,126 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
     }
   };
 
-  const [loadingComments, setLoadingComments] = useState(true);
   const contextConfig = getContextConfig(context);
 
- const [comments, setComments] = useState([
-  {
-    id: 1,
-    author: contextConfig.author,
-    message: contextConfig.defaultMessage,
-    timestamp: new Date().toISOString(),
-  },
-]);
+  // Fetch comments when dialog opens
+  useEffect(() => {
+    if (open && ticket) {
+      fetchComments();
+    } else if (!open) {
+      // Reset comments when dialog closes
+      setComments([]);
+      setLoadingComments(true);
+    }
+  }, [open, ticket]);
 
-  
-  const { toast } = useToast();
+  const fetchComments = async () => {
+    if (!ticket) return;
+    
+    setLoadingComments(true);
+    
+    const apiUrl = `http://localhost:8000/api/ticket-comments?ticket_id=${ticket.id}`;
+    console.log("Fetching comments from:", apiUrl);
+    console.log("Ticket ID:", ticket.id);
+    console.log("Context:", context);
+    
+    try {
+      const response = await axios.get(apiUrl);
+      console.log("Comments response:", response.data);
+      const ticketComments = response.data
+      
+      // Sort by comment_id in ascending order
+      const sortedComments = ticketComments.sort((a, b) => {
+        const aId = parseInt(a.comment_id) || 0;
+        const bId = parseInt(b.comment_id) || 0;
+        return aId - bId;
+      });
+      
+      console.log("Sorted comments:", sortedComments);
+      setComments(sortedComments);
+    } catch (error) {
+      console.error("Failed to load comments:", error);
+      console.error("Error response:", error.response?.data);
+      setComments([]);
+      
+      toast({
+        title: "Error",
+        description: "Failed to load comments.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingComments(false);
+    }
+  };
 
-  if (!ticket) return null;
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !ticket) return;
+
+    const commentData = {
+      ticket_id: ticket.id,
+      author: contextConfig.commentAuthor || "Support",
+      content: newComment.trim(),
+    };
+
+    // Debug logging
+    console.log("Posting comment with data:", commentData);
+    console.log("Ticket object:", ticket);
+    console.log("Context:", context);
+    console.log("Context config:", contextConfig);
+
+    // Validate required fields
+    if (!commentData.ticket_id) {
+      console.error("Missing ticket_id:", ticket);
+      toast({
+        title: "Error",
+        description: "Missing ticket ID. Cannot post comment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!commentData.author) {
+      console.error("Missing author:", contextConfig);
+      toast({
+        title: "Error",
+        description: "Missing author information. Cannot post comment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://localhost:8000/api/ticket-comments", commentData);
+      console.log("Comment posted successfully:", response.data);
+
+      toast({
+        title: "Comment Added",
+        description: "Your comment has been posted successfully.",
+      });
+
+      setNewComment("");
+      fetchComments();
+    } catch (error) {
+      console.error("Failed to post comment:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      
+      const errorMessage = error.response?.data?.error || "Failed to post comment.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Check if comment is from the current user (employee view)
+  const isFromCurrentUser = (comment) => {
+    if (context === "employee") {
+      return comment.author === employee || comment.author === contextConfig.commentAuthor;
+    }
+    return false;
+  };
 
   const getSeverityBadge = (severity) => {
     switch (severity) {
@@ -134,6 +237,8 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
 
   // Context-aware AI Summary generation
   const generateAISummary = (ticket, context) => {
+    if (!ticket) return "No ticket data available.";
+
     // Helper function to convert integer severity to string
     const getSeverityString = (severity) => {
       if (typeof severity === 'number') {
@@ -218,54 +323,11 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context = "it" })
       }.`;
     }
   };
-const fetchComments = async () => {
-  setLoadingComments(true); // Set loading to true before fetching
-  try {
-    const response = await axios.get(`http://localhost:8000/api/ticket-comments?ticket_id=${ticket.id}&ticket_type=${context.toUpperCase()}`);
-    setComments(response.data); // assuming API returns a list of comments
-  } catch (error) {
-    console.error("Failed to load comments:", error);
-    toast({
-      title: "Error",
-      description: "Failed to load comments.",
-      variant: "destructive",
-    });
-  } finally {
-    setLoadingComments(false); // Stop loading indicator after comments are loaded or error occurs
-  }
-};
-
-const handleAddComment = async () => {
-  if (!newComment.trim()) return;
-
-  try {
-    await axios.post("http://localhost:8000/api/ticket-comments", {
-      ticket_id: ticket.id,
-      ticket_type: context.toUpperCase(),
-      author: contextConfig.commentAuthor || "Support",
-      content: newComment.trim(),
-    });
-
-    toast({
-      title: "Comment Added",
-      description: "Your comment has been posted successfully.",
-    });
-
-    setNewComment("");
-    fetchComments();
-  } catch (error) {
-    console.error("Failed to post comment:", error);
-    toast({
-      title: "Error",
-      description: "Failed to post comment.",
-      variant: "destructive",
-    });
-  }
-};
-
 
   // Context-specific title
   const getDialogTitle = (context) => {
+    if (!ticket) return "Ticket Details";
+    
     switch (context) {
       case "hr":
         return `HR Ticket Details - ${ticket.id}`;
@@ -275,6 +337,9 @@ const handleAddComment = async () => {
         return `Ticket Details - ${ticket.id}`;
     }
   };
+
+  // Early return AFTER all hooks have been called
+  if (!ticket) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -360,25 +425,38 @@ const handleAddComment = async () => {
             </h4>
             <div className="space-y-3 mb-4">
               {loadingComments ? (
-  <p className="text-sm text-muted-foreground">Loading comments...</p>
-) : comments.length === 0 ? (
-  <p className="text-sm text-muted-foreground">No comments yet.</p>
-) : (
-  comments.map((comment) => (
-    <div key={comment.comment_id} className="p-3 bg-muted rounded-lg">
-      <div className="flex justify-between items-start mb-1">
-        <span className="font-medium text-sm">
-          {comment.author}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {new Date(comment.created_at).toLocaleString()}
-        </span>
-      </div>
-      <p className="text-sm">{comment.content}</p>
-    </div>
-  ))
-)}
-
+                <p className="text-sm text-muted-foreground">Loading comments...</p>
+              ) : comments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No comments yet.</p>
+              ) : (
+                comments.map((comment) => {
+                  const fromCurrentUser = isFromCurrentUser(comment);
+                  return (
+                    <div 
+                      key={comment.comment_id || comment.id} 
+                      className={`p-3 rounded-lg max-w-[80%] ${
+                        fromCurrentUser 
+                          ? "bg-primary text-primary-foreground ml-auto" 
+                          : "bg-muted mr-auto"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-medium text-sm">
+                          {comment.author}
+                        </span>
+                        <span className={`text-xs ${
+                          fromCurrentUser 
+                            ? "text-primary-foreground/70" 
+                            : "text-muted-foreground"
+                        }`}>
+                          {new Date(comment.created_at || comment.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm">{comment.content || comment.message}</p>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Add Comment */}

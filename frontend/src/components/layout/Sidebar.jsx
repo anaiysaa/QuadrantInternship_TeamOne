@@ -42,7 +42,7 @@ const navigationItems = {
     { name: 'Profile', path: '/profile', icon: '👤' },
     { name: 'Leave Management', path: '/leave', icon: '📅' },
     { name: 'Timesheet', path: '/timesheet', icon: '⏰' },
-    { name: 'Performance Hub', path: '/performance', icon: '📈' },
+    //{ name: 'Performance Hub', path: '/performance', icon: '📈' },
     { name: 'Career Portal', path: '/career', icon: '🚀' },
     { name: 'Feedback', path: '/feedback', icon: '💬' },
     { name: 'Support Tickets', path: '/tickets', icon: '🎫' },
