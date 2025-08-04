@@ -8,11 +8,10 @@ const navigationItems = {
   'Admin Dashboard': [
     { name: 'Admin Overview', path: '/dashboard', icon: '🛡️' },
     { name: 'User Management', path: '/admin/users', icon: '👥' },
-    { name: 'Portal Settings', path: '/admin/portals', icon: '⚙️' },
-    { name: 'Access Control', path: '/admin/access', icon: '🔐' },
-    { name: 'System Analytics', path: '/admin/analytics', icon: '📊' },
+    //{ name: 'Portal Settings', path: '/admin/portals', icon: '⚙️' },
+    //{ name: 'Access Control', path: '/admin/access', icon: '🔐' },
+    //{ name: 'System Analytics', path: '/admin/analytics', icon: '📊' },
     { name: 'Activity Logs', path: '/admin/logs', icon: '📋' },
-    { name: 'Content Management', path: '/admin/content', icon: '📝' },
     { name: 'System Settings', path: '/admin/settings', icon: '🔧' },
   ],
   'HR Portal': [
@@ -27,6 +26,7 @@ const navigationItems = {
     { name: 'Payroll', path: '/hr/payroll', icon: '💰' },
     { name: 'Org Chart', path: '/hr/org-chart', icon: '🏢' },
     { name: 'Live Chat', path: '/hr/live-chat', icon: '💬' },
+    { name: 'Content Management', path: '/hr/content', icon: '📝' },
   ],
   'IT Portal': [
     { name: 'IT Dashboard', path: '/dashboard', icon: '🖥️' },

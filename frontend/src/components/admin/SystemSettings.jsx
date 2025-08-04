@@ -1,40 +1,115 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Settings, ToggleLeft, ToggleRight, AlertTriangle, Server, Key, Download, Save, RotateCcw } from 'lucide-react';
+import { Settings, ToggleLeft, ToggleRight, Key, Server } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import axios from 'axios';
 
 export function SystemSettings() {
   const { toast } = useToast();
+  const [envVars, setEnvVars] = useState([]);
+  const [uptimeStart, setUptimeStart] = useState(null);
+  const [currentUptime, setCurrentUptime] = useState('');
+  const [settings, setSettings] = useState({
+    maintenanceMode: false, 
+  });
+  const [databaseSize, setDatabaseSize] = useState('0 MB');
+
+useEffect(() => {
+  axios.get('http://localhost:8000/api/database-size')
+    .then(res => {
+      setDatabaseSize(res.data.databaseSize);
+    })
+    .catch(err => {
+      console.error('Failed to fetch database size:', err);
+    });
+}, []);
+
+  useEffect(() => {
+    axios.get('http://localhost:8000/api/system-settings')
+      .then(res => {
+        const data = res.data;
+        if (data?.uptime) {
+          const parsed = new Date(data.uptime);
+          setUptimeStart(new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000));
+          console.log('Uptime start set to:', parsed.toLocaleString());
+      }
+
+
+        if (data?.maintenanceMode !== undefined) {
+          setSettings(prev => ({
+            ...prev,
+            maintenanceMode: data.maintenanceMode,
+          }));
+        }
+
+        if (Array.isArray(data.envs)) {
+          const withMask = data.envs.map(env => ({
+            key: env.key,
+            value: env.value,
+            masked: true,
+          }));
+          setEnvVars(withMask);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch system settings:', err);
+      });
+  }, []);
+
   
-  const defaultSettings = {
-    maintenanceMode: false,
-    userRegistration: true,
-    emailNotifications: true,
-    autoBackup: true,
-    debugMode: false,
-    analyticsTracking: true
-  };
+  // Handle the uptime counting logic
+  useEffect(() => {
+    if (!uptimeStart || settings.maintenanceMode) return;
 
-  const defaultEnvVars = [
-    { key: 'SMTP_HOST', value: 'smtp.company.com', masked: false },
-    { key: 'DATABASE_URL', value: '••••••••••••••••', masked: true },
-    { key: 'API_KEY', value: '••••••••••••••••', masked: true },
-    { key: 'APP_NAME', value: 'Company Portal', masked: false },
-  ];
+    const interval = setInterval(() => {
+      const diff = Date.now() - uptimeStart.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
 
-  const [settings, setSettings] = useState(defaultSettings);
-  const [envVars, setEnvVars] = useState(defaultEnvVars);
+      setCurrentUptime(
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+    }, 1000);
 
-  const toggleSetting = (key) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
+    return () => clearInterval(interval);
+  }, [uptimeStart, settings.maintenanceMode]);
+
+  // Toggle maintenance mode in the system
+  const toggleMaintenanceMode = () => {
+    const newValue = !settings.maintenanceMode;
+
+    axios.put('/api/system-settings/maintenance', { maintenanceMode: newValue })
+      .then(res => {
+        const data = res.data;
+        if (data.success) {
+          setSettings(prev => ({
+            ...prev,
+            maintenanceMode: newValue,
+          }));
+
+          if (!newValue && data?.uptime) {
+            setUptimeStart(new Date(data.uptime));
+          }
+
+          toast({
+            title: 'Maintenance Mode Updated',
+            description: `System is now ${newValue ? 'in maintenance' : 'live'}.`,
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Failed to update maintenance mode:', err);
+      });
+      
+      if (!newValue) {
+        window.location.reload();
+      }
+   };
+
 
   const getToggleIcon = (value) => {
     return value ? (
@@ -44,18 +119,16 @@ export function SystemSettings() {
     );
   };
 
-  const handleSaveSettings = () => {
-    console.log('Saving all settings:', { settings, envVars });
-    
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Settings Saved",
-        description: "All system settings have been saved successfully.",
-      });
-    }, 500);
+  // Toggle visibility of environment variables
+  const toggleEnvVisibility = (index) => {
+    setEnvVars(prev => {
+      const newVars = [...prev];
+      newVars[index].masked = !newVars[index].masked;
+      return newVars;
+    });
   };
 
+  // Export configuration data
   const handleExportConfiguration = () => {
     const configuration = {
       settings,
@@ -82,6 +155,7 @@ export function SystemSettings() {
     });
   };
 
+  // Reset to default settings
   const handleResetToDefaults = () => {
     setSettings(defaultSettings);
     setEnvVars(defaultEnvVars);
@@ -101,14 +175,14 @@ export function SystemSettings() {
           System Settings
         </CardTitle>
         <CardDescription>
-          Configure global features, maintenance modes, and environment variables
+          View application uptime/storage status, environment variables, and adjust maintenance mode,
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Global Features */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Global Features</h3>
-          
+
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 border rounded">
               <div>
@@ -120,84 +194,11 @@ export function SystemSettings() {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => toggleSetting('maintenanceMode')}
+                  onClick={toggleMaintenanceMode}
                 >
                   {getToggleIcon(settings.maintenanceMode)}
                 </Button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">User Registration</div>
-                <div className="text-sm text-muted-foreground">Allow new user account creation</div>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => toggleSetting('userRegistration')}
-              >
-                {getToggleIcon(settings.userRegistration)}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">Email Notifications</div>
-                <div className="text-sm text-muted-foreground">System-wide email notification service</div>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => toggleSetting('emailNotifications')}
-              >
-                {getToggleIcon(settings.emailNotifications)}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">Automatic Backup</div>
-                <div className="text-sm text-muted-foreground">Daily automated system backups</div>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => toggleSetting('autoBackup')}
-              >
-                {getToggleIcon(settings.autoBackup)}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">Debug Mode</div>
-                <div className="text-sm text-muted-foreground">Enable detailed logging and error reporting</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {settings.debugMode && <Badge className="bg-yellow-100 text-yellow-800">Debug</Badge>}
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => toggleSetting('debugMode')}
-                >
-                  {getToggleIcon(settings.debugMode)}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <div className="font-medium">Analytics Tracking</div>
-                <div className="text-sm text-muted-foreground">Collect usage analytics and metrics</div>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => toggleSetting('analyticsTracking')}
-              >
-                {getToggleIcon(settings.analyticsTracking)}
-              </Button>
             </div>
           </div>
         </div>
@@ -209,9 +210,6 @@ export function SystemSettings() {
               <Key className="h-4 w-4" />
               Environment Variables
             </h3>
-            <Button variant="outline" size="sm">
-              Add Variable
-            </Button>
           </div>
           
           <div className="space-y-2">
@@ -229,8 +227,13 @@ export function SystemSettings() {
                   />
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="outline">Edit</Button>
-                  <Button size="sm" variant="outline">Delete</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleEnvVisibility(index)}
+                  >
+                    {envVar.masked ? 'View' : 'Hide'}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -243,41 +246,21 @@ export function SystemSettings() {
             <Server className="h-4 w-4" />
             System Status
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 border rounded text-center">
-              <div className="text-2xl font-bold text-green-600">99.9%</div>
-              <div className="text-sm text-muted-foreground">Uptime</div>
+              <div className="p-4 border rounded text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {settings.maintenanceMode ? 'DOWN' : currentUptime || 'Loading...'}
+                </div>
+                <div className="text-sm text-muted-foreground">Uptime</div>
+              </div>
             </div>
             <div className="p-4 border rounded text-center">
-              <div className="text-2xl font-bold text-blue-600">12GB</div>
+              <div className="text-2xl font-bold text-blue-600">{databaseSize}</div>
               <div className="text-sm text-muted-foreground">Storage Used</div>
             </div>
-            <div className="p-4 border rounded text-center">
-              <div className="text-2xl font-bold text-purple-600">45ms</div>
-              <div className="text-sm text-muted-foreground">Avg Response</div>
-            </div>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-4 border-t">
-          <Button onClick={handleSaveSettings}>
-            <Save className="h-4 w-4 mr-2" />
-            Save All Settings
-          </Button>
-          <Button variant="outline" onClick={handleExportConfiguration}>
-            <Download className="h-4 w-4 mr-2" />
-            Export Configuration
-          </Button>
-          <Button 
-            variant="outline" 
-            className="text-red-600 border-red-200 hover:bg-red-50"
-            onClick={handleResetToDefaults}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset to Defaults
-          </Button>
         </div>
       </CardContent>
     </Card>

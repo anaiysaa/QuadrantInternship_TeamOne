@@ -1645,6 +1645,125 @@ def save_timesheet_draft():
     conn.close()
     return jsonify({"message": "Draft saved", "id": draft_id})
 
+# Admin
+@app.route("/api/employees/count", methods=["GET"])
+def get_employee_count_by_department():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Query to get employees with their department
+    cursor.execute("""
+        SELECT ID, Name, Email, Department, Role, ManagerID, DateJoined, Status, Phone, Gender
+        FROM Employees
+    """)
+    rows = cursor.fetchall()
+    
+    # Dictionary to map employee IDs to names
+    id_to_name = {row[0]: row[1] for row in rows}
+    
+    # Dictionary to count employees by department
+    department_count = {
+        'IT': 0,
+        'HR': 0,
+        'Admin': 0,
+        'All': 0  # New category to capture all employees
+    }
+
+    # Count employees by department
+    for row in rows:
+        department = row[3]  # department is in the 4th column
+        if department in department_count:
+            department_count[department] += 1
+        else:
+            department_count['All'] += 1  # If the department is not IT, HR, or Admin, count as 'All'
+
+    conn.close()
+
+    # Return the department count in the response
+    return jsonify(department_count)
+
+@app.route("/api/system-settings", methods=["GET"])
+def get_system_env():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT Feature, Value 
+        FROM SystemSettings 
+        WHERE Feature IN ('Host_Key', 'Database_Key', 'AI_Key', 'Uptime', 'MaintenanceMode')
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    response = {
+        "envs": [],
+        "uptime": None,
+        "maintenanceMode": None
+    }
+
+    for feature, value in rows:
+        if feature == "Uptime":
+            response["uptime"] = value
+        elif feature == "MaintenanceMode":
+            response["maintenanceMode"] = value.lower() == 'true'
+        else:
+            response["envs"].append({
+                "key": feature,
+                "value": value
+            })
+
+    return jsonify(response)
+
+
+
+@app.route("/api/system-settings/maintenance", methods=["PUT"])
+def toggle_maintenance_mode():
+    data = request.json
+    new_mode = data.get("maintenanceMode")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE SystemSettings SET Value = ?
+        WHERE Feature = 'MaintenanceMode'
+    """, (str(new_mode),))
+
+    # Update uptime if maintenance is being turned OFF
+    if new_mode == False:
+        now_iso = datetime.utcnow().isoformat()
+        cursor.execute("""
+            UPDATE SystemSettings SET Value = ?
+            WHERE Feature = 'Uptime'
+        """, (now_iso,))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True, "maintenanceMode": new_mode})
+
+@app.route('/api/database-size', methods=['GET'])
+def get_database_size():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+            CAST(SUM(a.total_pages) * 8.0 / 1024 AS DECIMAL(10,2)) AS DatabaseSizeMB
+            FROM
+            sys.partitions p
+            JOIN sys.allocation_units a ON p.partition_id = a.container_id
+        """)
+        db_size = cursor.fetchone()[0]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({ "databaseSize": f"{db_size} MB" })
+    except Exception as e:
+        return jsonify({ "error": str(e) }), 500
+
 @app.route("/api/hello", methods=["GET"])
 def hello_world():
     return jsonify({"msg": "Hello, Flask is working!"})

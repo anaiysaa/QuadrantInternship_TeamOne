@@ -11,8 +11,9 @@ export function AuthProvider({ children }) {
     currentPortal: "Employee Portal"
   });
 
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+
   const logAdminAction = (action, details) => {
-    // For now, just log to console (replace with API call if needed)
     console.log("ADMIN ACTION:", action, details);
   };
 
@@ -38,6 +39,22 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  
+useEffect(() => {
+  axios.get('http://localhost:8000/api/system-settings')
+    .then(res => {
+      console.log("API Response:", res.data);
+      const isMaintenanceMode = res.data.maintenanceMode === true;
+      setMaintenanceMode(isMaintenanceMode);
+      console.log('Maintenance mode status:', isMaintenanceMode);
+    })
+    .catch(err => {
+      console.error('Failed to fetch system settings:', err);
+    });
+}, []);
+
+
+
   const login = async (username, password) => {
     setAuthState((prev) => ({ ...prev, isLoading: true }));
     try {
@@ -52,6 +69,12 @@ export function AuthProvider({ children }) {
         id: user.employee_id,            // always set id
         employeeId: user.employee_id     // always set employeeId
       };
+
+      if (transformedUser.role!== "admin" && maintenanceMode === true) {
+        console.warn("Login blocked due to maintenance mode.");
+        setAuthState((prev) => ({ ...prev, isLoading: false }));
+        return { success: false, error: "The system is currently in maintenance mode. Please try again later." };
+      }
 
       localStorage.setItem("portalUser", JSON.stringify(transformedUser));
 

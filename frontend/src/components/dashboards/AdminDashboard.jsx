@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import axios from 'axios';
 import { 
   Shield, 
   Users, 
@@ -29,6 +30,14 @@ import { SystemSettings } from '@/components/admin/SystemSettings';
 import { PortalViewDialog } from '@/components/dialogs/PortalViewDialog';
 import { PortalEditDialog } from '@/components/dialogs/PortalEditDialog';
 
+const handleGetEmployeeCount = async () => {
+    console.log('Fetching employee count');
+    const response = await axios.get(`http://localhost:8000/api/employees/count`)
+    console.log('employee count recivied', response.data);
+
+    return response.data;
+  }
+
 export function AdminDashboard() {
   const { user, logAdminAction } = useAuth();
   const location = useLocation();
@@ -36,6 +45,25 @@ export function AdminDashboard() {
   const [selectedPortal, setSelectedPortal] = useState(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [employeeCounts, setEmployeeCounts] = useState({
+    all: 0,
+    HR: 0,
+    IT: 0
+  });
+
+  useEffect(() => {
+  const fetchEmployeeCount = async () => {
+    const countData = await handleGetEmployeeCount();
+    setEmployeeCounts({
+      all: countData['All'],
+      HR: countData['HR'],
+      IT: countData['IT']
+    });
+  };
+  
+  fetchEmployeeCount();
+}, []);
+
 
   useEffect(() => {
     const path = location.pathname;
@@ -71,29 +99,30 @@ export function AdminDashboard() {
     handleAdminAction('Portal Updated', { portal: updatedPortal.name });
   };
 
-  const portalStats = [
-    { 
-      name: 'Employee Portal', 
-      icon: Users, 
-      users: 245, 
-      status: 'Active',
-      color: 'text-purple-600 bg-purple-50'
-    },
-    { 
-      name: 'HR Portal', 
-      icon: Building2, 
-      users: 12, 
-      status: 'Active',
-      color: 'text-blue-600 bg-blue-50'
-    },
-    { 
-      name: 'IT Portal', 
-      icon: HardDrive, 
-      users: 8, 
-      status: 'Active',
-      color: 'text-green-600 bg-green-50'
-    }
-  ];
+const portalStats = [
+  { 
+    name: 'Employee Portal', 
+    icon: Users, 
+    users: employeeCounts.all, 
+    status: 'Active',
+    color: 'text-purple-600 bg-purple-50'
+  },
+  { 
+    name: 'HR Portal', 
+    icon: Building2, 
+    users: employeeCounts.HR, 
+    status: 'Active',
+    color: 'text-blue-600 bg-blue-50'
+  },
+  { 
+    name: 'IT Portal', 
+    icon: HardDrive, 
+    users: employeeCounts.IT, 
+    status: 'Active',
+    color: 'text-green-600 bg-green-50'
+  },
+];
+
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -148,64 +177,12 @@ export function AdminDashboard() {
                           <Eye className="h-3 w-3 mr-1" />
                           View
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleEditPortal(portal)}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium">Total Users</span>
-                  </div>
-                  <div className="text-2xl font-bold mt-2">265</div>
-                  <div className="text-xs text-green-600">+12 this month</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Active Sessions</span>
-                  </div>
-                  <div className="text-2xl font-bold mt-2">89</div>
-                  <div className="text-xs text-green-600">+5% today</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm font-medium">Security Alerts</span>
-                  </div>
-                  <div className="text-2xl font-bold mt-2">3</div>
-                  <div className="text-xs text-red-600">Requires attention</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium">System Health</span>
-                  </div>
-                  <div className="text-2xl font-bold mt-2">98%</div>
-                  <div className="text-xs text-green-600">All systems operational</div>
-                </CardContent>
-              </Card>
-            </div>
           </div>
         );
     }

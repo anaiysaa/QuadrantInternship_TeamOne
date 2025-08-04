@@ -3,16 +3,55 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Activity, Calendar, Settings } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const handleGetEmployeeCount = async () => {
+    console.log('Fetching employee count');
+    const response = await axios.get(`http://localhost:8000/api/employees/count`)
+    console.log('employee count recivied', response.data);
+
+    return response.data;
+  }
 
 export function PortalViewDialog({ open, onOpenChange, portal }) {
   if (!portal) return null;
+
+  const [employeeCounts, setEmployeeCounts] = useState({
+      all: 100,
+      HR: 0,
+      IT: 0
+    });
+  
+    useEffect(() => {
+    const fetchEmployeeCount = async () => {
+      const countData = await handleGetEmployeeCount();
+      setEmployeeCounts({
+        all: countData['All'],
+        HR: countData['HR'],
+        IT: countData['IT']
+      });
+    };
+    
+    fetchEmployeeCount();
+  }, []);
 
   const getPortalDetails = (portalName) => {
     switch (portalName) {
       case 'Employee Portal':
         return {
-          features: ['Profile Management', 'Leave Requests', 'Timesheet', 'Performance Hub', 'Learning Center'],
-          stats: { activeUsers: 245, dailyLogins: 89, avgSessionTime: '24 min' },
+          features: ['Dashboard',
+    'Profile',
+    'Leave Management',
+    'Timesheet',
+    'Performance Hub',
+    'Career Portal',
+    'Feedback',
+    'Support Tickets',
+    'Resources',
+    'Learning (LMS)',
+    'Live Chat'],
+          stats: { activeUsers: employeeCounts.all, dailyLogins: 89},
           recentActivity: [
             'John Doe submitted leave request',
             'Sarah Wilson updated profile',
@@ -21,8 +60,19 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
         };
       case 'HR Portal':
         return {
-          features: ['Employee Directory', 'Leave Management', 'Onboarding', 'Payroll', 'Reports'],
-          stats: { activeUsers: 12, dailyLogins: 8, avgSessionTime: '45 min' },
+          features: ['HR Dashboard',
+    'Leave Requests',
+    'Timesheets',
+    'Employee Directory',
+    'Onboarding',
+    'HR Tickets',
+    'Feedback Center',
+    'Career Portal',
+    'Payroll',
+    'Org Chart',
+    'Live Chat',
+    'Content Management'],
+          stats: { activeUsers: employeeCounts.HR, dailyLogins: 8},
           recentActivity: [
             'HR approved 3 leave requests',
             'New employee onboarding started',
@@ -31,8 +81,14 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
         };
       case 'IT Portal':
         return {
-          features: ['Asset Management', 'Support Queue', 'Inventory', 'Knowledge Base', 'Software Center'],
-          stats: { activeUsers: 8, dailyLogins: 6, avgSessionTime: '38 min' },
+          features: [    'IT Dashboard',
+    'Support Queue',
+    'Asset Management',
+    'Inventory',
+    'Live Chat',
+    'Knowledge Base',
+    'Software Center'],
+          stats: { activeUsers: employeeCounts.IT, dailyLogins: 6},
           recentActivity: [
             'Resolved 5 support tickets',
             'Updated asset inventory',
@@ -42,7 +98,7 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
       default:
         return {
           features: [],
-          stats: { activeUsers: 0, dailyLogins: 0, avgSessionTime: '0 min' },
+          stats: { activeUsers: 0, dailyLogins: 0},
           recentActivity: []
         };
     }
@@ -84,15 +140,6 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
                   <span className="text-sm font-medium">Daily Logins</span>
                 </div>
                 <div className="text-2xl font-bold">{details.stats.dailyLogins}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium">Avg Session</span>
-                </div>
-                <div className="text-2xl font-bold">{details.stats.avgSessionTime}</div>
               </CardContent>
             </Card>
           </div>
