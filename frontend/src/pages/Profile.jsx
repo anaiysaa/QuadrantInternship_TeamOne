@@ -8,6 +8,8 @@ import { EditProfileDialog } from "@/components/dialogs/EditProfileDialog";
 import { EditSkillsDialog } from "@/components/dialogs/EditSkillsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { EditProfessionalDialog } from "@/components/dialogs/EditProfessionalDialog";
+import { EditEducationDialog } from "@/components/dialogs/EditEducationDialog";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -22,7 +24,9 @@ export default function Profile() {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [assets, setAssets] = useState([]);
-
+  const [editProfessionalOpen, setEditProfessionalOpen] = useState(false);
+  const [editEducationOpen, setEditEducationOpen] = useState(false);
+  
   
   // Fetch employee data
   useEffect(() => {
@@ -127,7 +131,6 @@ useEffect(() => {
       <div className="flex items-center justify-between">
   <h1 className="text-3xl font-bold">My Profile</h1>
   <div className="flex gap-4">
-    <Button onClick={() => setEditProfileOpen(true)}>Edit Profile</Button>
     <label
       htmlFor="resume-upload"
       className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition"
@@ -243,6 +246,9 @@ useEffect(() => {
                     <div className="text-sm mt-1 space-y-1">
                       <p>{employee.address || "Not provided"}</p>
                     </div>
+                    <div className="mt-4">
+                      <Button onClick={() => setEditProfileOpen(true)}>Edit</Button>
+                    </div>
                   </div>
                   {/* Add bio or other fields as needed */}
                 </div>
@@ -250,6 +256,7 @@ useEffect(() => {
 
               {/* PROFESSIONAL TAB */}
               {activeTab === "professional" && (
+                
   <div className="space-y-6">
     <div className="grid gap-4 md:grid-cols-2">
       <div>
@@ -264,6 +271,7 @@ useEffect(() => {
         <label className="text-sm font-medium text-muted-foreground">Manager</label>
         <p className="text-sm mt-1">{employee.managerName || "Not assigned"}</p>
       </div>
+      
       <div>
         <label className="text-sm font-medium text-muted-foreground">Employment Status</label>
         <p className="text-sm mt-1">{employee.status || "Not provided"}</p>
@@ -297,6 +305,9 @@ useEffect(() => {
               : employee.appliedJobs
             : "None"}
         </p>
+      </div>
+      <div className="mt-4">
+        <Button onClick={() => setEditProfessionalOpen(true)}>Edit</Button>
       </div>
     </div>
   </div>
@@ -337,7 +348,9 @@ useEffect(() => {
 ) : (
   <p>No skills listed.</p>
 )}
-
+<div className="mt-4">
+<Button onClick={() => setEditSkillsOpen(true)}>Edit</Button>
+</div>
   </div>
 )}
   
@@ -454,6 +467,9 @@ useEffect(() => {
           <label className="text-sm font-medium text-muted-foreground">Institution</label>
           <p className="text-sm mt-1">{employee.educationInstitution || "Not provided"}</p>
         </div>
+        <div className="mt-4">
+          <Button onClick={() => setEditEducationOpen(true)}>Edit</Button>
+        </div>
         <div>
           <label className="text-sm font-medium text-muted-foreground">Year</label>
           <p className="text-sm mt-1">{employee.educationYear || "Not provided"}</p>
@@ -469,8 +485,11 @@ useEffect(() => {
 </Card>
 </div>
         {/* Dialogs */}
-<EditProfileDialog open={editProfileOpen} onOpenChange={setEditProfileOpen} />
-<EditSkillsDialog open={editSkillsOpen} onOpenChange={setEditSkillsOpen} />
+        <EditProfileDialog open={editProfileOpen} onOpenChange={setEditProfileOpen} employeeId={employeeId} onUpdated={() => window.location.reload()} />
+<EditProfessionalDialog open={editProfessionalOpen} onOpenChange={setEditProfessionalOpen} employeeId={employeeId} onUpdated={() => window.location.reload()} />
+<EditSkillsDialog open={editSkillsOpen} onOpenChange={setEditSkillsOpen} employeeId={employeeId} onUpdated={() => window.location.reload()} />
+<EditEducationDialog open={editEducationOpen} onOpenChange={setEditEducationOpen} employeeId={employeeId} onUpdated={() => window.location.reload()} />
+
       </div>
 </DashboardLayout>
 );

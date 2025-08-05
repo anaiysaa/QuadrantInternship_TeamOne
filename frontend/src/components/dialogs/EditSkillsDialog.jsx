@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,12 +8,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { X, Plus } from 'lucide-react';
 
-export function EditSkillsDialog({ open, onOpenChange }) {
-  const { user } = useAuth();
+export function EditSkillsDialog({ open, onOpenChange, employeeId, onUpdated }) {
   const { toast } = useToast();
-  
-  const [skills, setSkills] = useState(user?.skills || []);
+  const [skills, setSkills] = useState([]);
   const [newSkill, setNewSkill] = useState('');
+
+  useEffect(() => {
+    if (open && employeeId) {
+      fetch(`/resume/employees/${employeeId}`)
+        .then(res => res.json())
+        .then(data => {
+          const s = Array.isArray(data.skills)
+            ? data.skills
+            : typeof data.skills === "string"
+            ? data.skills.split(",")
+            : [];
+          setSkills(s.map(skill => skill.trim()));
+        });
+    }
+  }, [open, employeeId]);
 
   const handleAddSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -27,20 +39,21 @@ export function EditSkillsDialog({ open, onOpenChange }) {
     setSkills(skills.filter(skill => skill !== skillToRemove));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, this would update the user's skills
-    toast({
-      title: "Skills Updated",
-      description: "Your skills have been updated successfully.",
-    });
-    onOpenChange(false);
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddSkill();
+    const res = await fetch(`/resume/employees/${employeeId}/update-skills`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skills }),
+    });
+
+    if (res.ok) {
+      toast({ title: 'Skills Updated', description: 'Your skills have been saved.' });
+      onOpenChange(false);
+      onUpdated?.();
+    } else {
+      toast({ title: 'Error', description: 'Failed to update skills.', variant: 'destructive' });
     }
   };
 
@@ -58,15 +71,15 @@ export function EditSkillsDialog({ open, onOpenChange }) {
                 id="newSkill"
                 value={newSkill}
                 onChange={(e) => setNewSkill(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter a skill (e.g., JavaScript, Project Management)"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                placeholder="e.g. Python, Communication"
               />
               <Button type="button" onClick={handleAddSkill} size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Current Skills</Label>
             <div className="flex flex-wrap gap-2 min-h-[100px] p-3 border rounded-md">
@@ -88,14 +101,12 @@ export function EditSkillsDialog({ open, onOpenChange }) {
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
-              Save Skills
-            </Button>
+            <Button type="submit">Save Skills</Button>
           </div>
         </form>
       </DialogContent>

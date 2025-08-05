@@ -19,8 +19,20 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
     email: "",
     role: "",
     dateJoined: "",
-    managerName: "", // ✅ take manager name instead of ID
+    managerName: "",
+    phoneNumber: "",
+    dob: "",
+    gender: "",
+    location: "",
+    employmentType: "",
+    managerEmail: "",
+    notes: "",
+    systemAccessList: "",
   });
+
+  const [w4File, setW4File] = useState(null);
+  const [i9File, setI9File] = useState(null);
+  const [depositFile, setDepositFile] = useState(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +44,21 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
   };
 
   const handleAddHire = async () => {
-    const { name, email, role, dateJoined, managerName } = formData;
+    const {
+      name,
+      email,
+      role,
+      dateJoined,
+      managerName,
+      phoneNumber,
+      dob,
+      gender,
+      location,
+      employmentType,
+      managerEmail,
+      notes,
+      systemAccessList,
+    } = formData;
 
     if (!name || !email || !role || !dateJoined) {
       toast({
@@ -45,7 +71,6 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
     try {
       setLoading(true);
 
-      // ✅ Fetch Manager ID if managerName is provided
       let managerId = null;
       if (managerName.trim() !== "") {
         const resManager = await fetch("/onboarding/managerid", {
@@ -65,20 +90,27 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
         }
       }
 
-      // ✅ Build payload
-      const payload = {
-        name,
-        email,
-        role,
-        dateJoined: new Date(dateJoined).toISOString().split("T")[0], // format YYYY-MM-DD
-        managerId,
-      };
+      const form = new FormData();
+      form.append("name", name);
+      form.append("email", email);
+      form.append("role", role);
+      form.append("dateJoined", new Date(dateJoined).toISOString().split("T")[0]);
+      form.append("managerId", managerId || "");
+      form.append("phoneNumber", phoneNumber);
+      form.append("dob", dob);
+      form.append("gender", gender);
+      form.append("location", location);
+      form.append("employmentType", employmentType);
+      form.append("managerEmail", managerEmail);
+      form.append("notes", notes);
+      form.append("systemAccessList", systemAccessList);
+      if (w4File) form.append("w4", w4File);
+      if (i9File) form.append("i9", i9File);
+      if (depositFile) form.append("deposit", depositFile);
 
-      // ✅ Send request to backend
       const res = await fetch("/onboarding/newhires", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: form,
       });
 
       const result = await res.json();
@@ -98,7 +130,19 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
         role: "",
         dateJoined: "",
         managerName: "",
+        phoneNumber: "",
+        dob: "",
+        gender: "",
+        location: "",
+        employmentType: "",
+        managerEmail: "",
+        notes: "",
+        systemAccessList: "",
       });
+
+      setW4File(null);
+      setI9File(null);
+      setDepositFile(null);
     } catch (err) {
       toast({ title: "Error", description: err.message });
     } finally {
@@ -108,12 +152,12 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Hire</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-3 py-2 max-h-[65vh] overflow-y-auto pr-2">
           <div>
             <Label>Name *</Label>
             <Input
@@ -162,6 +206,105 @@ export function AddNewHireDialog({ open, onOpenChange, fetchCandidates }) {
               onChange={handleChange}
               placeholder="Manager Name"
             />
+          </div>
+
+          <div>
+            <Label>Phone Number</Label>
+            <Input
+              name="phoneNumber"
+              value={formData.phoneNumber}
+              onChange={handleChange}
+              placeholder="+1 555 123 4567"
+            />
+          </div>
+
+          <div>
+            <Label>Date of Birth</Label>
+            <Input
+              type="date"
+              name="dob"
+              value={formData.dob}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <Label>Gender</Label>
+            <Input
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              placeholder="Male / Female / Non-binary"
+            />
+          </div>
+
+          <div>
+            <Label>Location</Label>
+            <Input
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="Remote / HQ / Other"
+            />
+          </div>
+
+          <div>
+            <Label>Employment Type</Label>
+            <Input
+              name="employmentType"
+              value={formData.employmentType}
+              onChange={handleChange}
+              placeholder="Full-time / Part-time / Intern"
+            />
+          </div>
+
+          <div>
+            <Label>Manager Email</Label>
+            <Input
+              name="managerEmail"
+              value={formData.managerEmail}
+              onChange={handleChange}
+              placeholder="Manager Email"
+            />
+          </div>
+
+          <div>
+            <Label>System Access (comma-separated)</Label>
+            <Input
+              name="systemAccessList"
+              value={formData.systemAccessList}
+              onChange={handleChange}
+              placeholder="Slack, Email, GitHub"
+            />
+          </div>
+
+          <div>
+            <Label>Notes</Label>
+            <Input
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              placeholder="Any special notes"
+            />
+          </div>
+
+          {/* File Uploads */}
+          <div>
+            <Label>W-4 Tax Form</Label>
+            <Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setW4File(e.target.files[0])} />
+            {w4File && <p className="text-sm text-muted">Selected: {w4File.name}</p>}
+          </div>
+
+          <div>
+            <Label>I-9 Employment Eligibility</Label>
+            <Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setI9File(e.target.files[0])} />
+            {i9File && <p className="text-sm text-muted">Selected: {i9File.name}</p>}
+          </div>
+
+          <div>
+            <Label>Direct Deposit Form</Label>
+            <Input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setDepositFile(e.target.files[0])} />
+            {depositFile && <p className="text-sm text-muted">Selected: {depositFile.name}</p>}
           </div>
         </div>
 
