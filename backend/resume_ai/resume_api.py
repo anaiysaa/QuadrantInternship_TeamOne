@@ -5,9 +5,11 @@ import pyodbc
 import os
 import re
 import json
+from pathlib import Path
 from dotenv import load_dotenv
+from dotenv import load_dotenv
+load_dotenv()  # loads backend/.env automatically
 
-load_dotenv()
 
 resume_api = Blueprint("resume_api", __name__)
 CORS(resume_api)  # ✅ Enable CORS for this blueprint
@@ -151,6 +153,27 @@ def get_employee_applications(employee_id):
     except Exception as e:
         print("DB error:", e)
         return jsonify({"error": "Database error", "details": str(e)}), 500
+
+@resume_api.route("/test-ai", methods=["GET"])
+def test_ai():
+    from openai import AzureOpenAI
+    import os
+
+    client = AzureOpenAI(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_version=os.getenv("OPENAI_API_VERSION"),
+        azure_endpoint=os.getenv("OPENAI_API_BASE")
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("DEPLOYMENT_NAME"),
+            messages=[{"role": "user", "content": "Say hello!"}],
+            max_tokens=20
+        )
+        return jsonify({"status": "success", "message": response.choices[0].message.content})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
 # ---------------------- Get Application Details ----------------------
 @resume_api.route("/applications/details/<int:application_id>", methods=["GET"])
