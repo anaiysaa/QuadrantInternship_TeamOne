@@ -35,6 +35,9 @@ app.register_blueprint(job_match_api, url_prefix='/job')
 from onboarding_api import onboarding_api
 app.register_blueprint(onboarding_api, url_prefix='/onboarding')
 
+from feedback_api import feedback_api
+app.register_blueprint(feedback_api, url_prefix="/api")
+
 # -- DB connection
 def get_connection():
     return pyodbc.connect(

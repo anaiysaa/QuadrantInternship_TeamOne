@@ -1,215 +1,81 @@
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp } from "lucide-react";
-
-// 🟢 1. ADD THIS — Dummy data for IT tasks!
-const currentTasks = [
-  {
-    id: 1,
-    title: "Update Network Firewall",
-    description: "Install the latest firmware update on all edge firewalls.",
-    priority: "High",
-    category: "Security",
-    dueDate: "2024-07-30",
-    status: "Not Started"
-  },
-  {
-    id: 2,
-    title: "Provision Laptops for New Hires",
-    description: "Set up 5 new laptops with required company images.",
-    priority: "Medium",
-    category: "Hardware",
-    dueDate: "2024-07-25",
-    status: "In Progress"
-  },
-  {
-    id: 3,
-    title: "Migrate Email Server",
-    description: "Complete mailbox migration to cloud before end of month.",
-    priority: "High",
-    category: "Infrastructure",
-    dueDate: "2024-07-31",
-    status: "Not Started"
-  },
-  {
-    id: 4,
-    title: "Update Internal Wiki",
-    description: "Add documentation for the new IT support ticket process.",
-    priority: "Low",
-    category: "Documentation",
-    dueDate: "2024-08-05",
-    status: "Completed"
-  },
-  {
-    id: 5,
-    title: "Patch Print Server",
-    description: "Apply security patch for CVE-2024-12345.",
-    priority: "High",
-    category: "Security",
-    dueDate: "2024-07-28",
-    status: "In Progress"
-  }
-  // ...add more as needed
-];
 
 export function ITDashboard() {
-  const {user} = useAuth();
-  const [showTasks, setShowTasks] = useState(true);
-  const [currentTasks, setCurrentTasks] = useState([
-    {
-      id: 1,
-      title: "Update Antivirus Definitions",
-      priority: "High",
-      category: "Security",
-      description: "Update virus definitions on all workstations.",
-      dueDate: "2024-07-30",
-      status: "Not Started"
-    },
-    {
-      id: 2,
-      title: "Network Upgrade",
-      priority: "Medium",
-      category: "Infrastructure",
-      description: "Upgrade office switches and routers.",
-      dueDate: "2024-08-05",
-      status: "In Progress"
-    },
-    {
-      id: 3,
-      title: "User Access Review",
-      priority: "Low",
-      category: "Audit",
-      description: "Quarterly review of user permissions.",
-      dueDate: "2024-08-15",
-      status: "Not Started"
-    } ]);
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [firstName, setFirstName] = useState("THERE");
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "High":
-        return "bg-red-500 text-white";
-      case "Medium":
-        return "bg-yellow-500 text-white";
-      case "Low":
-        return "bg-green-500 text-white";
-      default:
-        return "bg-muted";
-    }
-  };
+  useEffect(() => {
+    if (!user?.employeeId) return;
 
-  // Dummy handlers (replace as needed)
-  const handleTaskAction = (task) => {
-    alert(`Clicked action for: ${task.title}`);
-  };
+    fetch(`/api/it-dashboard?employeeId=${user.employeeId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setData(data);
+        if (data.firstName) setFirstName(data.firstName);
+      })
+      .catch((err) => console.error("Failed to load IT dashboard:", err));
+  }, [user?.employeeId]);
 
-  const handleQuickAction = (action) => {
-    alert(`Quick action: ${action}`);
-  };
+
+  if (!data) return <p className="text-sm text-muted-foreground">Loading dashboard...</p>;
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-warning text-warning-foreground rounded-lg p-6">
-        <h1 className="text-3xl font-bold mb-2">IT Dashboard</h1>
-        <p className="text-warning-foreground/80 mb-4">
-          Welcome back, {user?.name} • Information Technology
-        </p>
-        <div className="flex items-center space-x-4 text-sm">
-          <span>Employee ID: {user?.employeeId}</span>
-          <span>•</span>
-          <span>Department: {user?.department}</span>
-        </div>
+      {/* 🔹 Welcome */}
+      <div className="bg-primary/10 border border-primary rounded-lg p-4 mb-4">
+        <p className="text-primary font-medium text-lg">👋 Welcome back, {firstName}!</p>
+        <p className="text-muted-foreground text-sm">Here’s an overview of IT operations today.</p>
       </div>
 
-      {/* Current IT Tasks Section - now collapsible */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center">
-            Current IT Tasks & Priorities
-            <Button
-              variant="ghost"
-              size="icon"
-              className="ml-2"
-              onClick={() => setShowTasks(!showTasks)}
-            >
-              {showTasks ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
-          </CardTitle>
-          <Badge variant="outline">
-            {currentTasks.filter((t) => t.status !== "Completed").length} Active Tasks
-          </Badge>
-        </CardHeader>
+      {/* 🔹 Metrics */}
+      <h1 className="text-2xl font-bold">IT Dashboard</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Total Inventory Items</p><h2 className="text-2xl font-bold">{data.totalInventory}</h2></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Total Assigned</p><h2 className="text-2xl font-bold">{data.totalAssigned}</h2></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Total Available</p><h2 className="text-2xl font-bold">{data.totalAvailable}</h2></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Total IT Assets</p><h2 className="text-2xl font-bold">{data.totalAssets}</h2></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Total IT Tickets</p><h2 className="text-2xl font-bold">{data.totalTickets}</h2></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-muted-foreground">Open Tickets</p><h2 className="text-2xl font-bold">{data.openTickets}</h2></CardContent></Card>
+      </div>
 
-        {showTasks && (
-          <CardContent>
-            <div className="space-y-4">
-              {currentTasks.slice(0, 5).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-4 bg-accent/50 rounded-lg border"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h4 className="font-medium">{task.title}</h4>
-                      <Badge
-                        className={getPriorityColor(task.priority)}
-                        size="sm"
-                      >
-                        {task.priority}
-                      </Badge>
-                      <Badge variant="outline" size="sm">
-                        {task.category}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {task.description}
-                    </p>
-                    <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                      <span>
-                        Due: {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
-                      <span>Status: {task.status}</span>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    {task.status === "Not Started" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTaskAction(task)}
-                      >
-                        Start
-                      </Button>
-                    )}
-                    {task.status === "In Progress" && (
-                      <Button size="sm" onClick={() => handleTaskAction(task)}>
-                        Continue
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleTaskAction(task)}
-                    >
-                      View
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
+      {/* 🔹 Tickets by Department */}
+      <Card>
+        <CardHeader><CardTitle>Tickets by Department</CardTitle></CardHeader>
+        <CardContent>
+          {data.ticketsByDepartment.length === 0 ? (
+            <p className="text-muted-foreground">No ticket data available.</p>
+          ) : (
+            data.ticketsByDepartment.map((item, index) => (
+              <div key={item.department || index} className="flex items-center justify-between py-1">
+                <span>{item.department}</span>
+                <Badge>{item.count}</Badge>
+              </div>
+            ))
+          )}
+        </CardContent>
       </Card>
 
-      {/* IT Stats and other sections go here */}
+      {/* 🔹 Recent Troubleshooting Docs */}
+      <Card>
+        <CardHeader><CardTitle>Recent Troubleshooting Docs</CardTitle></CardHeader>
+        <CardContent>
+          {data.recentDocs.length === 0 ? (
+            <p className="text-muted-foreground">No recent docs available.</p>
+          ) : (
+            data.recentDocs.map((doc, idx) => (
+              <div key={`${doc.title}-${idx}`} className="mb-3">
+                <p className="font-medium">{doc.title || "Untitled"}</p>
+                <p className="text-sm text-muted-foreground">{doc.category || "Uncategorized"}</p>
+                <p className="text-xs text-gray-500">{doc.dateUploaded || "N/A"}</p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
