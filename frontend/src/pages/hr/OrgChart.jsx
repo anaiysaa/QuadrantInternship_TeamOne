@@ -221,7 +221,6 @@ export default function OrgChart() {
           </div>
           <div className="flex space-x-2">
             <Button variant="outline" onClick={() => setShowExportDialog(true)}>Export Chart</Button>
-            <Button onClick={() => setShowEditDialog(true)}>Edit Structure</Button>
           </div>
         </div>
 

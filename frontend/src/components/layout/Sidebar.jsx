@@ -49,6 +49,7 @@ const navigationItems = {
     { name: 'Resources', path: '/resources', icon: '📚' },
     { name: 'Learning (LMS)', path: '/lms', icon: '🎓' },
     { name: 'Live Chat', path: '/live-chat', icon: '💬' },
+    { name: 'Org Chart', path: '/hr/org-chart', icon: '🏢' }
   ]
 };
 

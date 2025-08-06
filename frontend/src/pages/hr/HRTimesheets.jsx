@@ -16,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+// === Helper: Export as CSV ===
 function exportTimesheetsToCSV(timesheets) {
   if (!timesheets.length) return;
   const header = [
@@ -49,13 +50,40 @@ function exportTimesheetsToCSV(timesheets) {
   document.body.removeChild(link);
 }
 
+// === Analytics Helper ===
+function getAnalytics(timesheets) {
+  const total = timesheets.length;
+  const approved = timesheets.filter(ts => ts.status === 'Approved').length;
+  const pending = timesheets.filter(ts => ['Submitted', 'Pending', 'Pending Review'].includes(ts.status)).length;
+  const rejected = timesheets.filter(ts => ts.status === 'Rejected').length;
+  const totalHours = timesheets.reduce((sum, ts) => sum + (ts.totalHours || 0), 0);
+  const avgHours = total > 0 ? (totalHours / total).toFixed(1) : 0;
+
+  // Find top employee(s) by total hours
+  const empMap = {};
+  timesheets.forEach(ts => {
+    if (!ts.employeeName) return;
+    empMap[ts.employeeName] = (empMap[ts.employeeName] || 0) + (ts.totalHours || 0);
+  });
+  const topEmployee = Object.entries(empMap).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
+
+  return {
+    total,
+    approved,
+    pending,
+    rejected,
+    avgHours,
+    topEmployee,
+  };
+}
+
 export default function HRTimesheets() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(true); // Show analytics by default!
   const [timesheets, setTimesheets] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -69,7 +97,7 @@ export default function HRTimesheets() {
     const handlePortalChange = () => {
       setRefreshKey(prev => prev + 1);
       setSearchTerm('');
-      setShowAnalytics(false);
+      setShowAnalytics(true);
       fetchTimesheets();
     };
     window.addEventListener('portalChanged', handlePortalChange);
@@ -139,6 +167,9 @@ export default function HRTimesheets() {
     }
   };
 
+  // --- Analytics Calculations
+  const analytics = getAnalytics(timesheets);
+
   return (
     <DashboardLayout>
       <div className="space-y-6" key={`hr-timesheets-${refreshKey}`}>
@@ -148,12 +179,65 @@ export default function HRTimesheets() {
             <p className="text-muted-foreground">Review employee timesheets</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => setShowAnalytics(!showAnalytics)}>
+            <Button variant="outline" onClick={() => setShowAnalytics((a) => !a)}>
               {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
             </Button>
-            {/* Bulk/Export can go here */}
           </div>
         </div>
+
+        {/* === Analytics Section === */}
+        {showAnalytics && (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Total Timesheets</h3>
+                </div>
+                <p className="text-2xl font-bold mt-1">{analytics.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-success"></div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Approved</h3>
+                </div>
+                <p className="text-2xl font-bold mt-1">{analytics.approved}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-warning"></div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Pending</h3>
+                </div>
+                <p className="text-2xl font-bold mt-1">{analytics.pending}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-destructive"></div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Rejected</h3>
+                </div>
+                <p className="text-2xl font-bold mt-1">{analytics.rejected}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-accent"></div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Avg Hours / Sheet</h3>
+                </div>
+                <p className="text-2xl font-bold mt-1">{analytics.avgHours}</p>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Top: {analytics.topEmployee[0]} ({analytics.topEmployee[1]}h)
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Search */}
         <Card>
