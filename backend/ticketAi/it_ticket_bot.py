@@ -16,7 +16,8 @@ key = os.getenv("AZURE_INFERENCE_SDK_KEY", "5KW1rps1l6JBaMaoTktaghezYRPa9xI4y3rk
 client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
 # Load IT severity data instead of HR severity data
-with open("ticketAi/it_severity.json", "r", encoding="utf-8") as f:
+# with open("ticketAi/it_severity.json", "r", encoding="utf-8") as f:
+with open("it_severity.json", "r", encoding="utf-8") as f:
     severity_data = json.load(f)
 
 def build_system_message_from_severity(severity_data):
@@ -71,6 +72,6 @@ if __name__ == "__main__":
     
     for ticket in sample_tickets:
         print(f"\nTicket: {ticket}")
-        severity = classify_ticket(ticket)
+        severity = classify_it_ticket(ticket)
         print(f"Classification: {severity}")
         print("-" * 30)
