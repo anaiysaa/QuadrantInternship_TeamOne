@@ -6,9 +6,23 @@ import { Calendar } from '@/components/ui/calendar';
 import { useState, useEffect } from 'react';
 import LeaveRequestDialog from '@/components/dialogs/LeaveRequestDialog';
 import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
+import { Archive, EyeOff, CalendarDays, Clock } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 const API_URL = 'http://localhost:8000/api/leave-requests';
+
+// Helper function to determine if a leave request should be considered archived
+function isArchivedLeaveRequest(request) {
+  const archivedStatuses = ['Archived'];
+  const status = (request.Status || request.status || '').toLowerCase();
+  
+  // Also consider requests older than 6 months as archived
+  const requestDate = new Date(request.StartDate || request.startDate);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  return archivedStatuses.includes(status) || requestDate < sixMonthsAgo;
+}
 
 export default function LeaveManagement() {
   const { user } = useAuth();
@@ -20,10 +34,11 @@ export default function LeaveManagement() {
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [refresh, setRefresh] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
   const [leaveBalance, setLeaveBalance] = useState({
-    'Annual Leave': { used: 0, total: 25 },
     'Sick Leave': { used: 0, total: 10 },
-    'Personal Leave': { used: 0, total: 5 },
+    'Personal Leave': { used: 0, total: 15 },
+    'Unpaid Leave': { used: 0, total: 15 },
   });
 
   const USER_ID = user ? user.employeeId : null;
@@ -61,6 +76,8 @@ export default function LeaveManagement() {
       case 'approved': return 'bg-success text-success-foreground';
       case 'pending': return 'bg-warning text-warning-foreground';
       case 'rejected': return 'bg-destructive text-destructive-foreground';
+      case 'completed': return 'bg-blue-600 text-white';
+      case 'cancelled': return 'bg-gray-500 text-white';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -101,6 +118,26 @@ export default function LeaveManagement() {
     }
   };
 
+  // Filter leave requests based on archived status
+  const filteredLeaveRequests = leaveRequests.filter(request => {
+    if (showArchived) {
+      return isArchivedLeaveRequest(request);
+    } else {
+      return !isArchivedLeaveRequest(request);
+    }
+  });
+
+  const archivedCount = leaveRequests.filter(isArchivedLeaveRequest).length;
+  const activeCount = leaveRequests.filter(request => !isArchivedLeaveRequest(request)).length;
+
+  // Get upcoming leave requests for calendar view
+  const upcomingLeave = leaveRequests.filter(request => {
+    const startDate = new Date(request.StartDate || request.startDate);
+    const today = new Date();
+    const status = (request.Status || request.status || '').toLowerCase();
+    return startDate >= today && (status === 'approved' || status === 'pending');
+  }).slice(0, 3);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -112,7 +149,7 @@ export default function LeaveManagement() {
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Leave Balance</CardTitle>
+              <CardTitle>Paid Leave Balance</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {['Annual Leave', 'Sick Leave', 'Personal Leave'].map(type => (
@@ -177,32 +214,123 @@ export default function LeaveManagement() {
           </Card>
         </div>
 
+        {/* Upcoming Leave Section - Only show when not viewing archived */}
+        {!showArchived && upcomingLeave.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CalendarDays className="h-5 w-5" />
+                <span>Upcoming Leave</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {upcomingLeave.map((request) => (
+                  <div key={request.RequestID || request.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                      <div>
+                        <p className="font-medium">{request.Type || request.type}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(request.StartDate || request.startDate).toLocaleDateString()} - {new Date(request.EndDate || request.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={getStatusColor(request.Status || request.status)}>
+                      {(request.Status || request.status)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
-          <CardHeader>
-            <CardTitle>Leave History</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <CardTitle>
+                {showArchived ? 'Archived Leave Requests' : 'Active Leave Requests'}
+              </CardTitle>
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>Active: {activeCount}</span>
+                <span>•</span>
+                <span>Archived: {archivedCount}</span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex items-center space-x-2"
+            >
+              {showArchived ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  <span>Hide Archived</span>
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4" />
+                  <span>Show Archived ({archivedCount})</span>
+                </>
+              )}
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {leaveRequests.map((request) => (
-                <div key={request.RequestID || request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">{request.Type || request.type}</span>
-                      <Badge className={getStatusColor(request.Status || request.status)}>
-                        {(request.Status || request.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {(request.StartDate || request.startDate)} - {(request.EndDate || request.endDate)} ({request.Days || request.days} days)
-                    </p>
-                    <p className="text-sm">{request.Reason || request.reason}</p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleViewDetails(request)}>
-                    View Details
-                  </Button>
+            {filteredLeaveRequests.length === 0 && (
+              <div className="text-center py-8">
+                <div className="mx-auto w-12 h-12 mb-4 rounded-full bg-muted flex items-center justify-center">
+                  {showArchived ? (
+                    <Archive className="h-6 w-6 text-muted-foreground" />
+                  ) : (
+                    <Clock className="h-6 w-6 text-muted-foreground" />
+                  )}
                 </div>
-              ))}
-            </div>
+                <h3 className="font-medium mb-1">
+                  {showArchived ? 'No Archived Leave Requests' : 'No Active Leave Requests'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {showArchived 
+                    ? 'No leave requests have been archived yet.' 
+                    : 'No active leave requests found. Submit your first leave request to get started.'}
+                </p>
+              </div>
+            )}
+            {filteredLeaveRequests.length > 0 && (
+              <div className="space-y-4">
+                {filteredLeaveRequests.map((request) => (
+                  <div key={request.RequestID || request.id} className={`flex items-center justify-between p-4 border rounded-lg ${isArchivedLeaveRequest(request) ? 'opacity-75 bg-muted/20' : ''}`}>
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{request.Type || request.type}</span>
+                        <Badge className={getStatusColor(request.Status || request.status)}>
+                          {(request.Status || request.status)}
+                        </Badge>
+                        {request.Urgent && (
+                          <Badge variant="destructive" className="text-xs">
+                            Urgent
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {(request.StartDate || request.startDate)} - {(request.EndDate || request.endDate)} ({request.Days || request.days} days)
+                      </p>
+                      <p className="text-sm">{request.Reason || request.reason}</p>
+                      {isArchivedLeaveRequest(request) && (
+                        <div className="flex items-center space-x-1 mt-2">
+                          <Archive className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Archived</span>
+                        </div>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => handleViewDetails(request)}>
+                      View Details
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

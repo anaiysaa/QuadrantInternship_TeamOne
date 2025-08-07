@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, Plus, Send } from 'lucide-react';
+import { Eye, EyeOff, Plus, Send, Archive, TicketCheck, Clock, AlertCircle } from 'lucide-react';
 import { ViewTicketDialog } from '@/components/dialogs/ViewTicketDialog';
 
 console.log('opening SupportTickets.jsx');
@@ -101,6 +101,20 @@ const postHRTicket = async (ticketData) => {
   }
 };
 
+// Helper function to determine if a ticket should be considered archived
+function isArchivedTicket(ticket) {
+  const archivedStatuses = ['Archived'];
+  const status = ticket.Status;
+  
+  // Also consider tickets older than 3 months with resolved/closed status as archived
+  const submittedDate = new Date(ticket.SubmittedDate || ticket.CreatedDate);
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  
+  return archivedStatuses.includes(status) || 
+         (status === 'Resolved' && submittedDate < threeMonthsAgo);
+}
+
 export default function SupportTickets() {
   const [newTicket, setNewTicket] = useState({
     title: '',
@@ -115,6 +129,7 @@ export default function SupportTickets() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -237,6 +252,8 @@ export default function SupportTickets() {
         return <Badge variant="default" className="bg-green-600 text-white">Resolved</Badge>;
       case 'Closed':
         return <Badge variant="secondary">Closed</Badge>;
+      case 'Cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -260,17 +277,32 @@ export default function SupportTickets() {
     ...(Array.isArray(tickets.hr_tickets) ? tickets.hr_tickets.map(ticket => ({ ...ticket, ticketType: 'HR' })) : [])
   ];
 
+  // Filter tickets based on archived status
+  const filteredTickets = allTicketsWithType.filter(ticket => {
+    if (showArchived) {
+      return isArchivedTicket(ticket);
+    } else {
+      return !isArchivedTicket(ticket);
+    }
+  });
+
+  const archivedCount = allTicketsWithType.filter(isArchivedTicket).length;
+  const activeCount = allTicketsWithType.filter(ticket => !isArchivedTicket(ticket)).length;
+
+  // Update analytics data to use filtered tickets for active view
+  const analyticsTickets = showArchived ? allTicketsWithType.filter(isArchivedTicket) : allTicketsWithType.filter(ticket => !isArchivedTicket(ticket));
+
   const priorityData = [
-    { name: 'High', value: allTicketsWithType.filter(t => t.Severity === 'High').length, color: '#ef4444' },
-    { name: 'Medium', value: allTicketsWithType.filter(t => t.Severity === 'Medium').length, color: '#eab308' },
-    { name: 'Low', value: allTicketsWithType.filter(t => t.Severity === 'Low').length, color: '#22c55e' },
+    { name: 'High', value: analyticsTickets.filter(t => t.Severity === 'High').length, color: '#ef4444' },
+    { name: 'Medium', value: analyticsTickets.filter(t => t.Severity === 'Medium').length, color: '#eab308' },
+    { name: 'Low', value: analyticsTickets.filter(t => t.Severity === 'Low').length, color: '#22c55e' },
   ].filter(item => item.value > 0);
 
   const statusData = [
-    { name: 'Open', value: allTicketsWithType.filter(t => t.Status === 'Open').length },
-    { name: 'In Progress', value: allTicketsWithType.filter(t => t.Status === 'In Progress').length },
-    { name: 'Resolved', value: allTicketsWithType.filter(t => t.Status === 'Resolved').length },
-    { name: 'Closed', value: allTicketsWithType.filter(t => t.Status === 'Closed').length },
+    { name: 'Open', value: analyticsTickets.filter(t => t.Status === 'Open').length },
+    { name: 'In Progress', value: analyticsTickets.filter(t => t.Status === 'In Progress').length },
+    { name: 'Resolved', value: analyticsTickets.filter(t => t.Status === 'Resolved').length },
+    { name: 'Closed', value: analyticsTickets.filter(t => t.Status === 'Closed').length },
   ].filter(item => item.value > 0);
 
   const weeklyTrendData = [
@@ -283,7 +315,14 @@ export default function SupportTickets() {
     { day: 'Sun', tickets: 0 },
   ];
 
-  console.log('Rendering component with tickets:', allTicketsWithType);
+  // Get priority tickets for quick overview (only for active view)
+  const urgentTickets = allTicketsWithType.filter(ticket => 
+    !isArchivedTicket(ticket) && 
+    (ticket.Status === 'Open' || ticket.Status === 'In Progress') && 
+    ticket.Severity === 'High'
+  ).slice(0, 3);
+
+  console.log('Rendering component with tickets:', filteredTickets);
 
   return (
     <DashboardLayout>
@@ -294,59 +333,6 @@ export default function SupportTickets() {
             <p className="text-muted-foreground">Create and track your IT and HR support requests</p>
           </div>
           <div className="flex space-x-2">
-            {/* Chat Dialog */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline">Chat with Bot</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>IT Support Chat</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="h-64 overflow-y-auto border rounded-lg p-4 bg-background">
-                    {chatMessages.length === 0 ? (
-                      <div className="text-center text-muted-foreground">
-                        <p>👋 Hello! I'm your IT support assistant.</p>
-                        <p>How can I help you today?</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {chatMessages.map((msg, index) => (
-                          <div
-                            key={index}
-                            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] p-3 rounded-lg ${
-                                msg.sender === 'user'
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted'
-                              }`}
-                            >
-                              <p className="text-sm">{msg.message}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Type your message..."
-                      onKeyPress={(e) => e.key === 'Enter' && handleChatSubmit()}
-                    />
-                    <Button onClick={handleChatSubmit}>
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Create Ticket Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -412,6 +398,79 @@ export default function SupportTickets() {
           </div>
         </div>
 
+        {/* Quick Stats Cards */}
+        {!showArchived && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Urgent Tickets</p>
+                    <p className="text-2xl font-bold text-red-600">{urgentTickets.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                    <p className="text-2xl font-bold text-yellow-600">
+                      {allTicketsWithType.filter(t => !isArchivedTicket(t) && t.Status === 'In Progress').length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <TicketCheck className="h-4 w-4 text-green-500" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Active</p>
+                    <p className="text-2xl font-bold text-green-600">{activeCount}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Urgent Tickets Alert - Only show when not viewing archived */}
+        {!showArchived && urgentTickets.length > 0 && (
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800 flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5" />
+                <span>Urgent Tickets Requiring Attention</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {urgentTickets.map((ticket) => (
+                  <div key={`urgent-${ticket.TicketID}`} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                    <div>
+                      <p className="font-medium text-red-800">{ticket.Title}</p>
+                      <p className="text-sm text-red-600">{getTicketTypeBadge(ticket.ticketType)} • {ticket.Status}</p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleViewTicket(ticket, ticket.ticketType)}
+                      className="border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Error Message */}
         {error && (
           <Card className="border-red-200 bg-red-50">
@@ -434,26 +493,36 @@ export default function SupportTickets() {
 
         {/* Analytics Section */}
         {showAnalytics && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Support Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Weekly Ticket Trend</h4>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <LineChart data={weeklyTrendData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="day" />
-                        <YAxis />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="tickets" stroke="#3b82f6" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>
+                {showArchived ? 'Archived Tickets Analytics' : 'Support Analytics'}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAnalytics(false)}
+              >
+                <EyeOff className="h-4 w-4 mr-2" />
+                Hide Analytics
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium mb-3">Weekly Ticket Trend</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={weeklyTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="day" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="tickets" stroke="#3b82f6" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
 
+                {priorityData.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-3">Priority Distribution</h4>
                     <ResponsiveContainer width="100%" height={200}>
@@ -476,7 +545,9 @@ export default function SupportTickets() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
+                )}
 
+                {statusData.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-3">Status Distribution</h4>
                     <ResponsiveContainer width="100%" height={200}>
@@ -489,23 +560,79 @@ export default function SupportTickets() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* My Tickets */}
         <Card>
-          <CardHeader>
-            <CardTitle>My Support Tickets</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <CardTitle>
+                {showArchived ? 'Archived Support Tickets' : 'My Active Support Tickets'}
+              </CardTitle>
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>Active: {activeCount}</span>
+                <span>•</span>
+                <span>Archived: {archivedCount}</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center space-x-2"
+              >
+                {showArchived ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    <span>Hide Archived</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4" />
+                    <span>Show Archived ({archivedCount})</span>
+                  </>
+                )}
+              </Button>
+              {!showAnalytics && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnalytics(true)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Show Analytics
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-4">Loading tickets...</div>
-            ) : allTicketsWithType.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No tickets found. Create your first support ticket above!</p>
+              <div className="text-center py-8">
+                <div className="mx-auto w-8 h-8 mb-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                <p>Loading tickets...</p>
+              </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="mx-auto w-12 h-12 mb-4 rounded-full bg-muted flex items-center justify-center">
+                  {showArchived ? (
+                    <Archive className="h-6 w-6 text-muted-foreground" />
+                  ) : (
+                    <TicketCheck className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <h3 className="font-medium mb-1">
+                  {showArchived ? 'No Archived Tickets' : 'No Active Tickets'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {showArchived 
+                    ? 'No tickets have been archived yet.' 
+                    : 'No active tickets found. Create your first support ticket above!'}
+                </p>
               </div>
             ) : (
               <Table>
@@ -521,9 +648,16 @@ export default function SupportTickets() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allTicketsWithType.map((ticket) => (
-                    <TableRow key={`${ticket.TicketID}-${ticket.EmployeeID}`}>
-                      <TableCell className="font-medium">{ticket.TicketID}</TableCell>
+                  {filteredTickets.map((ticket) => (
+                    <TableRow key={`${ticket.TicketID}-${ticket.EmployeeID}`} className={isArchivedTicket(ticket) ? 'opacity-75' : ''}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-2">
+                          <span>{ticket.TicketID}</span>
+                          {isArchivedTicket(ticket) && (
+                            <Archive className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium">{ticket.Title}</p>

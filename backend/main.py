@@ -107,7 +107,6 @@ def add_message(chat_id):
 # ------------------ EMPLOYEES ------------------
 
 # ------------------ LEAVE REQUESTS (SAMPLE) ------------------
-
 @app.route("/api/leave-requests", methods=["GET"])
 def get_leave_requests():
     emp_id = request.args.get("employee_id")
@@ -115,13 +114,13 @@ def get_leave_requests():
     cursor = conn.cursor()
     if emp_id:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
             FROM LeaveRequests WHERE Employee=?
             ORDER BY SubmittedDate DESC
         """, (emp_id,))
     else:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
             FROM LeaveRequests
             ORDER BY SubmittedDate DESC
         """)
@@ -131,6 +130,7 @@ def get_leave_requests():
     results = [dict(zip(columns, row)) for row in rows]
     for r in results:
         r['Urgent'] = bool(r.get('Urgent', False))
+        r['archived'] = bool(r.get('archived', False))  # Convert archived to boolean
         for k in ('StartDate', 'EndDate', 'SubmittedDate'):
             if r.get(k):
                 r[k] = str(r[k])
@@ -153,6 +153,15 @@ def reject_leave_request(request_id):
     conn.commit()
     conn.close()
     return jsonify({"message": "Request rejected"})
+
+@app.route("/api/leave-requests/<string:request_id>/archive", methods=["POST"])
+def archive_leave_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE LeaveRequests SET archived = 1 WHERE RequestID = ?", (request_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Request Archived"})
 
 @app.route("/api/leave-requests", methods=["POST"])
 def submit_leave_request():
@@ -511,6 +520,25 @@ def summarize_hr_tickets():
         })
     return jsonify(results)
 
+@app.route("/api/ITtickets/<string:request_id><int:num>/edit-severity", methods=["POST"])
+def edit_severity_IT(request_id, num):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE IT_Tickets SET Severity = ? WHERE TicketID = ?", num, request_id)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Severity updated"})
+
+
+@app.route("/api/HRTickets/<string:request_id><int:num>/edit-severity", methods=["POST"])
+def edit_severity_HR(request_id, num):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE hr_tickets SET Severity = ? WHERE TicketID = ?", num, request_id)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Severity updated"})
+
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -571,6 +599,14 @@ def reject_timesheet(ticket_id):
     conn.close()
     return jsonify({"success": True})
 
+@app.route("/api/timesheets/<string:ticket_id>/archive", methods=["POST"])
+def archive_timesheet(ticket_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE Timesheets SET archived = 1 WHERE TicketID = ?", (ticket_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Request Archived"})
 
 @app.route("/apply-internal-transfer", methods=["POST"])
 def apply_internal_transfer():
@@ -1146,6 +1182,7 @@ def post_hr_ticket():
     except Exception as e:
         print(f"Error in post_hr_ticket: {str(e)}")  # Add error logging
         return jsonify({"error": str(e)}), 500
+
 @app.route('/api/tickets/personal', methods=['GET'])
 def get_personal_tickets():
     employee = request.args.get('EmployeeID')
@@ -1539,7 +1576,7 @@ def get_timesheets():
     base_sql = """
         SELECT TicketID, EmployeeID, EmployeeName, Month, TotalHours, Overtime, WeekPeriod, SubmittedDate, Status,
                MondayHours, TuesdayHours, WednesdayHours, ThursdayHours, FridayHours, SaturdayHours, SundayHours, Notes,
-               ApprovedBy, ApprovedDate, LastModified
+               ApprovedBy, ApprovedDate, LastModified, archived
         FROM dbo.Timesheets
     """
     params = []
@@ -1579,6 +1616,7 @@ def get_timesheets():
             "approvedBy": row[17],
             "approvedDate": row[18].isoformat() if row[18] else None,
             "lastModified": row[19].isoformat() if row[19] else None,
+            "archived": bool(row[20]) if row[20] is not None else False,
         }
         for row in rows
     ]

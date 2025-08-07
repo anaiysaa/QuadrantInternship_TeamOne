@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { ViewTimesheetDialog } from '@/components/dialogs/ViewTimesheetDialog';
+import { Archive, ArchiveRestore, Eye, EyeOff } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -68,6 +69,12 @@ function exportTimesheetsToCSV(timesheets) {
   document.body.removeChild(link);
 }
 
+// Helper function to determine if a timesheet should be considered archived
+function isArchivedTimesheet(timesheet) {
+  const archivedStatuses = ['Archived'];
+  return archivedStatuses.includes(timesheet.status);
+}
+
 export default function Timesheet() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -90,6 +97,7 @@ export default function Timesheet() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [timesheetHistory, setTimesheetHistory] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (!user?.employeeId) return;
@@ -268,12 +276,26 @@ export default function Timesheet() {
         return <Badge variant="outline" className="text-warning border-warning">Pending</Badge>;
       case 'Rejected':
         return <Badge variant="destructive">Rejected</Badge>;
+      case 'Paid':
+        return <Badge variant="default" className="bg-blue-600 text-white">Paid</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
   const isDisabled = timesheetStatus === 'submitted' || isSubmitting || isSaving;
+
+  // Filter timesheets based on archived status
+  const filteredTimesheets = timesheetHistory.filter(timesheet => {
+    if (showArchived) {
+      return isArchivedTimesheet(timesheet);
+    } else {
+      return !isArchivedTimesheet(timesheet);
+    }
+  });
+
+  const archivedCount = timesheetHistory.filter(isArchivedTimesheet).length;
+  const activeCount = timesheetHistory.filter(ts => !isArchivedTimesheet(ts)).length;
 
   return (
     <DashboardLayout>
@@ -358,55 +380,98 @@ export default function Timesheet() {
         {/* Timesheet History */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Timesheet History</CardTitle>
-            <Button variant="outline" onClick={() => exportTimesheetsToCSV(timesheetHistory)}>
-              Export as CSV
-            </Button>
+            <div className="flex items-center space-x-4">
+              <CardTitle>
+                {showArchived ? 'Archived Timesheets' : 'Active Timesheets'}
+              </CardTitle>
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <span>Active: {activeCount}</span>
+                <span>•</span>
+                <span>Archived: {archivedCount}</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center space-x-2"
+              >
+                {showArchived ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    <span>Hide Archived</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4" />
+                    <span>Show Archived ({archivedCount})</span>
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => exportTimesheetsToCSV(filteredTimesheets)}>
+                Export as CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timesheet ID</TableHead>
-                  <TableHead>Week Period</TableHead>
-                  <TableHead>Total Hours</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {timesheetHistory.length === 0 && (
+            {filteredTimesheets.length === 0 && (
+              <div className="text-center py-8">
+                <div className="mx-auto w-12 h-12 mb-4 rounded-full bg-muted flex items-center justify-center">
+                  {showArchived ? (
+                    <Archive className="h-6 w-6 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <h3 className="font-medium mb-1">
+                  {showArchived ? 'No Archived Timesheets' : 'No Active Timesheets'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {showArchived 
+                    ? 'No timesheets have been archived yet.' 
+                    : 'No active timesheets found. Submit your first timesheet to get started.'}
+                </p>
+              </div>
+            )}
+            {filteredTimesheets.length > 0 && (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">
-                      No timesheets found.
-                    </TableCell>
+                    <TableHead>Timesheet ID</TableHead>
+                    <TableHead>Week Period</TableHead>
+                    <TableHead>Total Hours</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                )}
-                {timesheetHistory.map((timesheet) => (
-                  <TableRow key={timesheet.id}>
-                    <TableCell className="font-medium">{timesheet.id}</TableCell>
-                    <TableCell>{timesheet.week}</TableCell>
-                    <TableCell>{timesheet.totalHours}h</TableCell>
-                    <TableCell>{getStatusBadge(timesheet.status)}</TableCell>
-                    <TableCell>
-                      {timesheet.submittedDate
-                        ? new Date(timesheet.submittedDate).toLocaleDateString()
-                        : ''}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleViewDetails(timesheet)}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredTimesheets.map((timesheet) => (
+                    <TableRow key={timesheet.id} className={isArchivedTimesheet(timesheet) ? 'opacity-75' : ''}>
+                      <TableCell className="font-medium">{timesheet.id}</TableCell>
+                      <TableCell>{timesheet.week}</TableCell>
+                      <TableCell>{timesheet.totalHours}h</TableCell>
+                      <TableCell>{getStatusBadge(timesheet.status)}</TableCell>
+                      <TableCell>
+                        {timesheet.submittedDate
+                          ? new Date(timesheet.submittedDate).toLocaleDateString()
+                          : ''}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDetails(timesheet)}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
