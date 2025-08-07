@@ -23,6 +23,7 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
   const [urgent, setUrgent] = useState(false);
+  const [paidLeave, setPaidLeave] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Live business days calculation
@@ -36,6 +37,7 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
       setEndDate('');
       setReason('');
       setUrgent(false);
+      setPaidLeave(false);
     }
   }, [open, defaultType]);
 
@@ -48,7 +50,8 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
       startDate,
       endDate,
       reason,
-      urgent
+      urgent,
+      paidLeave
     });
     setSubmitting(false);
   };
@@ -95,9 +98,15 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
             <label className="block text-sm font-medium">Reason</label>
             <Input value={reason} onChange={e => setReason(e.target.value)} required />
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox checked={urgent} onCheckedChange={setUrgent} id="urgent" />
-            <label htmlFor="urgent" className="text-sm">Mark as urgent</label>
+          <div className="flex flex-col space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox checked={urgent} onCheckedChange={setUrgent} id="urgent" />
+              <label htmlFor="urgent" className="text-sm">Mark as urgent</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox checked={paidLeave} onCheckedChange={setPaidLeave} id="paidLeave" />
+              <label htmlFor="paidLeave" className="text-sm">Request as paid leave</label>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

@@ -8,16 +8,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Sparkles, Edit3, Save, X } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 
-export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
+const ViewTicketDialog = ({ open, onOpenChange, ticket, context }) => {
   const [newComment, setNewComment] = useState("");
   const [loadingComments, setLoadingComments] = useState(true);
   const [comments, setComments] = useState([]);
+  const [isEditingSeverity, setIsEditingSeverity] = useState(false);
+  const [editingSeverity, setEditingSeverity] = useState("");
+  const [updatingSeverity, setUpdatingSeverity] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -52,14 +62,45 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
 
   const contextConfig = getContextConfig(context);
 
+  // Helper function to convert integer severity to string
+  const getSeverityString = (severity) => {
+    if (typeof severity === 'number') {
+      switch (severity) {
+        case 1: return 'Critical';
+        case 2: return 'Urgent';
+        case 3: return 'High';
+        case 4: return 'Medium';
+        case 5: return 'Low';
+        default: return 'Low';
+      }
+    }
+    return severity || 'Low';
+  };
+
+  // Helper function to convert string severity to integer
+  const getSeverityNumber = (severity) => {
+    switch (severity) {
+      case 'Critical': return 1;
+      case 'Urgent': return 2;
+      case 'High': return 3;
+      case 'Medium': return 4;
+      case 'Low': return 5;
+      default: return 5;
+    }
+  };
+
   // Fetch comments when dialog opens
   useEffect(() => {
     if (open && ticket) {
       fetchComments();
+      // Initialize editing severity with current value
+      setEditingSeverity(getSeverityString(ticket.severity || ticket.priority));
     } else if (!open) {
       // Reset comments when dialog closes
       setComments([]);
       setLoadingComments(true);
+      setIsEditingSeverity(false);
+      setEditingSeverity("");
     }
   }, [open, ticket]);
 
@@ -163,6 +204,71 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
     }
   };
 
+  const handleUpdateSeverity = async () => {
+    if (!ticket || !editingSeverity) return;
+
+    setUpdatingSeverity(true);
+
+    const severityNumber = getSeverityNumber(editingSeverity);
+    
+    // Determine the correct API endpoint based on context
+    let apiUrl;
+    if (context === "hr") {
+      apiUrl = `http://localhost:8000/api/HRTickets/${ticket.id}${severityNumber}/edit-severity`;
+    } else {
+      // Default to IT endpoint for IT context or when context is undefined/null
+      apiUrl = `http://localhost:8000/api/ITtickets/${ticket.id}${severityNumber}/edit-severity`;
+    }
+
+    console.log("Updating severity with URL:", apiUrl);
+    console.log("Context:", context);
+    console.log("Ticket ID:", ticket.id);
+    console.log("Severity Number:", severityNumber);
+
+    try {
+      const response = await axios.post(apiUrl);
+      console.log("Severity updated successfully:", response.data);
+
+      // Update the ticket object locally
+      ticket.severity = severityNumber;
+
+      toast({
+        title: "Severity Updated",
+        description: `Ticket severity has been updated to ${editingSeverity}.`,
+      });
+
+      setIsEditingSeverity(false);
+
+      // Add a comment about the severity change
+      const severityChangeComment = {
+        ticket_id: ticket.id,
+        author: contextConfig.commentAuthor || "Support",
+        content: `Severity updated to ${editingSeverity}`,
+      };
+
+      await axios.post("http://localhost:8000/api/ticket-comments", severityChangeComment);
+      fetchComments();
+
+    } catch (error) {
+      console.error("Failed to update severity:", error);
+      console.error("Error response:", error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to update severity.";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingSeverity(false);
+    }
+  };
+
+  const handleCancelSeverityEdit = () => {
+    setIsEditingSeverity(false);
+    setEditingSeverity(getSeverityString(ticket.severity || ticket.priority));
+  };
+
   // Check if comment is from the current user (employee view)
   const isFromCurrentUser = (comment) => {
     if (context === "employee") {
@@ -175,24 +281,33 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
     switch (severity) {
       case "Critical":
         return <Badge variant="destructive">Critical</Badge>;
+      case "Urgent":
+        return (
+          <Badge
+            variant="outline"
+            className="text-red-600 border-red-600 bg-red-50"
+          >
+            Urgent
+          </Badge>
+        );
       case "High":
         return (
           <Badge
             variant="outline"
-            className="text-destructive border-destructive"
+            className="text-orange-600 border-orange-600 bg-orange-50"
           >
             High
           </Badge>
         );
       case "Medium":
         return (
-          <Badge variant="outline" className="text-warning border-warning">
+          <Badge variant="outline" className="text-yellow-600 border-yellow-600 bg-yellow-50">
             Medium
           </Badge>
         );
       case "Low":
         return (
-          <Badge variant="outline" className="text-success border-success">
+          <Badge variant="outline" className="text-green-600 border-green-600 bg-green-50">
             Low
           </Badge>
         );
@@ -239,20 +354,6 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
   const generateAISummary = (ticket, context) => {
     if (!ticket) return "No ticket data available.";
 
-    // Helper function to convert integer severity to string
-    const getSeverityString = (severity) => {
-      if (typeof severity === 'number') {
-        switch (severity) {
-          case 1: return 'Critical';
-          case 2: return 'High';
-          case 3: return 'Medium';
-          case 4: return 'Low';
-          default: return 'Low';
-        }
-      }
-      return severity || 'Low';
-    };
-
     // Safe property access with fallbacks and proper severity conversion
     const safeTicket = {
       severity: getSeverityString(ticket?.severity || ticket?.priority),
@@ -265,7 +366,7 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
     };
 
     const urgencyLevel =
-      safeTicket.severity === "Critical" || safeTicket.severity === "High"
+      safeTicket.severity === "Critical" || safeTicket.severity === "Urgent" || safeTicket.severity === "High"
         ? "urgent"
         : "standard";
 
@@ -338,6 +439,9 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
     }
   };
 
+  // Check if user can edit severity (only HR and IT contexts)
+  const canEditSeverity = context === "hr" || context === "it" || (!context);
+
   // Early return AFTER all hooks have been called
   if (!ticket) return null;
 
@@ -379,7 +483,59 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
               <h4 className="font-medium text-sm text-muted-foreground">
                 Severity
               </h4>
-              {getSeverityBadge(ticket.severity || ticket.priority)}
+              <div className="flex items-center gap-2">
+                {isEditingSeverity ? (
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={editingSeverity}
+                      onValueChange={setEditingSeverity}
+                      disabled={updatingSeverity}
+                    >
+                      <SelectTrigger className="w-32 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Critical">Critical</SelectItem>
+                        <SelectItem value="Urgent">Urgent</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleUpdateSeverity}
+                      disabled={updatingSeverity}
+                      className="h-8 px-2"
+                    >
+                      <Save className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelSeverityEdit}
+                      disabled={updatingSeverity}
+                      className="h-8 px-2"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {getSeverityBadge(getSeverityString(ticket.severity || ticket.priority))}
+                    {canEditSeverity && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsEditingSeverity(true)}
+                        className="h-6 px-1"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <h4 className="font-medium text-sm text-muted-foreground">
@@ -476,4 +632,10 @@ export function ViewTicketDialog({ open, onOpenChange, ticket, context }) {
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+// Named export
+export { ViewTicketDialog };
+
+// Default export (alternative)
+export default ViewTicketDialog;

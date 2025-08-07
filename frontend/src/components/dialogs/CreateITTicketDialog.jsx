@@ -9,12 +9,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 
-// API function for posting HR tickets only
-const postHRTicket = async (ticketData) => {
+// API function for posting IT tickets only
+const postITTicket = async (ticketData) => {
   try {
-    console.log('Posting HR Ticket:', ticketData);
+    console.log('Posting IT Ticket:', ticketData);
     
-    // Ensure all required fields are present and properly formatted
+    // Match the structure from your example - using the same field names as the SupportTickets component
     const payload = {
       EmployeeID: ticketData.EmployeeID,
       Status: ticketData.Status,
@@ -22,15 +22,18 @@ const postHRTicket = async (ticketData) => {
       description: ticketData.description,
       summary: ticketData.summary || '',
       department: ticketData.department,
+      // Map our form fields to match the expected format
+      Priority: ticketData.priority,  // Note: uppercase P to match backend expectation
+      Category: ticketData.category,  // Note: uppercase C to match backend expectation
     };
     
     console.log('API Payload being sent:', payload);
     
-    const response = await axios.post('http://localhost:8000/api/tickets/hr', payload);
-    console.log('HR Ticket created successfully:', response.data);
+    const response = await axios.post('http://localhost:8000/api/tickets/it', payload);
+    console.log('IT Ticket created successfully:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error creating HR ticket:', error);
+    console.error('Error creating IT ticket:', error);
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', error.response.data);
@@ -42,11 +45,11 @@ const postHRTicket = async (ticketData) => {
         throw new Error(`Server error: ${error.response.data.error}`);
       }
     }
-    throw new Error(`Failed to create HR ticket: ${error.message}`);
+    throw new Error(`Failed to create IT ticket: ${error.message}`);
   }
 };
 
-export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
+export function CreateITTicketDialog({ open, onOpenChange, onTicketCreated }) {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -56,9 +59,33 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
     selectedEmployee: '',
     description: '',
     summary: '',
+    priority: 'Medium',
+    category: 'General',
   });
   
   const { toast } = useToast();
+
+  // IT ticket categories
+  const itCategories = [
+    'Hardware',
+    'Software',
+    'Network',
+    'Security',
+    'Account Access',
+    'Email',
+    'Printer',
+    'Phone/VoIP',
+    'General',
+    'Other'
+  ];
+
+  // Priority levels
+  const priorities = [
+    'Low',
+    'Medium',
+    'High',
+    'Critical'
+  ];
 
   // Fetch employees when dialog opens
   useEffect(() => {
@@ -152,6 +179,8 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
         description: formData.description.trim(),
         summary: formData.summary ? formData.summary.trim() : '',
         department: employeeDepartment.trim(),
+        priority: formData.priority,
+        category: formData.category,
       };
 
       // Validate that we have all required fields
@@ -175,16 +204,16 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
         console.warn('Department not found for employee, using "Unknown"');
       }
 
-      console.log('Submitting HR ticket data:', ticketData);
+      console.log('Submitting IT ticket data:', ticketData);
 
-      // Submit the HR ticket
-      await postHRTicket(ticketData);
+      // Submit the IT ticket
+      await postITTicket(ticketData);
 
-      console.log('HR ticket successfully created');
+      console.log('IT ticket successfully created');
 
       toast({
-        title: "HR Ticket Created",
-        description: `HR ticket "${formData.title}" has been created for ${selectedEmp.Name || selectedEmp.name || 'selected employee'}.`,
+        title: "IT Ticket Created",
+        description: `IT ticket "${formData.title}" has been created for ${selectedEmp.Name || selectedEmp.name || 'selected employee'}.`,
       });
 
       // Reset form
@@ -193,6 +222,8 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
         selectedEmployee: '',
         description: '',
         summary: '',
+        priority: 'Medium',
+        category: 'General',
       });
 
       onOpenChange(false);
@@ -203,10 +234,10 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
       }
 
     } catch (error) {
-      console.error('Error creating HR ticket:', error);
+      console.error('Error creating IT ticket:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create HR ticket. Please try again.",
+        description: error.message || "Failed to create IT ticket. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -220,6 +251,8 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
       selectedEmployee: '',
       description: '',
       summary: '',
+      priority: 'Medium',
+      category: 'General',
     });
     onOpenChange(false);
   };
@@ -228,7 +261,7 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create HR Ticket on Behalf of Employee</DialogTitle>
+          <DialogTitle>Create IT Ticket on Behalf of Employee</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -272,26 +305,77 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
             </Select>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select 
+                value={formData.category} 
+                onValueChange={(value) => setFormData({...formData, category: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {itCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="priority">Priority *</Label>
+              <Select 
+                value={formData.priority} 
+                onValueChange={(value) => setFormData({...formData, priority: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorities.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title">Issue Title *</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Brief description of the HR issue"
+              placeholder="Brief description of the IT issue"
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description">Issue Description *</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
-              placeholder="Detailed description of the HR issue or request"
+              placeholder="Detailed description of the IT issue, including steps to reproduce if applicable"
               rows={4}
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="summary">Additional Notes</Label>
+            <Textarea
+              id="summary"
+              value={formData.summary}
+              onChange={(e) => setFormData({...formData, summary: e.target.value})}
+              placeholder="Any additional information or context (optional)"
+              rows={2}
             />
           </div>
 
@@ -308,7 +392,7 @@ export function CreateHRTicketDialog({ open, onOpenChange, onTicketCreated }) {
               type="submit" 
               disabled={loading}
             >
-              {loading ? 'Creating HR Ticket...' : 'Create HR Ticket'}
+              {loading ? 'Creating IT Ticket...' : 'Create IT Ticket'}
             </Button>
           </DialogFooter>
         </form>

@@ -16,7 +16,8 @@ key = os.getenv("AZURE_INFERENCE_SDK_KEY", "5KW1rps1l6JBaMaoTktaghezYRPa9xI4y3rk
 
 client = ChatCompletionsClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
-with open("ticketAi/hr_severity.json", "r", encoding="utf-8") as f:
+#with open("ticketAi/hr_severity.json", "r", encoding="utf-8") as f:
+with open("hr_severity.json", "r", encoding="utf-8") as f:
     severity_data = json.load(f)
 
 def build_system_message_from_severity(severity_data):
