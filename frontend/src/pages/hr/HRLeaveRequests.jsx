@@ -17,11 +17,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+
 const API_URL = 'http://localhost:8000/api/leave-requests';
 const EMP_API_URL = 'http://localhost:8000/api/employees';
 
 export default function HRLeaveRequests() {
-  const { currentPortal } = useAuth();
+  const { user, currentPortal } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -98,14 +99,19 @@ export default function HRLeaveRequests() {
   };
 
   const handleApprove = async (requestId) => {
-    try {
-      await axios.post(`${API_URL}/${requestId}/approve`);
-      toast({ title: 'Approved', description: `Request ${requestId} approved.` });
-      setRefreshKey((k) => k + 1);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to approve request.' });
-    }
-  };
+  try {
+    await axios.post(`${API_URL}/${requestId}/approve`, {
+      employee_id: user.employee_id  // <-- must be passed
+    });
+    toast({ title: 'Approved', description: `Request ${requestId} approved.` });
+    setRefreshKey((k) => k + 1);
+  } catch (err) {
+    toast({ title: 'Error', description: 'Failed to approve request.' });
+    console.error(err);
+  }
+};
+
+
 
   const handleReject = async (requestId) => {
     try {

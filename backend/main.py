@@ -135,12 +135,23 @@ def get_leave_requests():
 
 @app.route("/api/leave-requests/<string:request_id>/approve", methods=["POST"])
 def approve_leave_request(request_id):
+    data = request.get_json()
+    approver_id = data.get("employee_id")
+    if not approver_id:
+        return jsonify({"error": "Missing employee_id"}), 400
+
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", request_id)
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", (request_id,))
     conn.commit()
     conn.close()
-    return jsonify({"message": "Request approved"})
+
+    log_activity(approver_id, "Approved Leave Request", None, f"Approved request ID: {request_id}")
+    return jsonify({"message": "Request approved and logged."})
+
+
+
+
 
 @app.route("/api/leave-requests/<string:request_id>/reject", methods=["POST"])
 def reject_leave_request(request_id):
@@ -513,6 +524,7 @@ def login():
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
+
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
 
@@ -529,28 +541,49 @@ def login():
     if not row:
         return jsonify({"error": "Invalid username or password"}), 401
 
+    employee_id = row[0]          # ✅ Now row is defined, so this works
     department = row[3]
 
+    log_activity(employee_id, "Logged In", None, f"User {username} logged in")
+
     return jsonify({
-        "employee_id": row[0],
+        "employee_id": employee_id,
         "username": row[1],
-        "name": row[2],    # <-- REAL NAME
+        "name": row[2],
         "department": department,
     }), 200
+
 
 @app.route("/api/timesheets/<ticket_id>/approve", methods=["POST"])
 def approve_timesheet(ticket_id):
     data = request.get_json()
-    approved_by = data.get("approvedBy", "HR")
+    approved_by = data.get("approvedBy")  # should be employee ID
+
+    if not approved_by:
+        return jsonify({"error": "Missing approvedBy"}), 400
+
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # Update timesheet status
     cursor.execute("""
         UPDATE dbo.Timesheets
         SET Status='Approved', ApprovedBy=?, ApprovedDate=GETDATE()
         WHERE TicketID=?
     """, (approved_by, ticket_id))
+
     conn.commit()
     conn.close()
+    approver_id = data.get("employee_id")
+
+    # ✅ Log the approval
+    log_activity(
+        approver_id,
+        "Approved Timesheet",
+        None,
+        f"Approved timesheet ID: {ticket_id}"
+    )
+
     return jsonify({"success": True})
 
 @app.route("/api/timesheets/<ticket_id>/reject", methods=["POST"])
@@ -1778,6 +1811,7 @@ def toggle_maintenance_mode():
 
     conn.commit()
     conn.close()
+    log_activity(admin_email, "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
 
     return jsonify({"success": True, "maintenanceMode": new_mode})
 
@@ -1802,6 +1836,94 @@ def get_database_size():
         return jsonify({ "databaseSize": f"{db_size} MB" })
     except Exception as e:
         return jsonify({ "error": str(e) }), 500
+    
+def log_activity(employee_id, action, type_, details):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get email and department from Employees table
+    cursor.execute("SELECT Email, Department FROM Employees WHERE ID = ?", (employee_id,))
+    row = cursor.fetchone()
+
+    email = row[0] if row else "Unknown"
+    department = row[1] if row else "Unknown"
+
+    # Use department as type_ if type_ is not provided
+    final_type = type_ if type_ else department
+
+    cursor.execute("""
+        INSERT INTO ActivityLog (timestamp, username, action, type, details)
+        VALUES (?, ?, ?, ?, ?)
+    """, (datetime.now(), email, action, final_type, details))
+
+    conn.commit()
+    conn.close()
+
+
+# --- EXAMPLE ROUTE THAT LOGS SOMETHING ---
+@app.route('/api/change-role', methods=['POST'])
+def change_user_role():
+    data = request.get_json()
+    target_username = data.get("username")
+    new_role = data.get("newRole")
+    admin_id = data.get("employee_id")  # the person doing the change
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE Employees SET Role = ? WHERE Username = ?", (new_role, target_username))
+    conn.commit()
+    conn.close()
+
+    # Log it
+    log_activity(admin_id, "User Role Changed", "Admin", f"Changed {target_username}'s role to {new_role}")
+
+    return jsonify({"message": "Role updated and activity logged."})
+
+# --- FETCH LOGS ---
+@app.route('/api/logs', methods=['GET'])
+def get_activity_logs():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, timestamp, username, action, type, details
+        FROM ActivityLog
+        ORDER BY timestamp DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    logs = []
+    for row in rows:
+        logs.append({
+            "id": row[0],
+            "timestamp": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+            "username": row[2],
+            "action": row[3],
+            "type": row[4],
+            "details": row[5]
+        })
+
+    return jsonify(logs)
+
+# --- Suggested Logging Usage in main.py ---
+
+# Example: Leave request approved
+# log_activity(user=approver_name, action="Approved leave request", type_="HR", details=f"RequestID: {request_id}")
+
+# Example: Leave request rejected
+# log_activity(user=approver_name, action="Rejected leave request", type_="HR", details=f"RequestID: {request_id}")
+
+# Example: Employee data updated
+# log_activity(user=admin_name, action="Updated employee record", type_="Admin", details=f"EmployeeID: {emp_id}, Fields: name, email")
+
+# Example: Internal job application reviewed
+# log_activity(user=hr_name, action="Reviewed internal transfer", type_="HR", details=f"EmployeeID: {employee_id}, Status: {status}")
+
+# Example: Role changed
+# log_activity(user=admin_name, action="Changed role", type_="Admin", details=f"EmployeeID: {emp_id}, New Role: {new_role}")
+
+# --- End Activity Logging Setup ---
+
 
 @app.route("/api/hello", methods=["GET"])
 def hello_world():

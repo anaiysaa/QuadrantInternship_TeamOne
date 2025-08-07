@@ -22,7 +22,7 @@ const API_URL = 'http://localhost:8000/api/timesheets';
 
 function getCurrentWeekDates() {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // Sunday=0, Monday=1, etc.
+  const dayOfWeek = now.getDay();
   const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
   const monday = new Date(now);
   monday.setDate(now.getDate() + diffToMonday);
@@ -278,48 +278,82 @@ export default function Timesheet() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-primary"></div>
-                <h3 className="text-sm font-medium text-muted-foreground">Total Hours</h3>
+        {/* Timesheet Entry Form */}
+        <Card className="border-primary/30 shadow-xl">
+          <CardHeader>
+            <CardTitle>Submit Weekly Timesheet</CardTitle>
+            <div className="text-muted-foreground text-sm mt-1">
+              {currentWeek}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="space-y-5"
+              onSubmit={e => { e.preventDefault(); submitForApproval(); }}
+            >
+              <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+                {days.map(day => (
+                  <div key={day.key} className="flex flex-col items-center">
+                    <Label htmlFor={day.key} className="font-medium mb-1">{day.name}</Label>
+                    <Input
+                      id={day.key}
+                      type="number"
+                      value={weekHours[day.key]}
+                      onChange={e => handleHoursChange(day.key, e.target.value)}
+                      min={0}
+                      max={24}
+                      step={1}
+                      disabled={isDisabled}
+                      className="w-20 text-center"
+                    />
+                    <div className="text-xs text-muted-foreground mt-1">{day.date.toLocaleDateString()}</div>
+                  </div>
+                ))}
               </div>
-              <p className="text-2xl font-bold mt-1">{totalHours}h</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-success"></div>
-                <h3 className="text-sm font-medium text-muted-foreground">Regular Hours</h3>
+              <div>
+                <Label htmlFor="note" className="font-medium mb-1">Notes / Comments</Label>
+                <Textarea
+                  id="note"
+                  rows={2}
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="Add a note for this week…"
+                  disabled={isDisabled}
+                  className="resize-none"
+                />
               </div>
-              <p className="text-2xl font-bold mt-1">{regularHours}h</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-warning"></div>
-                <h3 className="text-sm font-medium text-muted-foreground">Overtime</h3>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isSaving || isDisabled}
+                  onClick={saveDraft}
+                >
+                  {isSaving ? "Saving…" : "Save as Draft"}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || isDisabled}
+                >
+                  {isSubmitting ? "Submitting…" : "Submit for Approval"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetTimesheet}
+                  disabled={isDisabled}
+                >
+                  Reset
+                </Button>
+                <div className="ml-auto flex flex-col text-xs text-muted-foreground space-y-0.5">
+                  <span>Total: <span className="font-bold">{totalHours}h</span></span>
+                  <span>Regular: <span className="font-bold">{regularHours}h</span></span>
+                  <span>Overtime: <span className="font-bold">{overtimeHours}h</span></span>
+                </div>
               </div>
-              <p className="text-2xl font-bold mt-1">{overtimeHours}h</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-accent"></div>
-                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-              </div>
-              <p className="text-sm font-medium mt-1 capitalize">{timesheetStatus}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Time Entry Form */}
-        {/* ...Keep the rest of your component as is... */}
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Timesheet History */}
         <Card>

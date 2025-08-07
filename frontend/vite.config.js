@@ -8,14 +8,13 @@ export default defineConfig(({ mode }) => ({
     host: "localhost", // ✅ use localhost
     port: 8080,
     proxy: {
-      "/api": "http://localhost:8000",
-      "/login": "http://localhost:8000",
-      "/resume": "http://localhost:8000",       // ✅ add proxy for resume API
-      "/job": "http://localhost:8000",          // ✅ add proxy for job API
-      "/onboarding": "http://localhost:8000",   // ✅ add proxy for onboarding API
-      "/summarize-hr-tickets": "http://localhost:8000",
-      "/apply-internal-transfer": "http://localhost:8000",
-      "/api/system-settings": "http://localhost:8000",
+     "/api": "http://127.0.0.1:8000",
+      "/login": "http://127.0.0.1:8000",
+      "/resume": "http://127.0.0.1:8000",
+      "/job": "http://127.0.0.1:8000",
+      "/onboarding": "http://127.0.0.1:8000",
+      "/summarize-hr-tickets": "http://127.0.0.1:8000",
+      "/apply-internal-transfer": "http://127.0.0.1:8000",
     },
   },
   plugins: [
