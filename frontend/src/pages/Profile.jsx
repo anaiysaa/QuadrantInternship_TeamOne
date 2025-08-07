@@ -10,6 +10,28 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { EditProfessionalDialog } from "@/components/dialogs/EditProfessionalDialog";
 import { EditEducationDialog } from "@/components/dialogs/EditEducationDialog";
+import {
+  Shield,
+  Users,
+  FileText,
+  Settings,
+  Calendar,
+  Clock,
+  User,
+  Target,
+  Ticket,
+  MessageCircle,
+  Rocket,
+  Building2,
+  Edit,
+  Clipboard,
+  Folder,
+  Book,
+  BookOpen,
+  Home,
+  Laptop,
+  Package,
+} from 'lucide-react';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -103,15 +125,15 @@ useEffect(() => {
 
 
   // Tabs
-  const tabs = [
-    { id: "personal", label: "Personal Info", icon: "👤" },
-    { id: "professional", label: "Professional Info", icon: "🎓" },
-    { id: "skills", label: "Skills", icon: "🎯" },
-    { id: "certifications", label: "Certifications", icon: "🏆" },
-    { id: "education", label: "Education", icon: "📚" }, 
-    { id: "assets", label: "Assigned Assets", icon: "💻" },
+ const tabs = [
+  { id: "personal", label: "Personal Info", icon: <User className="w-4 h-4" /> },
+  { id: "professional", label: "Professional Info", icon: <Clipboard className="w-4 h-4" /> },
+  { id: "skills", label: "Skills", icon: <Target className="w-4 h-4" /> },
+  { id: "certifications", label: "Certifications", icon: <Shield className="w-4 h-4" /> },
+  { id: "education", label: "Education", icon: <BookOpen className="w-4 h-4" /> },
+  { id: "assets", label: "Assigned Assets", icon: <Laptop className="w-4 h-4" /> },
+];
 
-  ];
 
   const getInitials = (name) => {
     if (!name) return "U";

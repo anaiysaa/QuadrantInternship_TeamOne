@@ -114,13 +114,13 @@ def get_leave_requests():
     cursor = conn.cursor()
     if emp_id:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived, paid
             FROM LeaveRequests WHERE Employee=?
             ORDER BY SubmittedDate DESC
         """, (emp_id,))
     else:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived, paid
             FROM LeaveRequests
             ORDER BY SubmittedDate DESC
         """)
@@ -130,7 +130,8 @@ def get_leave_requests():
     results = [dict(zip(columns, row)) for row in rows]
     for r in results:
         r['Urgent'] = bool(r.get('Urgent', False))
-        r['archived'] = bool(r.get('archived', False))  # Convert archived to boolean
+        r['archived'] = bool(r.get('archived', False))
+        r['paid'] = bool(r.get('paid', False))
         for k in ('StartDate', 'EndDate', 'SubmittedDate'):
             if r.get(k):
                 r[k] = str(r[k])
@@ -140,7 +141,7 @@ def get_leave_requests():
 def approve_leave_request(request_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", request_id)
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", (request_id,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Request approved"})
@@ -149,7 +150,7 @@ def approve_leave_request(request_id):
 def reject_leave_request(request_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE LeaveRequests SET Status = 'Rejected' WHERE RequestID = ?", request_id)
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Rejected' WHERE RequestID = ?", (request_id,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Request rejected"})
@@ -171,10 +172,12 @@ def submit_leave_request():
     cursor.execute("SELECT ISNULL(MAX(CAST(SUBSTRING(RequestID, 3, 10) AS INT)), 0) + 1 FROM LeaveRequests")
     next_number = cursor.fetchone()[0]
     new_id = f"LR{next_number:03d}"
+    
     start = data.get("StartDate") or data.get("startDate")
     end = data.get("EndDate") or data.get("endDate")
     start_dt = datetime.strptime(start, "%Y-%m-%d") if start else datetime.today()
     end_dt = datetime.strptime(end, "%Y-%m-%d") if end else start_dt
+    
     def count_weekdays(s, e):
         count = 0
         d = s
@@ -183,17 +186,24 @@ def submit_leave_request():
                 count += 1
             d += timedelta(days=1)
         return count
+    
     days = count_weekdays(start_dt, end_dt)
     reason = data.get("Reason") or data.get("reason") or ""
     submitted_date = datetime.now().strftime("%Y-%m-%d")
     urgent = bool(data.get("Urgent") or data.get("urgent") or False)
     status = data.get("Status") or data.get("status") or "Pending"
     employee = data.get("Employee") or data.get("employee")
+    
+    # Handle paid leave - this was missing in original code
+    paid = bool(data.get("paid") or data.get("paidLeave") or False)
+    
     if not employee:
         return jsonify({"error": "Employee ID is required"}), 400
+    
     type_ = data.get("Type") or data.get("type")
+    
     cursor.execute(
-        "INSERT INTO LeaveRequests (RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO LeaveRequests (RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             new_id,
             employee,
@@ -205,13 +215,14 @@ def submit_leave_request():
             urgent,
             reason,
             submitted_date,
+            paid,  # Added paid parameter
         ),
     )
     print("Received data:", data)
 
     conn.commit()
     conn.close()
-    return jsonify({"RequestID": new_id, "success": True, "days": days}), 201
+    return jsonify({"RequestID": new_id, "success": True, "days": days, "paid": paid}), 201
 
 # ------------------ CHAT SYSTEM (THE PART YOU NEED) ------------------
 

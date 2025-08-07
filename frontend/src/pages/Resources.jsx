@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ResourceDetailsDialog } from '@/components/dialogs/ResourceDetailsDialog';
 import { useState, useEffect } from 'react';
+import { Laptop, Monitor, Shield, Globe } from 'lucide-react';
+
 
 export default function Resources() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,12 +116,13 @@ export default function Resources() {
               onClick={() => handleCategoryFilter(category)}
             >
               <CardContent className="p-4 text-center">
-                <div className="text-2xl mb-2">
-                  {category === 'Hardware' && '💻'}
-                  {category === 'Software' && '📱'}
-                  {category === 'Security' && '🔒'}
-                  {category === 'Network' && '🌐'}
-                </div>
+                <div className="text-2xl mb-2 flex justify-center">
+  {category === 'Hardware' && <Laptop className="w-6 h-6" />}
+  {category === 'Software' && <Monitor className="w-6 h-6" />}
+  {category === 'Security' && <Shield className="w-6 h-6" />}
+  {category === 'Network' && <Globe className="w-6 h-6" />}
+</div>
+
                 <h3 className="font-semibold">{category}</h3>
                 <p className="text-sm text-muted-foreground">
                   {category === 'Hardware' && 'Device manuals & guides'}

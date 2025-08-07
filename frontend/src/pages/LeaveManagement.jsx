@@ -6,14 +6,20 @@ import { Calendar } from '@/components/ui/calendar';
 import { useState, useEffect } from 'react';
 import LeaveRequestDialog from '@/components/dialogs/LeaveRequestDialog';
 import LeaveDetailsDialog from '@/components/dialogs/LeaveDetailsDialog';
-import { Archive, EyeOff, CalendarDays, Clock } from 'lucide-react';
-import axios from 'axios';
+import { Archive, EyeOff, CalendarDays, Clock, Shield, User } from 'lucide-react';
+
+// Using fetch instead of axios for API calls
 import { useAuth } from '@/contexts/AuthContext';
 const API_URL = 'http://localhost:8000/api/leave-requests';
 
 // Helper function to determine if a leave request should be considered archived
 function isArchivedLeaveRequest(request) {
-  const archivedStatuses = ['Archived'];
+  // Check if explicitly archived
+  if (request.archived || request.archived === true) {
+    return true;
+  }
+  
+  const archivedStatuses = ['archived'];
   const status = (request.Status || request.status || '').toLowerCase();
   
   // Also consider requests older than 6 months as archived
@@ -36,9 +42,9 @@ export default function LeaveManagement() {
   const [refresh, setRefresh] = useState(0);
   const [showArchived, setShowArchived] = useState(false);
   const [leaveBalance, setLeaveBalance] = useState({
-    'Sick Leave': { used: 0, total: 10 },
-    'Personal Leave': { used: 0, total: 15 },
-    'Unpaid Leave': { used: 0, total: 15 },
+    'Sick Leave': { used: 0, total: 10, paidUsed: 0 },
+    'Personal Leave': { used: 0, total: 5, paidUsed: 0 },
+    'Annual Leave': { used: 0, total: 20, paidUsed: 0 },
   });
 
   const USER_ID = user ? user.employeeId : null;
@@ -46,29 +52,43 @@ export default function LeaveManagement() {
   useEffect(() => {
     if (!USER_ID) {
       alert("No employee ID found. Please log in again.");
-      window.location.href = 'api/login';
+      window.location.href = '/api/login';
       return;
     }
 
-    axios.get(API_URL)
-      .then(res => {
-        const data = res.data.filter(r => String(r.Employee) === String(USER_ID));
-        setLeaveRequests(data);
-
-        // Calculate leave balances
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        const filtered = data.filter(r => String(r.Employee) === String(USER_ID));
+        setLeaveRequests(filtered);
+        
+        console.log('Leave requests data:', filtered);
+        
+        // Calculate leave balances including paid/unpaid breakdown
         let bal = {
-          'Annual Leave': { used: 0, total: 25 },
-          'Sick Leave': { used: 0, total: 10 },
-          'Personal Leave': { used: 0, total: 5 },
+          'Sick Leave': { used: 0, total: 10, paidUsed: 0 },
+          'Personal Leave': { used: 0, total: 5, paidUsed: 0 },
+          'Annual Leave': { used: 0, total: 20, paidUsed: 0 },
         };
-        data.forEach(r => {
+        
+        filtered.forEach(r => {
           if ((r.Status === 'Approved' || r.Status === 'approved') && bal[r.Type]) {
-            bal[r.Type].used += Number(r.Days) || 0;
+            const days = Number(r.Days) || 0;
+            bal[r.Type].used += days;
+            
+            // Track paid leave usage separately
+            if (r.paid === true || r.paid === 1) {
+              bal[r.Type].paidUsed += days;
+            }
           }
         });
+        
         setLeaveBalance(bal);
       })
-      .catch(() => setLeaveRequests([]));
+      .catch(err => {
+        console.error('Error fetching leave requests:', err);
+        setLeaveRequests([]);
+      });
   }, [refresh, USER_ID]);
 
   const getStatusColor = (status) => {
@@ -89,9 +109,7 @@ export default function LeaveManagement() {
       ? 'Sick Leave'
       : leaveType === 'personal'
       ? 'Personal Leave'
-      : leaveType === 'wfh'
-      ? 'Work from Home'
-      : '');
+      : leaveType === 'wfh');
     setLeaveRequestOpen(true);
   };
 
@@ -102,19 +120,35 @@ export default function LeaveManagement() {
 
   const handleLeaveSubmit = async (req) => {
     try {
-      await axios.post(API_URL, {
-        Employee: USER_ID,
-        Type: req.type,
-        StartDate: req.startDate,
-        EndDate: req.endDate,
-        Reason: req.reason,
-        Urgent: req.urgent,
-        Status: 'Pending',
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          Employee: USER_ID,
+          Type: req.type,
+          StartDate: req.startDate,
+          EndDate: req.endDate,
+          Reason: req.reason,
+          Urgent: req.urgent,
+          Status: 'Pending',
+          paid: req.paidLeave,  // Include paid status
+        })
       });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit request');
+      }
+      
+      console.log('Leave request submitted:', result);
       setLeaveRequestOpen(false);
       setRefresh(r => r + 1);
     } catch (err) {
-      alert('Failed to submit leave request');
+      console.error('Failed to submit leave request:', err);
+      alert('Failed to submit leave request: ' + err.message);
     }
   };
 
@@ -149,33 +183,43 @@ export default function LeaveManagement() {
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Paid Leave Balance</CardTitle>
+              <CardTitle>Leave Balance</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {['Annual Leave', 'Sick Leave', 'Personal Leave'].map(type => (
-                <div key={type} className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm">{type}</span>
-                    <span className="text-sm font-medium">
-                      {leaveBalance[type]?.total - leaveBalance[type]?.used}/{leaveBalance[type]?.total} days
-                    </span>
+              {['Sick Leave', 'Personal Leave', 'Annual Leave'].map(type => {
+                const balance = leaveBalance[type];
+                const remaining = balance?.total - balance?.used;
+                const paidRemaining = Math.max(0, balance?.total - balance?.paidUsed);
+                
+                return (
+                  <div key={type} className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">{type}</span>
+                      <span className="text-sm">
+                        {remaining}/{balance?.total} days
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className={
+                          type === 'Annual Leave'
+                            ? 'bg-primary h-2 rounded-full'
+                            : type === 'Sick Leave'
+                            ? 'bg-warning h-2 rounded-full'
+                            : 'bg-accent h-2 rounded-full'
+                        }
+                        style={{
+                          width: `${Math.max(0, Math.min(100, (remaining / balance?.total) * 100))}%`
+                        }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Paid available: {paidRemaining}</span>
+                      <span>Used: {balance?.used} ({balance?.paidUsed} paid)</span>
+                    </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className={
-                        type === 'Annual Leave'
-                          ? 'bg-primary h-2 rounded-full'
-                          : type === 'Sick Leave'
-                          ? 'bg-warning h-2 rounded-full'
-                          : 'bg-accent h-2 rounded-full'
-                      }
-                      style={{
-                        width: `${Math.round(100 * (leaveBalance[type]?.total - leaveBalance[type]?.used) / leaveBalance[type]?.total)}%`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -193,25 +237,26 @@ export default function LeaveManagement() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full" variant="outline" onClick={() => handleQuickAction('annual')}>
-                📅 Annual Leave
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => handleQuickAction('sick')}>
-                🏥 Sick Leave
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => handleQuickAction('personal')}>
-                👤 Personal Leave
-              </Button>
-              <Button className="w-full" variant="outline" onClick={() => handleQuickAction('wfh')}>
-                🏠 Work from Home
-              </Button>
-            </CardContent>
-          </Card>
+<Card>
+  <CardHeader>
+    <CardTitle>Quick Actions</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <Button className="w-full flex items-center space-x-2" variant="outline" onClick={() => handleQuickAction('annual')}>
+      <CalendarDays className="w-4 h-4" />
+      <span>Annual Leave</span>
+    </Button>
+    <Button className="w-full flex items-center space-x-2" variant="outline" onClick={() => handleQuickAction('sick')}>
+      <Shield className="w-4 h-4" />
+      <span>Sick Leave</span>
+    </Button>
+    <Button className="w-full flex items-center space-x-2" variant="outline" onClick={() => handleQuickAction('personal')}>
+      <User className="w-4 h-4" />
+      <span>Personal Leave</span>
+    </Button>
+  </CardContent>
+</Card>
+
         </div>
 
         {/* Upcoming Leave Section - Only show when not viewing archived */}
@@ -230,7 +275,12 @@ export default function LeaveManagement() {
                     <div className="flex items-center space-x-3">
                       <div className="w-2 h-2 rounded-full bg-primary"></div>
                       <div>
-                        <p className="font-medium">{request.Type || request.type}</p>
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium">{request.Type || request.type}</p>
+                          {(request.paid === true || request.paid === 1) && (
+                            <Badge variant="secondary" className="text-xs">Paid</Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {new Date(request.StartDate || request.startDate).toLocaleDateString()} - {new Date(request.EndDate || request.endDate).toLocaleDateString()}
                         </p>
@@ -307,6 +357,16 @@ export default function LeaveManagement() {
                         <Badge className={getStatusColor(request.Status || request.status)}>
                           {(request.Status || request.status)}
                         </Badge>
+                        {(request.paid === true || request.paid === 1) && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                            Paid
+                          </Badge>
+                        )}
+                        {(!request.paid || request.paid === false || request.paid === 0) && (
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+                            Unpaid
+                          </Badge>
+                        )}
                         {request.Urgent && (
                           <Badge variant="destructive" className="text-xs">
                             Urgent

@@ -29,8 +29,8 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
   // Live business days calculation
   const days = countBusinessDays(startDate, endDate);
 
-  // Reset fields on open
-  React.useEffect(() => {
+  // Reset fields when dialog opens
+  useEffect(() => {
     if (open) {
       setType(defaultType || '');
       setStartDate('');
@@ -41,82 +41,173 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
     }
   }, [open, defaultType]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!type || !startDate || !endDate || !reason) return;
+  // Auto-set end date when start date changes (for single day requests)
+  useEffect(() => {
+    if (startDate && !endDate) {
+      setEndDate(startDate);
+    }
+  }, [startDate, endDate]);
+
+  const handleSubmit = async () => {
+    if (!type || !startDate || !endDate || !reason) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    if (days === 0) {
+      alert('Please select valid business days for your leave');
+      return;
+    }
+    
     setSubmitting(true);
-    await onSubmit({
-      type,
-      startDate,
-      endDate,
-      reason,
-      urgent,
-      paidLeave
-    });
-    setSubmitting(false);
+    
+    try {
+      await onSubmit({
+        type,
+        startDate,
+        endDate,
+        reason,
+        urgent,
+        paidLeave
+      });
+    } catch (error) {
+      console.error('Error submitting leave request:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Request Leave</DialogTitle>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Leave Type</label>
+            <label className="block text-sm font-medium mb-1">Leave Type *</label>
             <select
               value={type}
               onChange={e => setType(e.target.value)}
-              className="w-full border rounded px-2 py-1"
+              className="w-full border border-input rounded-md px-3 py-2 text-sm"
               required
             >
-              <option value="">Select type</option>
+              <option value="">Select leave type</option>
               <option value="Annual Leave">Annual Leave</option>
               <option value="Sick Leave">Sick Leave</option>
               <option value="Personal Leave">Personal Leave</option>
-              <option value="Maternity">Maternity</option>
+              <option value="Maternity">Maternity Leave</option>
+              <option value="Paternity">Paternity Leave</option>
               <option value="Vacation">Vacation</option>
-              <option value="Work from Home">Work from Home</option>
+              <option value="Bereavement">Bereavement Leave</option>
+              <option value="Emergency">Emergency Leave</option>
             </select>
           </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="block text-sm font-medium">Start Date</label>
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Start Date *</label>
+              <Input 
+                type="date" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)} 
+                required 
+                min={new Date().toISOString().split('T')[0]}
+              />
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium">End Date</label>
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+            <div>
+              <label className="block text-sm font-medium mb-1">End Date *</label>
+              <Input 
+                type="date" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)} 
+                required 
+                min={startDate || new Date().toISOString().split('T')[0]}
+              />
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium">Days (auto-calculated, excluding weekends)</label>
-            <Input value={days || ''} readOnly />
+            <label className="block text-sm font-medium mb-1">Duration</label>
+            <div className="flex items-center space-x-2">
+              <Input 
+                value={days > 0 ? `${days} business day${days !== 1 ? 's' : ''}` : '0 days'} 
+                readOnly 
+                className="bg-muted"
+              />
+              <span className="text-xs text-muted-foreground">(weekends excluded)</span>
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium">Reason</label>
-            <Input value={reason} onChange={e => setReason(e.target.value)} required />
+            <label className="block text-sm font-medium mb-1">Reason *</label>
+            <Input 
+              value={reason} 
+              onChange={e => setReason(e.target.value)} 
+              placeholder="Please provide a reason for your leave request"
+              required 
+            />
           </div>
-          <div className="flex flex-col space-y-3">
+
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
-              <Checkbox checked={urgent} onCheckedChange={setUrgent} id="urgent" />
-              <label htmlFor="urgent" className="text-sm">Mark as urgent</label>
+              <Checkbox 
+                checked={paidLeave} 
+                onCheckedChange={setPaidLeave} 
+                id="paidLeave" 
+              />
+              <label htmlFor="paidLeave" className="text-sm font-medium">
+                Request as paid leave
+              </label>
+              <span className="text-xs text-muted-foreground ml-2">
+                (will deduct from your paid leave balance if approved)
+              </span>
             </div>
+
             <div className="flex items-center space-x-2">
-              <Checkbox checked={paidLeave} onCheckedChange={setPaidLeave} id="paidLeave" />
-              <label htmlFor="paidLeave" className="text-sm">Request as paid leave</label>
+              <Checkbox 
+                checked={urgent} 
+                onCheckedChange={setUrgent} 
+                id="urgent" 
+              />
+              <label htmlFor="urgent" className="text-sm font-medium">
+                Mark as urgent
+              </label>
+              <span className="text-xs text-muted-foreground ml-2">
+                (requires immediate attention)
+              </span>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+
+          {/* Payment Information Panel */}
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <h4 className="text-sm font-medium mb-2">Payment Information</h4>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• Paid leave: Deducted from your paid leave balance</p>
+              <p>• Unpaid leave: No deduction from balance, no pay for leave days</p>
+              <p>• Final approval depends on leave policy and availability</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || days === 0 || !type || !startDate || !endDate || !reason}>
-              {submitting ? 'Submitting...' : 'Submit Request'}
+            <Button 
+              onClick={handleSubmit}
+              disabled={submitting || days === 0 || !type || !startDate || !endDate || !reason}
+              className="min-w-[120px]"
+            >
+              {submitting ? 'Submitting...' : `Submit Request`}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -106,7 +106,7 @@ export function HRDashboard() {
       <div>
         <div className="bg-blue-50 border border-blue-500 rounded-lg p-4 mb-4">
           <p className="text-blue-600 font-semibold text-lg">
-            👋 Welcome back, {firstName}!
+            Welcome back, {firstName}!
           </p>
           <p className="text-muted-foreground text-sm">
             Here's a quick look at your latest stats and updates.
@@ -139,7 +139,7 @@ export function HRDashboard() {
       {/* Work Anniversaries */}
       {upcomingAnniversaries.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mt-8 mb-4">🎉 Work Anniversaries This Week</h2>
+          <h2 className="text-xl font-semibold mt-8 mb-4"> Work Anniversaries This Week</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {upcomingAnniversaries.map((item, idx) => (
               <Card key={idx} className="border rounded-xl hover:shadow-sm transition">
@@ -156,7 +156,7 @@ export function HRDashboard() {
       {/* Recent Feedback */}
       {!isLoading && stats.recentFeedback?.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mt-8 mb-4">📝 Recent Feedback</h2>
+          <h2 className="text-xl font-semibold mt-8 mb-4"> Recent Feedback</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.recentFeedback.slice(0, 6).map((fb, idx) => (
               <Card key={idx} className="rounded-xl">
@@ -175,7 +175,7 @@ export function HRDashboard() {
       {/* Tenure Breakdown */}
       {!isLoading && stats.tenureBreakdown && (
         <div className="mt-10 space-y-2">
-          <h2 className="text-xl font-semibold">📊 Tenure Breakdown</h2>
+          <h2 className="text-xl font-semibold"> Tenure Breakdown</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {Object.entries(stats.tenureBreakdown).map(([range, count]) => (
               <Card key={range} className="rounded-xl text-center py-4">
@@ -214,7 +214,7 @@ export function HRDashboard() {
       {/* Recent Leave Requests */}
       {!isLoading && stats.recentLeaveRequests?.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mt-8 mb-4">🏖️ Recent Leave Requests</h2>
+          <h2 className="text-xl font-semibold mt-8 mb-4"> Recent Leave Requests</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.recentLeaveRequests.slice(0, 6).map((req, idx) => (
               <Card key={idx} className="rounded-xl">

@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Monitor,
   Megaphone,
+  User,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -86,13 +87,12 @@ export function EmployeeDashboard() {
       {/* 🔹 Welcome Banner */}
       <div className="bg-primary/10 border border-primary rounded-lg p-4 mb-4">
         <p className="text-primary font-medium text-lg">
-          👋 Welcome back, {name}!
+          Welcome back, {name}!
         </p>
         <p className="text-muted-foreground text-sm">
           Here's a quick look at your latest stats and updates.
         </p>
       </div>
-
 
       {/* 🔹 Stats */}
       <h1 className="text-2xl font-bold">Welcome to Your Dashboard</h1>
@@ -149,12 +149,11 @@ export function EmployeeDashboard() {
         </CardContent>
       </Card>
 
-       {/* 🔹 Profile Summary */}
-             {/* 🔹 Profile Summary - now full-width and below announcements */}
+      {/* 🔹 Profile Summary */}
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <span role="img" aria-label="user">👤</span> Your Profile
+            <span role="img" aria-label="user"></span> Your Profile
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">

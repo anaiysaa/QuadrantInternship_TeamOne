@@ -9,24 +9,34 @@ load_dotenv()
 
 feedback_api = Blueprint("feedback_api", __name__)
 
+# def get_connection():
+#     """Get database connection using environment variables"""
+#     try:
+#         conn_str = os.getenv("DB_CONN_STR")
+#         if not conn_str:
+#             # Fallback: construct connection string from individual components
+#             conn_str = (
+#                 f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+#                 f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
+#                 f"DATABASE={os.getenv('AZURE_SQL_DB')};"
+#                 f"UID={os.getenv('AZURE_SQL_USER')};"
+#                 f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
+#                 "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+#             )
+#         return pyodbc.connect(conn_str)
+#     except Exception as e:
+#         print(f"❌ Database connection error: {e}")
+#         raise
+
 def get_connection():
-    """Get database connection using environment variables"""
-    try:
-        conn_str = os.getenv("DB_CONN_STR")
-        if not conn_str:
-            # Fallback: construct connection string from individual components
-            conn_str = (
-                f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-                f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
-                f"DATABASE={os.getenv('AZURE_SQL_DB')};"
-                f"UID={os.getenv('AZURE_SQL_USER')};"
-                f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
-                "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
-            )
-        return pyodbc.connect(conn_str)
-    except Exception as e:
-        print(f"❌ Database connection error: {e}")
-        raise
+    return pyodbc.connect(
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
+        f"DATABASE={os.getenv('AZURE_SQL_DB')};"
+        f"UID={os.getenv('AZURE_SQL_USER')};"
+        f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
+        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+    )
 
 # ---------------------- GET Feedback for Employee ----------------------
 @feedback_api.route("/feedback", methods=["GET"])

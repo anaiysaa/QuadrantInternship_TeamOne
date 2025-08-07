@@ -1,0 +1,168 @@
+:root {
+  /* Ocean-Themed Colors */
+  --black: #02010a;
+  --ocean-blue: #006f8e;
+  --light-blue: #A7D8F2;
+  --ghost-white: #D3E4ED;
+  --sand: #F7E5BA;
+
+  /* Fonts */
+  --primary-font: 'Antic', serif;
+  --heading-font: 'Playfair Display', serif;
+  --subheading-font: 'Avenir Next', sans-serif;
+}
+
+
+/* Import the fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Avenir+Next:wght@400;600&family=Antic&display=swap');
+
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Avenir Next', sans-serif; /* Default font for body text */
+  color: #333;
+  line-height: 1.6;
+  background-color: #f8f8f8;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', serif; /* Use Playfair for headings */
+  font-weight: 700;
+}
+
+p, li, span, div {
+  font-family: 'Antic', sans-serif; /* Use Antic for little text bits */
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #444;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #555;
+}
+
+h4, h5, h6 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+ul, ol {
+  padding-left: 1.5rem;
+  font-size: 1rem;
+  font-family: 'Antic', sans-serif;
+}
+
+a {
+  text-decoration: none;
+  color: #3498db;
+}
+
+a:hover {
+  color: #1d68a7;
+}
+
+button, .btn {
+  font-family: 'Avenir Next', sans-serif;
+  background-color: #3498db;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+button:hover, .btn:hover {
+  background-color: #1d68a7;
+}
+
+/* Override the default .card styles */
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-content {
+  font-family: 'Avenir Next', sans-serif;
+  color: #555;
+  padding: 16px;
+}
+
+.card-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+/* Specific adjustments for the Dashboard and cards */
+.dashboard-header {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 2.5rem;
+}
+
+.dashboard-stat-card {
+  font-family: 'Avenir Next', sans-serif;
+  padding: 20px;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.dashboard-stat-card h2 {
+  font-size: 2rem;
+}
+
+.dashboard-stat-card p {
+  font-size: 1rem;
+}
+
+/* Announcements styles */
+.announcement {
+  font-family: 'Antic', sans-serif;
+  font-size: 0.9rem;
+}
+
+.announcement-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.announcement-date {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Small text bits */
+.text-muted-foreground {
+  font-family: 'Antic', sans-serif;
+  color: #777;
+  font-size: 0.875rem;
+}
