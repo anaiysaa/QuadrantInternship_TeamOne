@@ -1,6 +1,11 @@
 openai
 python-dotenv
 flask
-flask-cors
+flask_cors
 pyjwt
 werkzeug
+azure-ai-inference
+azure-core
+azure-identity
+flask-socketio
+pyodbc
