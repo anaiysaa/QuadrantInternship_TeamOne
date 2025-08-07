@@ -12,9 +12,9 @@ load_dotenv()
 docai_endpoint = os.getenv("DOCINTEL_ENDPOINT")
 docai_key = os.getenv("DOCINTEL_KEY")
 
-openai_api_key = os.getenv("OPENAI_API_KEY")
-openai_api_version = os.getenv("OPENAI_API_VERSION", "2024-02-15-preview")
-openai_api_base = os.getenv("OPENAI_API_BASE")
+openai_api_key = os.getenv("AZURE_INFERENCE_SDK_KEY")
+openai_api_version = "2025-01-01-preview"  # From your endpoint URL
+openai_api_base = "https://workwayveai.openai.azure.com/"  # Base URL without the path
 deployment_name = os.getenv("DEPLOYMENT_NAME")
 
 driver = '{ODBC Driver 17 for SQL Server}'

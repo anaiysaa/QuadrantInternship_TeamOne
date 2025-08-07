@@ -102,7 +102,6 @@ export default function Onboarding() {
             <p className="text-muted-foreground">Manage new employee onboarding</p>
           </div>
           <div className="flex space-x-2">
-           {/*} <Button variant="outline" onClick={() => setShowCreateChecklistDialog(true)}>Create Checklist</Button>*/}
             <Button onClick={() => setShowAddHireDialog(true)}>Add New Hire</Button>
           </div>
         </div>

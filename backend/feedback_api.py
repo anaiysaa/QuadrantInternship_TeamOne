@@ -8,75 +8,97 @@ from dotenv import load_dotenv
 load_dotenv()
 
 feedback_api = Blueprint("feedback_api", __name__)
-
-# def get_connection():
-#     """Get database connection using environment variables"""
-#     try:
-#         conn_str = os.getenv("DB_CONN_STR")
-#         if not conn_str:
-#             # Fallback: construct connection string from individual components
-#             conn_str = (
-#                 f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-#                 f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
-#                 f"DATABASE={os.getenv('AZURE_SQL_DB')};"
-#                 f"UID={os.getenv('AZURE_SQL_USER')};"
-#                 f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
-#                 "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
-#             )
-#         return pyodbc.connect(conn_str)
-#     except Exception as e:
-#         print(f"❌ Database connection error: {e}")
-#         raise
-
 def get_connection():
-    return pyodbc.connect(
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-        f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
-        f"DATABASE={os.getenv('AZURE_SQL_DB')};"
-        f"UID={os.getenv('AZURE_SQL_USER')};"
-        f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
-        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
-    )
+    """Get database connection using environment variables"""
+    try:
+        conn_str = os.getenv("DB_CONN_STR")
+        if not conn_str:
+            # Fallback: construct connection string from individual components
+            conn_str = (
+                f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+                f"SERVER={os.getenv('AZURE_SQL_SERVER')};"
+                f"DATABASE={os.getenv('AZURE_SQL_DB')};"
+                f"UID={os.getenv('AZURE_SQL_USER')};"
+                f"PWD={os.getenv('AZURE_SQL_PASSWORD')};"
+                "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+            )
+        return pyodbc.connect(conn_str)
+    except Exception as e:
+        print(f"❌ Database connection error: {e}")
+        raise
 
 # ---------------------- GET Feedback for Employee ----------------------
 @feedback_api.route("/feedback", methods=["GET"])
 def get_feedback():
     employee_id = request.args.get("employeeId")
-    if not employee_id:
-        return jsonify({"error": "employeeId parameter is required"}), 400
-    
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ID, EmployeeID, Category, Subject, Message, Rating,
+               Anonymous, Status, SubmittedDate, Response, RecipientGroup, IsWomenOnly
+        FROM dbo.Feedback
+        WHERE EmployeeID = ?
+        ORDER BY SubmittedDate DESC
+    """, (employee_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            "id": row.ID,
+            "employeeId": row.EmployeeID,
+            "category": row.Category,
+            "subject": row.Subject,
+            "message": row.Message,
+            "rating": row.Rating,
+            "anonymous": row.Anonymous,
+            "status": row.Status,
+            "submittedDate": row.SubmittedDate.isoformat() if row.SubmittedDate else None,
+            "response": row.Response,
+            "recipientGroup": getattr(row, "RecipientGroup", None),
+            "isWomenOnly": getattr(row, "IsWomenOnly", False)
+        }
+        for row in rows
+    ])
+
+@feedback_api.route("/feedback", methods=["POST"])
+def submit_feedback():
     try:
+        data = request.get_json()
+
+        feedback_id = str(uuid.uuid4())
+        employee_id = data.get("employeeId")
+        category = data.get("category")
+        subject = data.get("subject")
+        message = data.get("message")
+        anonymous = data.get("anonymous", False)
+        rating = data.get("rating", 0)
+        recipient_group = data.get("recipientGroup")
+        women_only = data.get("womenOnly", False)  # ✅ get womenOnly
+        submitted_date = datetime.utcnow()
+        status = "Under Review"
+
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT ID, EmployeeID, Category, Subject, Message, Rating,
-                   Anonymous, Status, SubmittedDate, Response, RecipientGroup
-            FROM dbo.Feedback
-            WHERE EmployeeID = ?
-            ORDER BY SubmittedDate DESC
-        """, (employee_id,))
-        rows = cursor.fetchall()
+            INSERT INTO dbo.Feedback (
+                ID, EmployeeID, Category, Subject, Message, Rating,
+                Anonymous, Status, SubmittedDate, Response, RecipientGroup, IsWomenOnly
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        """, (
+            feedback_id, employee_id, category, subject, message, rating,
+            anonymous, status, submitted_date, recipient_group, women_only
+        ))
+
+        conn.commit()
         conn.close()
 
-        return jsonify([
-            {
-                "id": row.ID,
-                "employeeId": row.EmployeeID,
-                "category": row.Category,
-                "subject": row.Subject,
-                "message": row.Message,
-                "rating": row.Rating,
-                "anonymous": row.Anonymous,
-                "status": row.Status,
-                "submittedDate": row.SubmittedDate.isoformat() if row.SubmittedDate else None,
-                "response": row.Response,
-                "recipientGroup": getattr(row, "RecipientGroup", None)
-            }
-            for row in rows
-        ])
+        return jsonify({"success": True, "feedbackId": feedback_id}), 201
+
     except Exception as e:
-        print(f"❌ Error fetching feedback: {e}")
-        return jsonify({"error": "Failed to fetch feedback"}), 500
+        print("❌ Error submitting feedback:", e)
+        return jsonify({"error": str(e)}), 500
 
 # ---------------------- POST New Feedback ----------------------
 @feedback_api.route("/feedback", methods=["POST"])
@@ -145,8 +167,19 @@ def get_all_feedback():
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT ID, EmployeeID, Category, Subject, Message, Rating,
-                   Anonymous, Status, SubmittedDate, Response, RecipientGroup
+            SELECT 
+                ID, 
+                EmployeeID, 
+                Category, 
+                Subject, 
+                Message, 
+                Rating,
+                Anonymous, 
+                Status, 
+                SubmittedDate, 
+                Response, 
+                RecipientGroup, 
+                IsWomenOnly
             FROM dbo.Feedback
             ORDER BY SubmittedDate DESC
         """)
@@ -165,7 +198,8 @@ def get_all_feedback():
                 "status": row.Status,
                 "submittedDate": row.SubmittedDate.isoformat() if row.SubmittedDate else None,
                 "response": row.Response,
-                "recipientGroup": getattr(row, "RecipientGroup", None)
+                "recipientGroup": row.RecipientGroup,
+                "isWomenOnly": row.IsWomenOnly if hasattr(row, "IsWomenOnly") else False
             }
             for row in rows
         ])
@@ -177,28 +211,29 @@ def get_all_feedback():
 @feedback_api.route("/feedback/respond/<feedback_id>", methods=["PUT"])
 def respond_to_feedback(feedback_id):
     try:
-        data = request.json
+        data = request.get_json()
         response = data.get("response")
-        responded_by = data.get("respondedBy", "HR Admin")
+        responded_by = data.get("respondedBy")
 
         conn = get_connection()
         cursor = conn.cursor()
-
         cursor.execute("""
             UPDATE dbo.Feedback
-            SET Response = ?, ResponseDate = GETDATE(),
-                RespondedBy = ?, Status = 'Responded', UpdatedDate = GETDATE()
+            SET 
+                Response = ?,
+                ResponseDate = GETDATE(),
+                RespondedBy = ?,
+                Status = 'Responded',
+                UpdatedDate = GETDATE()
             WHERE ID = ?
         """, (response, responded_by, feedback_id))
-
         conn.commit()
         conn.close()
 
-        return jsonify({"message": "✅ Response saved"}), 200
-
+        return jsonify({"success": True})
     except Exception as e:
-        print("❌ Error updating feedback:", e)
-        return jsonify({"error": str(e)}), 500
+        print("❌ Failed to respond:", e)
+        return jsonify({"error": "Failed to respond"}), 500
 
 # ---------------------- EMPLOYEE DASHBOARD ----------------------
 @feedback_api.route("/employee-dashboard", methods=["GET"])
@@ -291,6 +326,9 @@ def get_employee_dashboard():
         return jsonify({"error": str(e)}), 500
 
 # ---------------------- HR DASHBOARD ----------------------
+
+
+
 @feedback_api.route("/hr-dashboard", methods=["GET"])
 def hr_dashboard():
     try:
@@ -302,7 +340,7 @@ def hr_dashboard():
         current_year = today.year
         one_week_from_now = today + timedelta(days=7)
 
-        # 🔹 Get first name from Employees table using employeeId (optional)
+        # ✅ First Name (from Employee ID)
         employee_id = request.args.get("employeeId")
         first_name = "THERE"
         if employee_id:
@@ -310,31 +348,27 @@ def hr_dashboard():
             row = cursor.fetchone()
             if row and row.Name:
                 first_name = row.Name.split(" ")[0].upper()
-        
-        # 1. Total Feedback
+
+        # ✅ Total Feedback
         cursor.execute("SELECT COUNT(*) FROM dbo.Feedback")
         total_feedback = cursor.fetchone()[0]
 
-        # 2. Pending Feedback
+        # ✅ Pending Feedback
         cursor.execute("SELECT COUNT(*) FROM dbo.Feedback WHERE Status = 'Pending'")
         pending_feedback = cursor.fetchone()[0]
 
-        # 3. Leave Requests
-        cursor.execute("SELECT COUNT(*) FROM dbo.LeaveRequests")
-        leave_requests = cursor.fetchone()[0]
-
-        # 4. Total Employees
+        # ✅ Employee Count
         cursor.execute("SELECT COUNT(*) FROM dbo.Employees")
         employee_count = cursor.fetchone()[0]
 
-        # 5. New Hires This Month
+        # ✅ New Hires This Month
         cursor.execute("""
-            SELECT COUNT(*) FROM dbo.Employees 
+            SELECT COUNT(*) FROM dbo.Employees
             WHERE MONTH(DateJoined) = ? AND YEAR(DateJoined) = ?
         """, (current_month, current_year))
         new_hires = cursor.fetchone()[0]
 
-        # 6. Upcoming Work Anniversaries (7 days)
+        # ✅ Upcoming Anniversaries (within next 7 days)
         cursor.execute("SELECT Name, DateJoined FROM dbo.Employees WHERE DateJoined IS NOT NULL")
         upcoming_anniversaries = []
         for name, doj in cursor.fetchall():
@@ -345,25 +379,77 @@ def hr_dashboard():
                         "name": name,
                         "dateJoined": doj.strftime("%Y-%m-%d")
                     })
-            except Exception:
+            except:
                 continue
 
-        # Continue with rest of the dashboard logic...
-        # (Rest of the HR dashboard code remains the same)
-        
+        # ✅ Open HR Tickets
+        cursor.execute("SELECT COUNT(*) FROM dbo.hr_tickets WHERE Status = 'Open'")
+        open_hr_tickets = cursor.fetchone()[0]
+
+        # ✅ Department Breakdown
+        cursor.execute("SELECT Department, COUNT(*) FROM dbo.Employees GROUP BY Department")
+        department_breakdown = [
+            {"department": row[0], "count": row[1]} for row in cursor.fetchall()
+        ]
+
+        # ✅ Pending Approvals (just placeholder: no leave now)
+        pending_approvals = 0  # Since leave requests are removed
+
+        # ✅ Average Feedback Rating
+        cursor.execute("SELECT AVG(CAST(Rating AS FLOAT)) FROM dbo.Feedback WHERE Rating IS NOT NULL")
+        avg_rating = cursor.fetchone()[0]
+        average_rating = round(avg_rating, 2) if avg_rating else 0.0
+
+        # ✅ Recent Feedback
+        cursor.execute("""
+            SELECT TOP 6 Subject, Category, Rating
+            FROM dbo.Feedback
+            WHERE Status IS NULL OR Status != 'Deleted'
+            ORDER BY SubmittedDate DESC
+        """)
+        recent_feedback = [
+            {
+                "subject": row.Subject,
+                "category": row.Category,
+                "rating": row.Rating
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # ✅ Tenure Breakdown
+        cursor.execute("SELECT DateJoined FROM dbo.Employees WHERE DateJoined IS NOT NULL")
+        buckets = {"<1 Year": 0, "1-3 Years": 0, "3-5 Years": 0, "5+ Years": 0}
+        for (doj,) in cursor.fetchall():
+            try:
+                years = (today.date() - doj).days // 365
+                if years < 1:
+                    buckets["<1 Year"] += 1
+                elif years < 3:
+                    buckets["1-3 Years"] += 1
+                elif years < 5:
+                    buckets["3-5 Years"] += 1
+                else:
+                    buckets["5+ Years"] += 1
+            except Exception as e:
+                print(f"⚠️ Tenure calculation failed for {doj}: {e}")
+
         conn.close()
-        
+
         return jsonify({
             "firstName": first_name,
             "totalFeedback": total_feedback,
             "pendingFeedback": pending_feedback,
-            "leaveRequests": leave_requests,
             "employeeCount": employee_count,
             "newHires": new_hires,
             "upcomingAnniversaries": upcoming_anniversaries,
-            # Add other fields as needed
+            "openHrTickets": open_hr_tickets,
+            "departmentBreakdown": department_breakdown,
+            "pendingApprovals": pending_approvals,
+            "averageRating": average_rating,
+            "recentFeedback": recent_feedback,
+            "tenureBreakdown": buckets
         })
-        
+
     except Exception as e:
         print(f"❌ Error in HR dashboard: {e}")
         return jsonify({"error": str(e)}), 500

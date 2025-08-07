@@ -27,21 +27,38 @@ export function ScheduleInterviewDialog({ application, open, onOpenChange, onSch
     notes: ''
   });
 
-  const handleSchedule = () => {
-    const scheduledInterview = {
-      ...application,
-      interview: interviewData,
-      status: 'Interview Scheduled',
-      stage: `${interviewData.type === 'video' ? 'Video' : 'In-person'} Interview - ${new Date(interviewData.date).toLocaleDateString()}`
-    };
-    
-    onSchedule(scheduledInterview);
-    toast({
-      title: "Interview Scheduled",
-      description: `Interview scheduled for ${application.candidateName} on ${new Date(interviewData.date).toLocaleDateString()} at ${interviewData.time}.`,
-    });
-    onOpenChange(false);
+  const handleSchedule = async () => {
+    try {
+      const response = await fetch("/api/schedule-interview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applicationId: application.ApplicationID,
+          interviewData: interviewData,
+        }),
+      });
+  
+      if (!response.ok) throw new Error("Failed to schedule interview");
+  
+      const updatedApplication = await response.json();
+      onSchedule(updatedApplication);
+  
+      toast({
+        title: "Interview Scheduled",
+        description: `Interview for ${application.Name} scheduled on ${interviewData.date} at ${interviewData.time}`,
+      });
+  
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Something went wrong while scheduling.",
+      });
+    }
   };
+  
 
   const handleInputChange = (field, value) => {
     setInterviewData(prev => ({ ...prev, [field]: value }));

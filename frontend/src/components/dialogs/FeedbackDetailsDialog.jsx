@@ -1,113 +1,92 @@
-
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 export function FeedbackDetailsDialog({ feedback, open, onOpenChange }) {
   if (!feedback) return null;
 
-  const getSentimentBadge = (sentiment) => {
-    switch (sentiment) {
-      case 'Positive':
-        return <Badge variant="default" className="bg-success text-success-foreground">Positive</Badge>;
-      case 'Neutral':
-        return <Badge variant="outline" className="text-warning border-warning">Neutral</Badge>;
-      case 'Negative':
-        return <Badge variant="destructive">Negative</Badge>;
-      default:
-        return <Badge variant="secondary">{sentiment}</Badge>;
-    }
-  };
+  const {
+    id,
+    anonymous,
+    employeeId,
+    category,
+    submittedDate,
+    rating,
+    status,
+    message,
+    response,
+    responseDate,
+    respondedBy,
+    isWomenOnly,
+  } = feedback;
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'New':
-        return <Badge variant="outline" className="text-primary border-primary">New</Badge>;
-      case 'Under Review':
-        return <Badge variant="outline" className="text-warning border-warning">Under Review</Badge>;
-      case 'Addressed':
-        return <Badge variant="default" className="bg-success text-success-foreground">Addressed</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  const getRatingStars = (rating) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-  };
+  const renderStars = (value) =>
+    "★".repeat(value) + "☆".repeat(5 - value);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Feedback Details - {feedback.id}</DialogTitle>
+          <DialogTitle>Feedback Details - {id}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+
+        <div className="grid gap-4">
+          {/* Grid Info Section */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Type</label>
-              <p className="text-sm">{feedback.type}</p>
-              {feedback.employee && (
-                <p className="text-sm text-muted-foreground">{feedback.employee}</p>
-              )}
+              <p className="text-muted-foreground font-medium">Submitter</p>
+              <p>{anonymous ? "Anonymous" : `Employee ID: ${employeeId}`}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Category</label>
-              <p className="text-sm">{feedback.category}</p>
+              <p className="text-muted-foreground font-medium">Category</p>
+              <p>{category}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Department</label>
-              <p className="text-sm">{feedback.department}</p>
+              <p className="text-muted-foreground font-medium">Submitted Date</p>
+              <p>{submittedDate ? new Date(submittedDate).toLocaleDateString() : "N/A"}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Submitted Date</label>
-              <p className="text-sm">{new Date(feedback.submittedDate).toLocaleDateString()}</p>
+              <p className="text-muted-foreground font-medium">Status</p>
+              <Badge variant="outline">{status || "Unknown"}</Badge>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Sentiment</label>
-              <div className="mt-1">{getSentimentBadge(feedback.sentiment)}</div>
+              <p className="text-muted-foreground font-medium">Rating</p>
+              <p>
+                {renderStars(rating)} ({rating}/5)
+              </p>
             </div>
             <div>
-              <label className="text-sm font-medium text-muted-foreground">Status</label>
-              <div className="mt-1">{getStatusBadge(feedback.status)}</div>
+              <p className="text-muted-foreground font-medium">Recipient Group</p>
+              <p>{isWomenOnly ? "Women-Only" : "All"}</p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Rating</label>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className="text-lg">{getRatingStars(feedback.rating)}</span>
-                <span className="text-sm text-muted-foreground">({feedback.rating}/5)</span>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Tags</label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {feedback.tags?.map((tag, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">{tag}</Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Feedback Summary</label>
-            <Card className="mt-2">
-              <CardContent className="p-4">
-                <p className="text-sm">{feedback.summary}</p>
-              </CardContent>
-            </Card>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          {/* Message */}
+          <div>
+            <p className="text-muted-foreground font-medium mb-1">Message</p>
+            <p className="bg-muted p-3 rounded text-sm whitespace-pre-line">
+              {message || "No message provided."}
+            </p>
           </div>
+
+          {/* Optional Response Section */}
+          {response && (
+            <div>
+              <p className="text-muted-foreground font-medium mb-1">Response</p>
+              <p className="bg-muted p-3 rounded text-sm whitespace-pre-line">
+                {response}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {respondedBy && `Responded by ${respondedBy}`}{" "}
+                {responseDate &&
+                  `on ${new Date(responseDate).toLocaleDateString()}`}
+              </p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

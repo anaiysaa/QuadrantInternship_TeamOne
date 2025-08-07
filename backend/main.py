@@ -725,7 +725,7 @@ def login():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT ID, Username, Name, Department
+        SELECT ID, Username, Name, Department, Gender
         FROM dbo.Employees
         WHERE Username = ? AND PasswordHash = ?
     """, (username, password))
@@ -742,6 +742,7 @@ def login():
         "username": row[1],
         "name": row[2],    # <-- REAL NAME
         "department": department,
+        "gender": row[4],
     }), 200
 
 @app.route("/api/timesheets/<ticket_id>/approve", methods=["POST"])
@@ -896,43 +897,43 @@ def update_employee(emp_id):
 
 @app.route('/api/internal-jobs', methods=['GET'])
 def get_internal_jobs():
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications,
-                   JobDescription, Department, Location, JobType, Applicants, Status, ClosingDate
-            FROM dbo.InternalJobs
-            ORDER BY JobID
-        """)
-        rows = cursor.fetchall()
+    conn = get_connection()
+    cursor = conn.cursor()
 
-        jobs = []
-        for row in rows:
-            jobs.append({
-                "id": f"JP{row[0]:03d}",
-                "title": row[1],
-                "mandatorySkills": row[2],
-                "optionalSkills": row[3],
-                "certifications": row[4],
-                "description": row[5],
-                "department": row[6],
-                "location": row[7],
-                "type": row[8],
-                "applicants": row[9],
-                "status": row[10],
-                "closingDate": row[11].strftime("%Y-%m-%d") if row[11] else None,
-            })
+    # Get job postings
+    cursor.execute("""
+        SELECT JobID, JobTitle, Department, Location, JobType,
+               Status, ClosingDate
+        FROM dbo.InternalJobs
+    """)
+    jobs = cursor.fetchall()
 
-        cursor.close()
-        conn.close()
-        return jsonify(jobs)
+    # Get application counts from JobApplications
+    cursor.execute("""
+        SELECT JobID, COUNT(*) AS Applicants
+        FROM dbo.JobApplications
+        GROUP BY JobID
+    """)
+    app_counts_raw = cursor.fetchall()
+    conn.close()
 
-    except Exception as e:
-        print("Error loading internal jobs:", str(e))
-        return jsonify({"error": "Failed to load jobs"}), 500
-    
+    # 🔧 Fix: Cast JobID to string for both
+    app_counts = {str(row.JobID): row.Applicants for row in app_counts_raw}
 
+    job_list = []
+    for job in jobs:
+        job_list.append({
+            "id": job.JobID,
+            "title": job.JobTitle,
+            "department": job.Department,
+            "location": job.Location,
+            "type": job.JobType,
+            "status": job.Status,
+            "closingDate": job.ClosingDate.isoformat() if job.ClosingDate else None,
+            "applicants": app_counts.get(str(job.JobID), 0)  # ✅ always matches now
+        })
+
+    return jsonify(job_list)
 
 @app.route('/api/internal-jobs/<job_id>', methods=['PUT'])
 def update_internal_job(job_id):
@@ -976,35 +977,60 @@ def update_internal_job(job_id):
 
 
 
-@app.route("/api/job-applications")
+@app.route("/api/job-applications", methods=["GET"])
 def get_job_applications():
-    conn = get_connection()
-    cursor = conn.cursor()
     job_id = request.args.get("jobId")
 
+    conn = get_connection()
+    cursor = conn.cursor()
+
     if job_id:
-        query = """
-            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
-                   e.Name, e.Email
-            FROM JobApplications ja
-            JOIN InternalJobs ij ON ja.JobID = ij.JobID
-            JOIN Employees e ON ja.EmployeeID = e.ID
-            WHERE ja.JobID = ?
-        """
-        cursor.execute(query, (job_id,))
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID,
+                a.InterviewDetails  -- ✅ Add this line
+
+            FROM dbo.JobApplications a
+            JOIN dbo.Employees e ON a.EmployeeID = e.ID
+            WHERE a.JobID = ?
+        """, (job_id,))
     else:
-        query = """
-            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
-                   ij.JobTitle AS JobTitle, e.Name, e.Email
-            FROM JobApplications ja
-            JOIN InternalJobs ij ON ja.JobID = ij.JobID
-            JOIN Employees e ON ja.EmployeeID = e.ID
-        """
-        cursor.execute(query)
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID,
+                a.InterviewDetails
+            FROM dbo.JobApplications a
+            JOIN dbo.Employees e ON a.EmployeeID = e.ID
+        """)
 
     rows = cursor.fetchall()
-    columns = [column[0] for column in cursor.description]
-    return jsonify([dict(zip(columns, row)) for row in rows])
+    conn.close()
+
+    return jsonify([
+        {
+            "ApplicationID": row.ApplicationID,
+            "EmployeeID": row.EmployeeID,
+            "Name": row.Name,
+            "Email": row.Email,
+            "ApplicationDate": row.ApplicationDate.isoformat() if row.ApplicationDate else None,
+            "Status": row.Status,
+            "JobID": row.JobID,
+            "InterviewDetails": row.InterviewDetails 
+        }
+        for row in rows
+    ])
 
 
 @app.route('/api/post-job', methods=['POST'])
@@ -1093,8 +1119,60 @@ def update_application_status():
         cursor.close()
         conn.close()
 
+@app.route("/api/schedule-interview", methods=["POST"])
+def schedule_interview():
+    data = request.get_json()
+    application_id = data.get("applicationId")
+    interview_data = data.get("interviewData")
 
+    if not application_id or not interview_data:
+        return jsonify({"error": "Missing applicationId or interviewData"}), 400
 
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE JobApplications
+            SET Status = ?, InterviewDetails = ?
+            WHERE ApplicationID = ?
+        """, (
+            "Interview Scheduled",
+            json.dumps(interview_data),
+            application_id
+        ))
+        conn.commit()
+
+        # Fetch updated application
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID
+            FROM JobApplications a
+            JOIN Employees e ON a.EmployeeID = e.ID
+            WHERE a.ApplicationID = ?
+        """, (application_id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        return jsonify({
+            "ApplicationID": row.ApplicationID,
+            "EmployeeID": row.EmployeeID,
+            "Name": row.Name,
+            "Email": row.Email,
+            "ApplicationDate": row.ApplicationDate.isoformat() if row.ApplicationDate else None,
+            "Status": row.Status,
+            "JobID": row.JobID
+        })
+
+    except Exception as e:
+        print("❌ Error scheduling interview:", e)
+        return jsonify({"error": "Failed to schedule interview"}), 500
 
 app.register_blueprint(it_asset_api)
 app.register_blueprint(it_inventory_api)

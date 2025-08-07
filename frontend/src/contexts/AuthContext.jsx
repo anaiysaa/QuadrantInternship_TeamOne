@@ -66,6 +66,7 @@ useEffect(() => {
         name: user.name, // <-- This is the real name from backend
         email: user.username, // Username is still email for login purposes
         role: user.department?.toLowerCase(),
+        gender: user.gender || user.Gender || null,
         id: user.employee_id,            // always set id
         employeeId: user.employee_id     // always set employeeId
       };

@@ -315,6 +315,30 @@ def get_employee_assets(emp_id):
         print("DB error:", e)
         return jsonify({"error": "Database error"}), 500
 
+@resume_api.route("/employees/<int:employee_id>/update-skills", methods=["PUT"])
+def update_employee_skills(employee_id):
+    try:
+        data = request.get_json()
+        skills = data.get("skills", [])
+
+        # Convert to JSON string or comma-separated if needed
+        skills_str = json.dumps(skills)
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE dbo.Employees
+            SET Skills = ?
+            WHERE Id = ?
+        """, (skills_str, employee_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"success": True, "message": "Skills updated successfully."})
+    except Exception as e:
+        print("❌ Error updating skills:", e)
+        return jsonify({"error": "Failed to update skills"}), 500
 
 @resume_api.route("/employees/<int:emp_id>/update-personal", methods=["PUT"])
 def update_personal_info(emp_id):
