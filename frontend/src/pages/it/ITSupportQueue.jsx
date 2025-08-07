@@ -18,11 +18,11 @@ import {
 import { CreateTicketDialog } from '@/components/dialogs/CreateTicketDialog';
 import { ViewTicketDialog } from '@/components/dialogs/ViewTicketDialog';
 import { AssignTicketDialog } from '@/components/dialogs/AssignTicketDialog';
+import { CreateITTicketDialog } from '@/components/dialogs/CreateITTicketDialog';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { ChartBar, Eye, EyeOff, RefreshCw, Archive, ArchiveX } from 'lucide-react';
 import axios from 'axios';
-
 
 // API Functions
 const getITTickets = async (includeArchived = false) => {
@@ -119,6 +119,7 @@ export default function ITSupportQueue() {
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [showCreateTicketDialog, setShowCreateTicketDialog] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
@@ -170,6 +171,7 @@ export default function ITSupportQueue() {
     description: ticket.Description || '',
     assignedTo: ticket.AssignedTo || 'Unassigned',
     expectedResolution: ticket.ExpectedResolution || '',
+    category: ticket.Category || 'General',
     isArchived: ticket.Status === 'Archived'
   }));
 
@@ -504,44 +506,63 @@ export default function ITSupportQueue() {
     });
   };
 
+  const handleCreateTicket = () => {
+    setShowCreateTicketDialog(true);
+  };
+
+  const handleTicketCreated = () => {
+    // Refresh the data after a ticket is created
+    fetchData();
+  };
+
   const handleExportReport = () => {
-  if (!transformedTickets || transformedTickets.length === 0) {
-    toast({
-      title: 'No Tickets Found',
-      description: 'There are no tickets to export.',
-      variant: 'destructive',
+    if (!transformedTickets || transformedTickets.length === 0) {
+      toast({
+        title: 'No Tickets Found',
+        description: 'There are no tickets to export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('IT TICKETS REPORT', 14, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Total Tickets: ${transformedTickets.length}`, 14, 30);
+
+    // Prepare table rows
+    const tableData = transformedTickets.map(ticket => [
+      ticket.id,
+      ticket.title,
+      ticket.employee,
+      ticket.category,
+      ticket.severity,
+      ticket.status,
+      ticket.submittedDate ? new Date(ticket.submittedDate).toLocaleDateString() : 'N/A',
+      ticket.assignedTo,
+      ticket.department
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [[
+        "ID", "Title", "Employee", "Category", "Severity",
+        "Status", "Submitted", "Assigned To", "Department"
+      ]],
+      body: tableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [22, 160, 133] },
     });
-    return;
-  }
 
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text('IT TICKETS REPORT', 14, 20);
+    doc.save('it_tickets_report.pdf');
 
-  const ticketText = transformedTickets.map(ticket => `
-ID: ${ticket.id}
-Title: ${ticket.title}
-Employee: ${ticket.employee}
-Category: ${ticket.category}
-Priority: ${ticket.priority}
-Status: ${ticket.status}
-Submitted: ${ticket.createdDate}
-Assigned To: ${ticket.assignedTo}
-Department: ${ticket.department}
-------------------------------
-  `).join('\n');
-
-  const lines = doc.splitTextToSize(ticketText, 180);
-  doc.setFontSize(10);
-  doc.text(lines, 14, 30);
-
-  doc.save('tickets_report.pdf');
-
-  toast({
-    title: 'Tickets Report Downloaded',
-    description: 'Your tickets have been downloaded as a PDF.',
-  });
-};
+    toast({
+      title: 'IT Tickets Report Downloaded',
+      description: 'Your IT tickets have been downloaded as a PDF.',
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -579,11 +600,9 @@ Department: ${ticket.department}
               {showAnalytics ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span>{showAnalytics ? 'Hide' : 'Show'} Analytics</span>
             </Button>
-            <Button variant="outline" onClick={handleExportReport} >Export Report</Button>
+            <Button variant="outline" onClick={handleExportReport}>Export Report</Button>
             {!showArchivedOnly && (
-              <CreateTicketDialog>
-                <Button>Create Ticket</Button>
-              </CreateTicketDialog>
+              <Button variant="outline" onClick={handleCreateTicket}>Create Ticket</Button>
             )}
           </div>
         </div>
@@ -902,6 +921,13 @@ Department: ${ticket.department}
             />
           </>
         )}
+
+        {/* Create IT Ticket Dialog */}
+        <CreateITTicketDialog 
+          open={showCreateTicketDialog} 
+          onOpenChange={setShowCreateTicketDialog}
+          onTicketCreated={handleTicketCreated}
+        />
       </div>
     </DashboardLayout>
   );

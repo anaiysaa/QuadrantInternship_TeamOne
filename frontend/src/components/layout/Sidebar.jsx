@@ -23,9 +23,9 @@ const navigationItems = {
     { name: 'HR Tickets', path: '/hr/tickets', icon: '🎫' },
     { name: 'Feedback Center', path: '/hr/feedback', icon: '💭' },
     { name: 'Career Portal', path: '/hr/career', icon: '🚀' },
-    { name: 'Payroll', path: '/hr/payroll', icon: '💰' },
+    //{ name: 'Payroll', path: '/hr/payroll', icon: '💰' },
     { name: 'Org Chart', path: '/hr/org-chart', icon: '🏢' },
-    { name: 'Live Chat', path: '/hr/live-chat', icon: '💬' },
+    //{ name: 'Live Chat', path: '/hr/live-chat', icon: '💬' },
     { name: 'Content Management', path: '/hr/content', icon: '📝' },
   ],
   'IT Portal': [
@@ -49,6 +49,7 @@ const navigationItems = {
     { name: 'Resources', path: '/resources', icon: '📚' },
     { name: 'Learning (LMS)', path: '/lms', icon: '🎓' },
     { name: 'Live Chat', path: '/live-chat', icon: '💬' },
+    { name: 'Org Chart', path: '/hr/org-chart', icon: '🏢' }
   ]
 };
 

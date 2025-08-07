@@ -1,111 +1,62 @@
+import React, { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-
-export function EditProfileDialog({ open, onOpenChange }) {
-  const { user } = useAuth();
+export const EditProfileDialog = ({ open, onOpenChange, employeeId, onUpdated }) => {
   const { toast } = useToast();
-  
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    location: user?.location || '',
-    bio: user?.bio || ''
+    name: "", email: "", phone: "", address: "", gender: "", campus: ""
   });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // In a real app, this would update the user profile
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been updated successfully.",
-    });
-    onOpenChange(false);
-  };
+  useEffect(() => {
+    if (open && employeeId) {
+      fetch(`/resume/employees/${employeeId}`)
+        .then(res => res.json())
+        .then(data => {
+          setFormData({
+            name: data.name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            address: data.address || "",
+            gender: data.gender || "",
+            campus: data.campus || "",
+          });
+        });
+    }
+  }, [open, employeeId]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleSubmit = async () => {
+    const res = await fetch(`/resume/employees/${employeeId}/update-personal`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    if (res.ok) {
+      toast({ title: "Personal info updated" });
+      onOpenChange(false);
+      onUpdated?.();
+    } else {
+      toast({ title: "Error", description: "Update failed", variant: "destructive" });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              placeholder="Enter your full name"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              placeholder="Enter your email"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => handleInputChange('phone', e.target.value)}
-              placeholder="Enter your phone number"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              value={formData.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-              placeholder="Enter your location"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio</Label>
-            <Textarea
-              id="bio"
-              value={formData.bio}
-              onChange={(e) => handleInputChange('bio', e.target.value)}
-              placeholder="Tell us about yourself"
-              rows={3}
-            />
-          </div>
-          
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              Save Changes
-            </Button>
-          </div>
-        </form>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Edit Personal Info</DialogTitle></DialogHeader>
+        <Input name="name" placeholder="Name" value={formData.name} onChange={handleChange} />
+        <Input name="email" placeholder="Email" value={formData.email} onChange={handleChange} />
+        <Input name="phone" placeholder="Phone" value={formData.phone} onChange={handleChange} />
+        <Input name="address" placeholder="Address" value={formData.address} onChange={handleChange} />
+        <Input name="gender" placeholder="Gender" value={formData.gender} onChange={handleChange} />
+        <Input name="campus" placeholder="Location/Campus" value={formData.campus} onChange={handleChange} />
+        <Button onClick={handleSubmit}>Save</Button>
       </DialogContent>
     </Dialog>
   );
-}
+};

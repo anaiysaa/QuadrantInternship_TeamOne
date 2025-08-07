@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,19 +50,33 @@ export function AdminDashboard() {
     IT: 0
   });
 
-  useEffect(() => {
-  const fetchEmployeeCount = async () => {
-    const countData = await handleGetEmployeeCount();
-    setEmployeeCounts({
-      all: countData['All'],
-      HR: countData['HR'],
-      IT: countData['IT']
-    });
-  };
-  
-  fetchEmployeeCount();
-}, []);
+  const [adminData, setAdminData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetch("/api/admin-dashboard")
+      .then((res) => res.json())
+      .then((data) => setAdminData(data))
+      .catch((err) => console.error("Error loading admin dashboard:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const fetchEmployeeCount = async () => {
+      try {
+        const countData = await handleGetEmployeeCount();
+        setEmployeeCounts({
+          all: countData['All'] || 0,
+          HR: countData['HR'] || 0,
+          IT: countData['IT'] || 0
+        });
+      } catch (error) {
+        console.error('Error fetching employee count:', error);
+      }
+    };
+    
+    fetchEmployeeCount();
+  }, []);
 
   useEffect(() => {
     const path = location.pathname;
@@ -99,30 +112,49 @@ export function AdminDashboard() {
     handleAdminAction('Portal Updated', { portal: updatedPortal.name });
   };
 
-const portalStats = [
-  { 
-    name: 'Employee Portal', 
-    icon: Users, 
-    users: employeeCounts.all, 
-    status: 'Active',
-    color: 'text-purple-600 bg-purple-50'
-  },
-  { 
-    name: 'HR Portal', 
-    icon: Building2, 
-    users: employeeCounts.HR, 
-    status: 'Active',
-    color: 'text-blue-600 bg-blue-50'
-  },
-  { 
-    name: 'IT Portal', 
-    icon: HardDrive, 
-    users: employeeCounts.IT, 
-    status: 'Active',
-    color: 'text-green-600 bg-green-50'
-  },
-];
+  if (loading || !adminData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
 
+  const {
+    pendingFeedback = 0,
+    pendingLeaveRequests = 0,
+    openItTickets = 0,
+    recentLogs = [],
+    activeAnnouncements = [],
+    expiringLicenses = [],
+    systemSettings = [],
+    adminName = "Admin",
+    totalEmployees = 0
+  } = adminData;
+
+  const portalStats = [
+    { 
+      name: 'Employee Portal', 
+      icon: Users, 
+      users: employeeCounts.all, 
+      status: 'Active',
+      color: 'text-purple-600 bg-purple-50'
+    },
+    { 
+      name: 'HR Portal', 
+      icon: Building2, 
+      users: employeeCounts.HR, 
+      status: 'Active',
+      color: 'text-blue-600 bg-blue-50'
+    },
+    { 
+      name: 'IT Portal', 
+      icon: HardDrive, 
+      users: employeeCounts.IT, 
+      status: 'Active',
+      color: 'text-green-600 bg-green-50'
+    },
+  ];
 
   const renderActiveSection = () => {
     switch (activeSection) {
@@ -183,7 +215,87 @@ const portalStats = [
                 </div>
               </CardContent>
             </Card>
-          </div>
+                  {/* ✅ Admin KPIs */}
+      <h2 className="text-2xl font-bold">Activity</h2>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Employees</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold">{totalEmployees}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Feedback</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold">{pendingFeedback}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Leave Requests</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold">{pendingLeaveRequests}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Open IT Tickets</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-bold">{openItTickets}</CardContent>
+        </Card>
+      </div>
+
+      {/* ✅ Activity Logs */}
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold mb-2">Recent Activity Logs</h3>
+        <div className="space-y-2">
+          {recentLogs.length > 0 ? (
+            recentLogs.map((log, i) => (
+              <div
+                key={i}
+                className="p-3 border rounded-md text-sm flex justify-between items-center"
+              >
+                <div>
+                  <strong>{log.username}</strong> {log.action}{" "}
+                  <span className="text-muted-foreground">({log.type})</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p>No recent logs</p>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ Announcements */}
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold mb-2">Active Announcements</h3>
+        <div className="space-y-2">
+          {activeAnnouncements.length > 0 ? (
+            activeAnnouncements.map((a, i) => (
+              <div
+                key={i}
+                className="p-3 border rounded-md flex flex-col space-y-1"
+              >
+                <div className="flex justify-between items-center">
+                  <strong>{a.title}</strong>
+                  <Badge variant="outline">{a.priority}</Badge>
+                </div>
+                <p className="text-sm">{a.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  Created by {a.createdBy} · Expires{" "}
+                  {new Date(a.expiryDate).toLocaleDateString()}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p>No active announcements</p>
+          )}
+        </div>
+      </div>
+      </div>
         );
     }
   };
@@ -191,24 +303,20 @@ const portalStats = [
   return (
     <>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Shield className="h-8 w-8 text-red-600" />
-              Admin Dashboard
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Welcome back, {user?.name}. Manage all portals and system settings from here.
-            </p>
-          </div>
-          <Badge variant="destructive" className="px-3 py-1">
-            <Shield className="h-3 w-3 mr-1" />
-            ADMIN ACCESS
-          </Badge>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+            <Shield className="h-8 w-8 text-red-600" />
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Welcome back, {user?.name}. Manage all portals and system settings from here.
+          </p>
         </div>
+        <Badge variant="destructive" className="px-3 py-1">
+          <Shield className="h-3 w-3 mr-1" />
+          ADMIN ACCESS
+        </Badge>
 
-        {/* Active Section Content */}
         {renderActiveSection()}
       </div>
 

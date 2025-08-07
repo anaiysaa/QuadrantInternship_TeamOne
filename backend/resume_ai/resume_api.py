@@ -5,9 +5,11 @@ import pyodbc
 import os
 import re
 import json
+from pathlib import Path
 from dotenv import load_dotenv
+from dotenv import load_dotenv
+load_dotenv()  # loads backend/.env automatically
 
-load_dotenv()
 
 resume_api = Blueprint("resume_api", __name__)
 CORS(resume_api)  # ✅ Enable CORS for this blueprint
@@ -152,6 +154,27 @@ def get_employee_applications(employee_id):
         print("DB error:", e)
         return jsonify({"error": "Database error", "details": str(e)}), 500
 
+@resume_api.route("/test-ai", methods=["GET"])
+def test_ai():
+    from openai import AzureOpenAI
+    import os
+
+    client = AzureOpenAI(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_version=os.getenv("OPENAI_API_VERSION"),
+        azure_endpoint=os.getenv("OPENAI_API_BASE")
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("DEPLOYMENT_NAME"),
+            messages=[{"role": "user", "content": "Say hello!"}],
+            max_tokens=20
+        )
+        return jsonify({"status": "success", "message": response.choices[0].message.content})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
 # ---------------------- Get Application Details ----------------------
 @resume_api.route("/applications/details/<int:application_id>", methods=["GET"])
 def get_application_details(application_id):
@@ -291,3 +314,97 @@ def get_employee_assets(emp_id):
     except Exception as e:
         print("DB error:", e)
         return jsonify({"error": "Database error"}), 500
+
+
+@resume_api.route("/employees/<int:emp_id>/update-personal", methods=["PUT"])
+def update_personal_info(emp_id):
+    data = request.json
+    try:
+        execute_query("""
+            UPDATE Employees
+            SET Name = ?, Email = ?, Phone = ?, Address = ?, Gender = ?, Campus = ?
+            WHERE ID = ?
+        """, (
+            data.get("name"),
+            data.get("email"),
+            data.get("phone"),
+            data.get("address"),
+            data.get("gender"),
+            data.get("campus"),
+            emp_id
+        ))
+        return jsonify({"success": True, "message": "Personal info updated"})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "message": "Update failed"}), 500
+
+@resume_api.route("/employees/<int:emp_id>/update-professional", methods=["PUT"])
+def update_professional_info(emp_id):
+    data = request.json
+    try:
+        execute_query("""
+            UPDATE Employees
+            SET Department = ?, Role = ?, Status = ?, ManagerID = ?, TeamID = ?,
+                PaidLeavesLeft = ?, TrainingsDone = ?, TrainingsLeft = ?, EmploymentStatus = ?
+            WHERE ID = ?
+        """, (
+            data.get("department"),
+            data.get("role"),
+            data.get("status"),
+            data.get("managerId"),
+            data.get("teamId"),
+            data.get("paidLeavesLeft"),
+            data.get("trainingsDone"),
+            data.get("trainingsLeft"),
+            data.get("employmentStatus"),
+            emp_id
+        ))
+        return jsonify({"success": True, "message": "Professional info updated"})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "message": "Update failed"}), 500
+
+@resume_api.route("/employees/<int:emp_id>/update-skills", methods=["PUT"])
+def update_skills(emp_id):
+    data = request.json
+    skills = data.get("skills", [])
+    try:
+        execute_query("UPDATE Employees SET Skills = ? WHERE ID = ?", (
+            json.dumps(skills), emp_id
+        ))
+        return jsonify({"success": True, "message": "Skills updated"})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "message": "Update failed"}), 500
+
+@resume_api.route("/employees/<int:emp_id>/update-certifications", methods=["PUT"])
+def update_certifications(emp_id):
+    data = request.json
+    certs = data.get("certifications", [])
+    try:
+        execute_query("UPDATE Employees SET Certifications = ? WHERE ID = ?", (
+            json.dumps(certs), emp_id
+        ))
+        return jsonify({"success": True, "message": "Certifications updated"})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "message": "Update failed"}), 500
+@resume_api.route("/employees/<int:emp_id>/update-education", methods=["PUT"])
+def update_education(emp_id):
+    data = request.json
+    try:
+        execute_query("""
+            UPDATE Employees
+            SET EducationDegree = ?, EducationField = ?, EducationInstitution = ?, EducationYear = ?
+            WHERE ID = ?
+        """, (
+            data.get("degree"),
+            data.get("field"),
+            data.get("institution"),
+            data.get("year"),
+            emp_id
+        ))
+        return jsonify({"success": True, "message": "Education updated"})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "message": "Update failed"}), 500
