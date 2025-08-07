@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { JobDetailsDialog } from "@/components/dialogs/JobDetailsDialog";
 import { JobApplicationDetailsDialog } from "@/components/dialogs/JobApplicationDetailsDialog";
 import { JobApplicationDialog } from "@/components/dialogs/JobApplicationDialog";
-import ConfirmationDialog from "@/components/ui/ConfirmationDialog"; // Import the confirmation dialog
+import ConfirmationDialog from "@/components/ui/ConfirmationDialog";
 
 import {
   ChevronDown,
@@ -77,7 +77,7 @@ export default function CareerPortal() {
       const data = await res.json();
       if (data.success) {
         toast({ title: "Application submitted", variant: "success" });
-        window.location.reload()
+        window.location.reload();
       } else {
         toast({ title: "Failed to apply", variant: "destructive" });
       }
@@ -144,6 +144,19 @@ export default function CareerPortal() {
   const handleRescindClick = (app) => {
     setApplicationToRescind(app);
     setShowRescindConfirmation(true);
+  };
+
+  // ---- FIX: Toggle expand/collapse for recommended courses ----
+  const toggleCoursesExpanded = (jobId) => {
+    setExpandedCourses((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -236,7 +249,9 @@ export default function CareerPortal() {
                                 });
                                 setShowJobDetails(true);
                               })
-                              .catch((err) => console.error("Error fetching application details:", err));
+                              .catch((err) =>
+                                console.error("Error fetching application details:", err)
+                              );
                           }}
                         >
                           View Details
@@ -260,7 +275,9 @@ export default function CareerPortal() {
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex gap-2 items-center">
                             <BookOpen className="h-4 w-4 text-primary" />
-                            <h4 className="text-sm font-medium">Recommended Courses</h4>
+                            <h4 className="text-sm font-medium">
+                              Recommended Courses
+                            </h4>
                           </div>
                           <Button
                             size="icon"
@@ -272,16 +289,25 @@ export default function CareerPortal() {
                         </div>
 
                         {isExpanded && (
-                          <div className="grid gap-4 md:grid-cols-2">
+                          <div className="grid gap-4 md:grid-cols-2 transition-all duration-300 ease-in-out">
                             {recommendedCourses.map((course, i) => (
-                              <div key={i} className="border rounded-lg p-4 shadow-sm">
-                                <h5 className="font-medium text-sm">{course.name}</h5>
-                                <p className="text-xs text-muted-foreground">{course.skill}</p>
+                              <div
+                                key={i}
+                                className="border rounded-lg p-4 shadow-sm bg-slate-50"
+                              >
+                                <h5 className="font-medium text-sm">
+                                  {course.name}
+                                </h5>
+                                <p className="text-xs text-muted-foreground">
+                                  {course.skill}
+                                </p>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   className="mt-2"
-                                  onClick={() => window.open(course.url, "_blank")}
+                                  onClick={() =>
+                                    window.open(course.url, "_blank")
+                                  }
                                 >
                                   Enroll Now <ExternalLink className="h-3 w-3 ml-1" />
                                 </Button>

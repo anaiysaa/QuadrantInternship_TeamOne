@@ -2,3 +2,6 @@ azure-ai-inference
 azure-core
 python-dotenv
 azure-identity
+flask
+flask-cors
+flask-socketio
