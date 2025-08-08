@@ -97,8 +97,7 @@ export default function LeaveRequestDialog({ open, onOpenChange, defaultType, on
               <option value="Annual Leave">Annual Leave</option>
               <option value="Sick Leave">Sick Leave</option>
               <option value="Personal Leave">Personal Leave</option>
-              <option value="Maternity">Maternity Leave</option>
-              <option value="Paternity">Paternity Leave</option>
+              <option value="Maternity">Maternity/Paternity Leave</option>
               <option value="Vacation">Vacation</option>
               <option value="Bereavement">Bereavement Leave</option>
               <option value="Emergency">Emergency Leave</option>
