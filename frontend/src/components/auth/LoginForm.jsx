@@ -66,7 +66,7 @@ export function LoginForm() {
   style={{ objectFit: "cover" }}
   ref={(video) => {
     if (video) {
-      video.playbackRate = 0.75;
+      video.playbackRate = 0.65;
     }
   }}
 >

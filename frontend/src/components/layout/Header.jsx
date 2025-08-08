@@ -35,6 +35,7 @@ export function Header() {
     const success = switchPortal(portalName);
     if (success) {
       console.log(`Switched to ${portalName}`);
+      window.location.href = '/dashboard';
       // logAdminAction("Portal Switch", { targetPortal: portalName });
     } else {
       console.log(`Access denied to ${portalName}`);
@@ -111,6 +112,7 @@ export function Header() {
                     <DropdownMenuItem
                       key={portalName}
                       onClick={() => handlePortalSwitch(portalName)}
+                      
                       className={`flex items-center space-x-2 cursor-pointer rounded-md transition-colors ${
                         currentPortal === portalName
                           ? "text-white bg-[#1d3243]"
