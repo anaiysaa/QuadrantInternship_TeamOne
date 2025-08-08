@@ -35,6 +35,9 @@ import ITLiveChat from "./pages/it/ITLiveChat";
 import ITKnowledgeBase from "./pages/it/ITKnowledgeBase";
 import ITSoftwareCenter from "./pages/it/ITSoftwareCenter";
 import "./index.css";
+import Content from "./pages/hr/HRContentManagement";
+import QuizGame from "./pages/QuizGame";
+import PublicQuizGame from "./pages/PublicQuizGame";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +50,7 @@ const App = () => (
         <BrowserRouter>
           <RouteProtection>
             <Routes>
+              <Route path="/public-quiz" element={<PublicQuizGame />} />
               <Route
                 path="/"
                 element={
@@ -145,6 +149,11 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route path="/quiz-game" element={
+                <ProtectedRoute>
+                  <QuizGame />
+                </ProtectedRoute>
+              } />
               <Route
                 path="/live-chat"
                 element={
@@ -232,6 +241,15 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <HRLiveChat />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/hr/content"
+                element={
+                  <ProtectedRoute>
+                    <Content />
                   </ProtectedRoute>
                 }
               />

@@ -1,3 +1,5 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,61 +9,56 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Base Colors */
+   --background: 40 20% 95%; /* plain white for background */
+    --foreground: 222.2 84% 4.9%; /* dark gray for text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* plain white for cards */
+    --card-foreground: 222.2 84% 4.9%; /* dark gray for card text */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%; /* plain white for popovers */
+    --popover-foreground: 222.2 84% 4.9%; /* dark gray for popover text */
 
     /* Corporate Blue Theme */
-    --primary: 215 100% 55%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 215 100% 50%;
-    --primary-light: 215 100% 95%;
+    --primary: 192, 33%, 51%; /* ocean blue */
+    --primary-foreground: 0 0% 100%; /* white text for primary */
+    --primary-hover: 192, 33%, 51%; /* slightly darker ocean blue for hover */
+    --primary-light: 192, 33%, 51%; /* lighter ocean blue for light hover states */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 192, 33%, 51%; /* light blue */
+    --secondary-foreground: 240 7.5% 26.1%; /* dark gray for secondary text */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 40% 96.1%; /* light blue */
+    --muted-foreground: 215.4 16.3% 46.9%; /* muted gray for secondary foreground */
 
-    /* Corporate Accent Colors */
-    --accent: 215 100% 95%;
-    --accent-foreground: 215 100% 55%;
-    --accent-hover: 215 100% 90%;
+    /* Accent Colors */
+    --accent: 205 100% 70%; /* light blue for accent */
+    --accent-foreground: 205 100% 43%; /* ocean blue for accent text */
+    --accent-hover: 192, 33%, 51%; /* darker ocean blue for accent hover */
 
     /* Status Colors */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%; /* greenish color for success */
+    --success-foreground: 0 0% 100%; /* white text for success */
+    --warning: 38 92% 50%; /* yellow for warning */
+    --warning-foreground: 0 0% 100%; /* white text for warning */
+    --destructive: 0 84.2% 60.2%; /* red for destructive */
+    --destructive-foreground: 210 40% 98%; /* white text for destructive */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 215 100% 55%;
+    --border: 214.3 31.8% 91.4%; /* light border */
+    --input: 214.3 31.8% 91.4%; /* input background */
+    --ring: 205 100% 43%; /* ocean blue for ring around elements */
 
-    --radius: 0.5rem;
+    --radius: 0.5rem; /* rounded corners */
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar Colors */
+    --sidebar-background: 205 100% 43%; /* ocean blue for sidebar background */
+    --sidebar-foreground: 240 5.3% 26.1%; /* dark gray for sidebar text */
+    --sidebar-primary: 205 100% 43%; /* ocean blue for primary sidebar elements */
+    --sidebar-primary-foreground: 0 0% 100%; /* white text for primary sidebar elements */
+    --sidebar-accent: 205 100% 60%; /* light ocean blue for accents */
+    --sidebar-accent-foreground: 240 5.3% 26.1%; /* dark gray for accent text */
+    --sidebar-border: 220 13% 91%; /* light gray border for sidebar */
+    --sidebar-ring: 205 100% 50%; /* ocean blue ring around sidebar elements */
   }
 
   .dark {
@@ -92,7 +89,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
+    --sidebar-background: 197.3 64.6% 80.2%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -163,4 +160,60 @@
   90% {
     transform: translateY(-2px);
   }
+}
+
+
+/* Fonts */
+body {
+  font-family: 'Source Sans Pro', sans-serif; /* Default font for body text */
+  line-height: 1.6;
+  color: #000000;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', sans-serif; /* Serif font for headings */
+  font-weight: 700;
+  color: #333;
+}
+
+p, li, span, div {
+  font-family: 'Source Sans Pro', sans-serif; /* Sans-serif for body text */
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Specific Font Sizes */
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 500;
+}
+
+h4, h5, h6 {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+/* Additional Style Customizations for Better Readability */
+body {
+  font-size: 1rem;
+  background-color: #f8f8f8;
+}
+
+ul, ol {
+  padding-left: 1.5rem;
+  font-size: 1rem;
+}
+
+a {
+  text-decoration: none;
 }

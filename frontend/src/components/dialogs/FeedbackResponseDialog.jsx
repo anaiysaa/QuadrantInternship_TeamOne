@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   Dialog,
@@ -24,17 +23,41 @@ export function FeedbackResponseDialog({ feedback, open, onOpenChange }) {
     if (!response.trim()) return;
 
     setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const res = await fetch('/api/feedback/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedbackId: feedback.id,
+          response,
+          responder: 'HR Admin' // Optional: replace with actual user if needed
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send response');
+      }
+
       toast({
-        title: "Response Sent",
+        title: 'Response Sent',
         description: `Response to feedback ${feedback.id} has been sent successfully.`,
       });
+
       setResponse('');
+      onOpenChange(false); // This will trigger refresh in parent
+    } catch (err) {
+      console.error('❌ Failed to respond:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Could not send response.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
-      onOpenChange(false);
-    }, 1000);
+    }
   };
 
   return (

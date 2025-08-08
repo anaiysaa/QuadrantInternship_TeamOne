@@ -49,6 +49,28 @@ def get_connection():
         "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
     )
 
+def log_activity(employee_id, action, type_, details):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get email and department from Employees table
+    cursor.execute("SELECT Email, Department FROM Employees WHERE ID = ?", (employee_id,))
+    row = cursor.fetchone()
+
+    email = row[0] if row else "Unknown"
+    department = row[1] if row else "Unknown"
+
+    # Use department as type_ if type_ is not provided
+    final_type = type_ if type_ else department
+
+    cursor.execute("""
+        INSERT INTO ActivityLog (timestamp, username, action, type, details)
+        VALUES (?, ?, ?, ?, ?)
+    """, (datetime.now(), email, action, final_type, details))
+
+    conn.commit()
+    conn.close()
+
 def get_employee_skills_and_jobs(employee_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -101,7 +123,171 @@ def add_message(chat_id):
 
 
 
+DEGREE_RANK = {
+    "High School": 1,
+    "Associate": 2,
+    "Bachelor": 3,
+    "Bachelor's": 3,
+    "Masters": 4,
+    "Master's": 4,
+    "Doctorate": 5,
+    "PhD": 5
+}
 
+def get_recommended_courses(missing_skills):
+    # Placeholder, replace with your real logic or AI model
+    return [
+        {"name": f"Course for {skill.title()}", "skill": skill, "url": f"https://example.com/courses/{skill}"}
+        for skill in missing_skills
+    ] if missing_skills else []
+
+@app.route('/api/job-matches/<int:employee_id>', methods=['GET'])
+def get_job_matches(employee_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ID, Name, Email, Phone, Address, EducationDegree, Skills
+            FROM Employees
+            WHERE ID = ?
+        """, (employee_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Employee not found"}), 404
+
+        try:
+            skills_list = json.loads(row[6]) if row[6] else []
+        except Exception:
+            skills_list = [s.strip() for s in row[6].split(",") if s.strip()]
+
+        employee = {
+            "id": row[0],
+            "name": row[1],
+            "email": row[2],
+            "phone": row[3],
+            "address": row[4],
+            "degree_level": row[5],
+            "skills": skills_list
+        }
+
+        emp_rank = DEGREE_RANK.get(employee["degree_level"], 0)
+        emp_skills = set(s.lower() for s in employee["skills"])
+
+        cursor.execute("""
+            SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications, JobDescription
+            FROM InternalJobs
+        """)
+        job_rows = cursor.fetchall()
+
+        matches = []
+        for job_row in job_rows:
+            job_id = job_row[0]
+            title = job_row[1]
+            mand_skills = job_row[2] or ""
+            opt_skills = job_row[3]
+            rec_certs = job_row[4]
+            job_desc = job_row[5]
+
+            required_skills = [s.strip().lower() for s in mand_skills.split(",") if s.strip()]
+            job_skills = set(required_skills)
+
+            matched_skills = emp_skills & job_skills
+            missing_skills = list(job_skills - emp_skills)
+            match_percent = int(len(matched_skills) / max(1, len(job_skills)) * 100)
+
+            recommended_courses = get_recommended_courses(missing_skills)
+
+            matches.append({
+                "job_id": job_id,
+                "title": title,
+                "match_percent": match_percent,
+                "skills_matched": list(matched_skills),
+                "skills_missing": missing_skills,
+                "recommended_courses": recommended_courses,
+                "optional_skills": opt_skills,
+                "recommended_certifications": rec_certs,
+                "description": job_desc
+            })
+
+        return jsonify({
+            "employee": employee,
+            "matches": sorted(matches, key=lambda x: -x["match_percent"])
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to get job matches: {str(e)}"}), 500
+
+# ---- Applications by Employee (assuming /resume/applications/<employee_id> route) ----
+@app.route('/resume/applications/<int:employee_id>', methods=['GET'])
+def get_applications(employee_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ja.ApplicationID, ja.JobID, ja.Status, ja.ApplicationDate, ij.JobTitle
+        FROM JobApplications ja
+        JOIN InternalJobs ij ON ja.JobID = ij.JobID
+        WHERE ja.EmployeeID = ?
+        ORDER BY ja.ApplicationDate DESC
+    """, (employee_id,))
+    apps = []
+    for row in cursor.fetchall():
+        apps.append({
+            "applicationId": row[0],
+            "jobId": row[1],
+            "status": row[2],
+            "appliedDate": row[3].strftime("%Y-%m-%d") if row[3] else "",
+            "title": row[4],
+        })
+    cursor.close()
+    conn.close()
+    return jsonify({"applications": apps})
+
+# ---- Apply to a job ----
+@app.route('/resume/apply', methods=['POST'])
+def apply_job():
+    data = request.get_json()
+    job_id = data.get('jobId')
+    employee_id = data.get('employeeId')
+    if not (job_id and employee_id):
+        return jsonify({"success": False, "message": "Missing jobId or employeeId"}), 400
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO JobApplications (JobID, EmployeeID, ApplicationDate, Status)
+        VALUES (?, ?, GETDATE(), ?)
+    """, (job_id, employee_id, "Submitted"))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"success": True}), 201
+
+# ---- Get Job Details ----
+@app.route('/resume/jobs/<int:job_id>', methods=['GET'])
+def get_job_by_id(job_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications, JobDescription, Department, Location, JobType
+        FROM InternalJobs WHERE JobID = ?
+    """, (job_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify({
+        "jobId": row[0],
+        "title": row[1],
+        "mandatorySkills": row[2],
+        "optionalSkills": row[3],
+        "certifications": row[4],
+        "jobDescription": row[5],
+        "department": row[6],
+        "location": row[7],
+        "jobType": row[8]
+    })
+
+# ---- Delete (Rescind) an Application ----
 
 
 # ------------------ EMPLOYEES ------------------
@@ -114,13 +300,13 @@ def get_leave_requests():
     cursor = conn.cursor()
     if emp_id:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived, paid
             FROM LeaveRequests WHERE Employee=?
             ORDER BY SubmittedDate DESC
         """, (emp_id,))
     else:
         cursor.execute("""
-            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived
+            SELECT RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, archived, paid
             FROM LeaveRequests
             ORDER BY SubmittedDate DESC
         """)
@@ -130,7 +316,8 @@ def get_leave_requests():
     results = [dict(zip(columns, row)) for row in rows]
     for r in results:
         r['Urgent'] = bool(r.get('Urgent', False))
-        r['archived'] = bool(r.get('archived', False))  # Convert archived to boolean
+        r['archived'] = bool(r.get('archived', False))
+        r['paid'] = bool(r.get('paid', False))
         for k in ('StartDate', 'EndDate', 'SubmittedDate'):
             if r.get(k):
                 r[k] = str(r[k])
@@ -153,14 +340,11 @@ def approve_leave_request(request_id):
     return jsonify({"message": "Request approved and logged."})
 
 
-
-
-
 @app.route("/api/leave-requests/<string:request_id>/reject", methods=["POST"])
 def reject_leave_request(request_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE LeaveRequests SET Status = 'Rejected' WHERE RequestID = ?", request_id)
+    cursor.execute("UPDATE LeaveRequests SET Status = 'Rejected' WHERE RequestID = ?", (request_id,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Request rejected"})
@@ -182,10 +366,12 @@ def submit_leave_request():
     cursor.execute("SELECT ISNULL(MAX(CAST(SUBSTRING(RequestID, 3, 10) AS INT)), 0) + 1 FROM LeaveRequests")
     next_number = cursor.fetchone()[0]
     new_id = f"LR{next_number:03d}"
+    
     start = data.get("StartDate") or data.get("startDate")
     end = data.get("EndDate") or data.get("endDate")
     start_dt = datetime.strptime(start, "%Y-%m-%d") if start else datetime.today()
     end_dt = datetime.strptime(end, "%Y-%m-%d") if end else start_dt
+    
     def count_weekdays(s, e):
         count = 0
         d = s
@@ -194,17 +380,24 @@ def submit_leave_request():
                 count += 1
             d += timedelta(days=1)
         return count
+    
     days = count_weekdays(start_dt, end_dt)
     reason = data.get("Reason") or data.get("reason") or ""
     submitted_date = datetime.now().strftime("%Y-%m-%d")
     urgent = bool(data.get("Urgent") or data.get("urgent") or False)
     status = data.get("Status") or data.get("status") or "Pending"
     employee = data.get("Employee") or data.get("employee")
+    
+    # Handle paid leave - this was missing in original code
+    paid = bool(data.get("paid") or data.get("paidLeave") or False)
+    
     if not employee:
         return jsonify({"error": "Employee ID is required"}), 400
+    
     type_ = data.get("Type") or data.get("type")
+    
     cursor.execute(
-        "INSERT INTO LeaveRequests (RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO LeaveRequests (RequestID, Employee, Type, StartDate, EndDate, Days, Status, Urgent, Reason, SubmittedDate, paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             new_id,
             employee,
@@ -216,13 +409,14 @@ def submit_leave_request():
             urgent,
             reason,
             submitted_date,
+            paid,  # Added paid parameter
         ),
     )
     print("Received data:", data)
 
     conn.commit()
     conn.close()
-    return jsonify({"RequestID": new_id, "success": True, "days": days}), 201
+    return jsonify({"RequestID": new_id, "success": True, "days": days, "paid": paid}), 201
 
 # ------------------ CHAT SYSTEM (THE PART YOU NEED) ------------------
 
@@ -555,66 +749,53 @@ def login():
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
-
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
 
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT ID, Username, Name, Department
+        SELECT ID, Username, Name, Department, Gender
         FROM dbo.Employees
         WHERE Username = ? AND PasswordHash = ?
     """, (username, password))
     row = cursor.fetchone()
     conn.close()
-
     if not row:
         return jsonify({"error": "Invalid username or password"}), 401
-
-    employee_id = row[0]          # ✅ Now row is defined, so this works
+    employee_id = row[0] 
     department = row[3]
-
     log_activity(employee_id, "Logged In", None, f"User {username} logged in")
-
     return jsonify({
-        "employee_id": employee_id,
+        "employee_id": row[0],
         "username": row[1],
-        "name": row[2],
+        "name": row[2],    # <-- REAL NAME
         "department": department,
+        "gender": row[4],
     }), 200
-
 
 @app.route("/api/timesheets/<ticket_id>/approve", methods=["POST"])
 def approve_timesheet(ticket_id):
     data = request.get_json()
-    approved_by = data.get("approvedBy")  # should be employee ID
-
-    if not approved_by:
-        return jsonify({"error": "Missing approvedBy"}), 400
-
+    approved_by = data.get("approvedBy", "HR")
     conn = get_connection()
     cursor = conn.cursor()
-    
-    # Update timesheet status
     cursor.execute("""
         UPDATE dbo.Timesheets
         SET Status='Approved', ApprovedBy=?, ApprovedDate=GETDATE()
         WHERE TicketID=?
     """, (approved_by, ticket_id))
-
+    
     conn.commit()
-    conn.close()
     approver_id = data.get("employee_id")
 
-    # ✅ Log the approval
     log_activity(
         approver_id,
         "Approved Timesheet",
         None,
         f"Approved timesheet ID: {ticket_id}"
     )
-
+    conn.close()
     return jsonify({"success": True})
 
 @app.route("/api/timesheets/<ticket_id>/reject", methods=["POST"])
@@ -754,43 +935,43 @@ def update_employee(emp_id):
 
 @app.route('/api/internal-jobs', methods=['GET'])
 def get_internal_jobs():
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT JobID, JobTitle, MandatorySkills, OptionalSkills, RecommendedCertifications,
-                   JobDescription, Department, Location, JobType, Applicants, Status, ClosingDate
-            FROM dbo.InternalJobs
-            ORDER BY JobID
-        """)
-        rows = cursor.fetchall()
+    conn = get_connection()
+    cursor = conn.cursor()
 
-        jobs = []
-        for row in rows:
-            jobs.append({
-                "id": f"JP{row[0]:03d}",
-                "title": row[1],
-                "mandatorySkills": row[2],
-                "optionalSkills": row[3],
-                "certifications": row[4],
-                "description": row[5],
-                "department": row[6],
-                "location": row[7],
-                "type": row[8],
-                "applicants": row[9],
-                "status": row[10],
-                "closingDate": row[11].strftime("%Y-%m-%d") if row[11] else None,
-            })
+    # Get job postings
+    cursor.execute("""
+        SELECT JobID, JobTitle, Department, Location, JobType,
+               Status, ClosingDate
+        FROM dbo.InternalJobs
+    """)
+    jobs = cursor.fetchall()
 
-        cursor.close()
-        conn.close()
-        return jsonify(jobs)
+    # Get application counts from JobApplications
+    cursor.execute("""
+        SELECT JobID, COUNT(*) AS Applicants
+        FROM dbo.JobApplications
+        GROUP BY JobID
+    """)
+    app_counts_raw = cursor.fetchall()
+    conn.close()
 
-    except Exception as e:
-        print("Error loading internal jobs:", str(e))
-        return jsonify({"error": "Failed to load jobs"}), 500
-    
+    # 🔧 Fix: Cast JobID to string for both
+    app_counts = {str(row.JobID): row.Applicants for row in app_counts_raw}
 
+    job_list = []
+    for job in jobs:
+        job_list.append({
+            "id": job.JobID,
+            "title": job.JobTitle,
+            "department": job.Department,
+            "location": job.Location,
+            "type": job.JobType,
+            "status": job.Status,
+            "closingDate": job.ClosingDate.isoformat() if job.ClosingDate else None,
+            "applicants": app_counts.get(str(job.JobID), 0)  # ✅ always matches now
+        })
+
+    return jsonify(job_list)
 
 @app.route('/api/internal-jobs/<job_id>', methods=['PUT'])
 def update_internal_job(job_id):
@@ -834,35 +1015,60 @@ def update_internal_job(job_id):
 
 
 
-@app.route("/api/job-applications")
+@app.route("/api/job-applications", methods=["GET"])
 def get_job_applications():
-    conn = get_connection()
-    cursor = conn.cursor()
     job_id = request.args.get("jobId")
 
+    conn = get_connection()
+    cursor = conn.cursor()
+
     if job_id:
-        query = """
-            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
-                   e.Name, e.Email
-            FROM JobApplications ja
-            JOIN InternalJobs ij ON ja.JobID = ij.JobID
-            JOIN Employees e ON ja.EmployeeID = e.ID
-            WHERE ja.JobID = ?
-        """
-        cursor.execute(query, (job_id,))
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID,
+                a.InterviewDetails  -- ✅ Add this line
+
+            FROM dbo.JobApplications a
+            JOIN dbo.Employees e ON a.EmployeeID = e.ID
+            WHERE a.JobID = ?
+        """, (job_id,))
     else:
-        query = """
-            SELECT ja.ApplicationID, ja.ApplicationDate, ja.Status,
-                   ij.JobTitle AS JobTitle, e.Name, e.Email
-            FROM JobApplications ja
-            JOIN InternalJobs ij ON ja.JobID = ij.JobID
-            JOIN Employees e ON ja.EmployeeID = e.ID
-        """
-        cursor.execute(query)
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID,
+                a.InterviewDetails
+            FROM dbo.JobApplications a
+            JOIN dbo.Employees e ON a.EmployeeID = e.ID
+        """)
 
     rows = cursor.fetchall()
-    columns = [column[0] for column in cursor.description]
-    return jsonify([dict(zip(columns, row)) for row in rows])
+    conn.close()
+
+    return jsonify([
+        {
+            "ApplicationID": row.ApplicationID,
+            "EmployeeID": row.EmployeeID,
+            "Name": row.Name,
+            "Email": row.Email,
+            "ApplicationDate": row.ApplicationDate.isoformat() if row.ApplicationDate else None,
+            "Status": row.Status,
+            "JobID": row.JobID,
+            "InterviewDetails": row.InterviewDetails 
+        }
+        for row in rows
+    ])
 
 
 @app.route('/api/post-job', methods=['POST'])
@@ -951,8 +1157,60 @@ def update_application_status():
         cursor.close()
         conn.close()
 
+@app.route("/api/schedule-interview", methods=["POST"])
+def schedule_interview():
+    data = request.get_json()
+    application_id = data.get("applicationId")
+    interview_data = data.get("interviewData")
 
+    if not application_id or not interview_data:
+        return jsonify({"error": "Missing applicationId or interviewData"}), 400
 
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE JobApplications
+            SET Status = ?, InterviewDetails = ?
+            WHERE ApplicationID = ?
+        """, (
+            "Interview Scheduled",
+            json.dumps(interview_data),
+            application_id
+        ))
+        conn.commit()
+
+        # Fetch updated application
+        cursor.execute("""
+            SELECT 
+                a.ApplicationID,
+                a.EmployeeID,
+                e.Name,
+                e.Email,
+                a.ApplicationDate,
+                a.Status,
+                a.JobID
+            FROM JobApplications a
+            JOIN Employees e ON a.EmployeeID = e.ID
+            WHERE a.ApplicationID = ?
+        """, (application_id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        return jsonify({
+            "ApplicationID": row.ApplicationID,
+            "EmployeeID": row.EmployeeID,
+            "Name": row.Name,
+            "Email": row.Email,
+            "ApplicationDate": row.ApplicationDate.isoformat() if row.ApplicationDate else None,
+            "Status": row.Status,
+            "JobID": row.JobID
+        })
+
+    except Exception as e:
+        print("❌ Error scheduling interview:", e)
+        return jsonify({"error": "Failed to schedule interview"}), 500
 
 app.register_blueprint(it_asset_api)
 app.register_blueprint(it_inventory_api)
@@ -1849,11 +2107,9 @@ def toggle_maintenance_mode():
             UPDATE SystemSettings SET Value = ?
             WHERE Feature = 'Uptime'
         """, (now_iso,))
-
+    log_activity("Admin", "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
     conn.commit()
     conn.close()
-    log_activity(admin_email, "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
-
     return jsonify({"success": True, "maintenanceMode": new_mode})
 
 @app.route('/api/database-size', methods=['GET'])
@@ -1877,48 +2133,147 @@ def get_database_size():
         return jsonify({ "databaseSize": f"{db_size} MB" })
     except Exception as e:
         return jsonify({ "error": str(e) }), 500
+
+#announcements
+@app.route("/api/hr-announcements", methods=["GET"])
+def list_hr_announcements():
+    department = request.args.get("department", "").strip().lower()  # get query param
+    active_only = request.args.get("active", "true").lower() == "true"  # default to active only
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Build the query dynamically based on filters
+    query = """
+        SELECT ID, Title, Message, CreatedBy, CreatedDate, ExpiryDate, Priority, Department, IsActive
+        FROM dbo.Announcements
+        WHERE 1=1
+    """
+    params = []
+
+    # Filter by active status
+    if active_only:
+        query += " AND IsActive = 1"
+
+    # Filter by department if provided
+    if department:
+        query += " AND (LOWER(Department) = ? OR LOWER(Department) = 'all')"
+        params.append(department)
+
+    # Filter out expired announcements
+    query += " AND (ExpiryDate IS NULL OR ExpiryDate >= GETDATE())"
     
-def log_activity(employee_id, action, type_, details):
+    query += " ORDER BY Priority DESC, CreatedDate DESC"
+
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            "id": r.ID,
+            "title": r.Title,
+            "message": r.Message,
+            "createdBy": r.CreatedBy,
+            "createdDate": r.CreatedDate.isoformat() if r.CreatedDate else None,
+            "expiryDate": r.ExpiryDate.isoformat() if r.ExpiryDate else None,
+            "priority": r.Priority,
+            "department": r.Department,
+            "isActive": bool(r.IsActive)
+        }
+        for r in rows
+    ])
+
+@app.route("/api/hr-announcements", methods=["POST"])
+def create_hr_announcement():
+    data = request.get_json(force=True)
+    title = data.get("title")
+    message = data.get("message")
+    created_by = data.get("createdBy")
+    expiry_date = data.get("expiryDate")  # Optional, can be None
+    priority = data.get("priority", 1)  # Default priority 1 (low)
+    department = data.get("department", "all")  # Default to 'all'
+    is_active = data.get("isActive", True)  # Default to active
+
+    if not title or not message or not created_by:
+        return jsonify({"error": "title, message, and createdBy are required"}), 400
+
+    # Validate priority range (assuming 1=low, 2=medium, 3=high)
+    if priority not in [1, 2, 3]:
+        return jsonify({"error": "priority must be 1 (low), 2 (medium), or 3 (high)"}), 400
+
     conn = get_connection()
-    cursor = conn.cursor()
-
-    # Get email and department from Employees table
-    cursor.execute("SELECT Email, Department FROM Employees WHERE ID = ?", (employee_id,))
-    row = cursor.fetchone()
-
-    email = row[0] if row else "Unknown"
-    department = row[1] if row else "Unknown"
-
-    # Use department as type_ if type_ is not provided
-    final_type = type_ if type_ else department
-
-    cursor.execute("""
-        INSERT INTO ActivityLog (timestamp, username, action, type, details)
-        VALUES (?, ?, ?, ?, ?)
-    """, (datetime.now(), email, action, final_type, details))
-
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO dbo.Announcements (Title, Message, CreatedBy, CreatedDate, ExpiryDate, Priority, Department, IsActive)
+        OUTPUT INSERTED.ID
+        VALUES (?, ?, ?, GETDATE(), ?, ?, ?, ?)
+    """, (title, message, created_by, expiry_date, priority, department, is_active))
+    row = cur.fetchone()
     conn.commit()
     conn.close()
 
+    if not row:
+        return jsonify({"error": "Insert succeeded but no ID returned"}), 500
 
-# --- EXAMPLE ROUTE THAT LOGS SOMETHING ---
-@app.route('/api/change-role', methods=['POST'])
-def change_user_role():
-    data = request.get_json()
-    target_username = data.get("username")
-    new_role = data.get("newRole")
-    admin_id = data.get("employee_id")  # the person doing the change
+    return jsonify({"id": str(row[0])})
+
+@app.route("/api/hr-announcements/<int:announcement_id>", methods=["PUT"])
+def update_hr_announcement(announcement_id):
+    data = request.get_json(force=True)
+    title = data.get("title")
+    message = data.get("message")
+    created_by = data.get("createdBy")
+    expiry_date = data.get("expiryDate")
+    priority = data.get("priority", 1)
+    department = data.get("department", "all")
+    is_active = data.get("isActive", True)
+
+    if not title or not message or not created_by:
+        return jsonify({"error": "title, message, and createdBy are required"}), 400
+
+    # Validate priority range
+    if priority not in [1, 2, 3]:
+        return jsonify({"error": "priority must be 1 (low), 2 (medium), or 3 (high)"}), 400
 
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Employees SET Role = ? WHERE Username = ?", (new_role, target_username))
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE dbo.Announcements
+        SET Title = ?, Message = ?, CreatedBy = ?, ExpiryDate = ?, Priority = ?, Department = ?, IsActive = ?
+        WHERE ID = ?
+    """, (title, message, created_by, expiry_date, priority, department, is_active, announcement_id))
     conn.commit()
     conn.close()
 
-    # Log it
-    log_activity(admin_id, "User Role Changed", "Admin", f"Changed {target_username}'s role to {new_role}")
+    return jsonify({"success": True})
 
-    return jsonify({"message": "Role updated and activity logged."})
+@app.route("/api/hr-announcements/<int:announcement_id>", methods=["DELETE"])
+def delete_hr_announcement(announcement_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dbo.Announcements WHERE ID = ?", (announcement_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print("Error deleting announcement:", e)
+        return jsonify({"error": "Failed to delete announcement"}), 500
+
+# Additional endpoint to deactivate instead of delete
+@app.route("/api/hr-announcements/<int:announcement_id>/deactivate", methods=["PUT"])
+def deactivate_hr_announcement(announcement_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE dbo.Announcements SET IsActive = 0 WHERE ID = ?", (announcement_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print("Error deactivating announcement:", e)
+        return jsonify({"error": "Failed to deactivate announcement"}), 500
 
 # --- FETCH LOGS ---
 @app.route('/api/logs', methods=['GET'])
@@ -1946,25 +2301,100 @@ def get_activity_logs():
 
     return jsonify(logs)
 
-# --- Suggested Logging Usage in main.py ---
 
-# Example: Leave request approved
-# log_activity(user=approver_name, action="Approved leave request", type_="HR", details=f"RequestID: {request_id}")
 
-# Example: Leave request rejected
-# log_activity(user=approver_name, action="Rejected leave request", type_="HR", details=f"RequestID: {request_id}")
 
-# Example: Employee data updated
-# log_activity(user=admin_name, action="Updated employee record", type_="Admin", details=f"EmployeeID: {emp_id}, Fields: name, email")
+@app.route("/api/quiz/submit", methods=["POST"])
+def quiz_submit():
+    """
+    Body: {
+      "name": "Alice",
+      "score": 8,
+      "totalQuestions": 10,
+      "durationSeconds": 124   (optional)
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    score = int(data.get("score") or 0)
+    total_q = int(data.get("totalQuestions") or 0)
+    duration = data.get("durationSeconds")
 
-# Example: Internal job application reviewed
-# log_activity(user=hr_name, action="Reviewed internal transfer", type_="HR", details=f"EmployeeID: {employee_id}, Status: {status}")
+    if not name or total_q <= 0:
+        return jsonify({"error": "Invalid payload"}), 400
 
-# Example: Role changed
-# log_activity(user=admin_name, action="Changed role", type_="Admin", details=f"EmployeeID: {emp_id}, New Role: {new_role}")
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO dbo.QuizScores (PlayerName, Score, TotalQuestions, DurationSeconds)
+            VALUES (?, ?, ?, ?)
+        """, (name[:100], score, total_q, duration))
+        conn.commit()
 
-# --- End Activity Logging Setup ---
+        # return the just-saved row (server timestamp)
+        cur.execute("""
+            SELECT TOP (1) Id, PlayerName, Score, TotalQuestions, DurationSeconds, CompletedAt
+            FROM dbo.QuizScores
+            WHERE PlayerName = ?
+            ORDER BY Id DESC
+        """, (name[:100],))
+        row = cur.fetchone()
+        conn.close()
 
+        return jsonify({
+            "id": row[0],
+            "name": row[1],
+            "score": row[2],
+            "totalQuestions": row[3],
+            "durationSeconds": row[4],
+            "completedAt": row[5].isoformat()
+        }), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/quiz/leaderboard", methods=["GET"])
+def quiz_leaderboard():
+    """
+    Query:
+      limit=10
+      bestOnly=true|false  (true uses the view, one best row per player)
+    """
+    limit = int(request.args.get("limit", 10))
+    best_only = (request.args.get("bestOnly", "true").lower() == "true")
+
+    try:
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        if best_only:
+            cur.execute(f"""
+                SELECT TOP ({limit})
+                    PlayerName, Score, TotalQuestions, DurationSeconds, CompletedAt
+                FROM dbo.vw_QuizLeaderboard
+                ORDER BY Score DESC, CompletedAt ASC
+            """)
+        else:
+            cur.execute(f"""
+                SELECT TOP ({limit})
+                    PlayerName, Score, TotalQuestions, DurationSeconds, CompletedAt
+                FROM dbo.QuizScores
+                ORDER BY Score DESC, CompletedAt DESC
+            """)
+        rows = cur.fetchall()
+        conn.close()
+
+        results = [{
+            "name": r[0],
+            "score": r[1],
+            "totalQuestions": r[2],
+            "durationSeconds": r[3],
+            "timestamp": r[4].strftime("%Y-%m-%d %H:%M")
+        } for r in rows]
+
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/hello", methods=["GET"])
 def hello_world():

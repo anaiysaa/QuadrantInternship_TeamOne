@@ -34,7 +34,8 @@ export default function HRCareerPortal() {
 
   const [jobPostings, setJobPostings] = useState([]);
   const [applications, setApplications] = useState([]);
-
+  const [interviewCountThisWeek, setInterviewCountThisWeek] = useState(0);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -48,9 +49,31 @@ export default function HRCareerPortal() {
   useEffect(() => {
     fetch('/api/job-applications')
       .then(res => res.json())
-      .then(data => setApplications(data))
+      .then(data => {
+        setApplications(data);
+  
+        const currentWeekStart = new Date();
+        currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+  
+        const currentWeekEnd = new Date(currentWeekStart);
+        currentWeekEnd.setDate(currentWeekEnd.getDate() + 6);
+  
+        const interviewsThisWeek = data.filter((app) => {
+          if (app.Status !== 'Interview Scheduled' || !app.InterviewDetails) return false;
+          try {
+            const details = JSON.parse(app.InterviewDetails);
+            const date = new Date(details.date);
+            return date >= currentWeekStart && date <= currentWeekEnd;
+          } catch {
+            return false;
+          }
+        });
+  
+        setInterviewCountThisWeek(interviewsThisWeek.length);
+      })
       .catch(err => console.error("Failed to fetch applications:", err));
   }, []);
+  
 
   const filteredPostings = jobPostings.filter(job =>
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,11 +124,28 @@ export default function HRCareerPortal() {
   };
 
   const stats = [
-    { title: 'Active Jobs', value: jobPostings.filter(j => j.status === 'Active').length, color: 'bg-success' },
-    { title: 'Total Applications', value: applications.length, color: 'bg-primary' },
-    { title: 'Interviews This Week', value: applications.filter(a => a.Status === 'Interview Scheduled').length, color: 'bg-warning' },
-    { title: 'Offers Extended', value: applications.filter(a => a.Status === 'Offer Extended').length, color: 'bg-accent' },
+    {
+      title: 'Active Jobs',
+      value: jobPostings.filter(j => j.status === 'Active').length,
+      color: 'bg-success'
+    },
+    {
+      title: 'Total Applications',
+      value: applications.length,
+      color: 'bg-primary'
+    },
+    {
+      title: 'Interviews This Week',
+      value: interviewCountThisWeek,
+      color: 'bg-warning'
+    },
+    {
+      title: 'Offers Extended',
+      value: applications.filter(a => a.Status === 'Offer Extended').length,
+      color: 'bg-accent'
+    }
   ];
+  
 
   const handleJobTemplates = () => setShowJobTemplates(true);
   const handlePostNewJob = () => setShowPostJob(true);
@@ -142,7 +182,6 @@ export default function HRCareerPortal() {
             <p className="text-muted-foreground">Manage career opportunities</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleJobTemplates}>Job Templates</Button>
             <Button onClick={handlePostNewJob}>Post New Job</Button>
           </div>
         </div>

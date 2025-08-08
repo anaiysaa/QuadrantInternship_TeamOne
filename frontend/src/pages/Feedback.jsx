@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from "react";
+
 import {
   Table,
   TableBody,
@@ -27,10 +29,12 @@ export default function Feedback() {
   const [recipient, setRecipient] = useState("");
   const [employees, setEmployees] = useState([]);
   const [myFeedback, setMyFeedback] = useState([]);
+  const [gender, setGender] = useState(""); // good
   const [loading, setLoading] = useState(false);
 
-  const employeeId = 10001; // Replace with dynamic ID from auth
-
+  const { user } = useAuth();
+  const employeeId = user?.employeeId;
+  
   const categories = [
     "Work Environment",
     "Management",
@@ -83,11 +87,31 @@ export default function Feedback() {
       .catch((err) => console.error("Error fetching employees:", err));
   };
 
+  const fetchEmployeeInfo = () => {
+    fetch(`/api/employees/${employeeId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setGender(data.Gender || ""); // 👈 Adjust field name if necessary
+      })
+      .catch((err) => console.error("Error fetching employee info:", err));
+  };
   useEffect(() => {
-    fetchFeedback();
-    fetchEmployees();
+    if (!employeeId) return;
+  
+    const fetchEmployee = async () => {
+      try {
+        const res = await fetch(`/resume/employees/${employeeId}`);
+        const data = await res.json();
+        setGender(data.gender);
+      } catch (err) {
+        console.error("Failed to fetch employee data:", err);
+      }
+    };
+  
+    fetchEmployee();
+    fetchFeedback(); // ✅ Add this line here
   }, [employeeId]);
-
+  
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = {
@@ -119,6 +143,7 @@ export default function Feedback() {
       })
       .catch((err) => console.error("Error submitting feedback:", err));
   };
+  console.log("Gender loaded:", gender);
 
   return (
     <DashboardLayout>
@@ -250,24 +275,7 @@ export default function Feedback() {
                 />
               </div>
 
-              {/* Optional Recipient */}
-              <div className="space-y-2">
-                <Label htmlFor="recipient">Send To (Optional)</Label>
-                <select
-                  id="recipient"
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  className="w-full px-3 py-2 border border-input rounded-md"
-                >
-                  <option value="">Select a recipient (optional)</option>
-                  {employees.map((emp) => (
-                    <option key={emp.EmployeeID} value={emp.EmployeeID}>
-                      {emp.Name} ({emp.Role})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+              
               {/* Checkboxes */}
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
@@ -283,18 +291,22 @@ export default function Feedback() {
                   <Label htmlFor="anonymous" className="text-sm">Submit anonymously</Label>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="womenOnly"
-                    checked={feedbackForm.womenOnly}
-                    onChange={(e) =>
-                      setFeedbackForm((prev) => ({ ...prev, womenOnly: e.target.checked }))
-                    }
-                    className="rounded"
-                  />
-                  <Label htmlFor="womenOnly" className="text-sm">Submit to Women-Only Group</Label>
-                </div>
+                {gender?.toUpperCase?.() === "F" && (
+              <div className="flex items-center space-x-2">
+    <input
+      type="checkbox"
+      id="womenOnly"
+      checked={feedbackForm.womenOnly}
+      onChange={(e) =>
+        setFeedbackForm((prev) => ({ ...prev, womenOnly: e.target.checked }))
+      }
+      className="rounded"
+    />
+    <Label htmlFor="womenOnly" className="text-sm">
+      Submit to Women-Only Group
+    </Label>
+  </div>
+)}
               </div>
 
               <div className="flex justify-end space-x-2">
@@ -322,6 +334,7 @@ export default function Feedback() {
                     <TableHead>Recipient</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Rating</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Submitted</TableHead>
@@ -329,24 +342,45 @@ export default function Feedback() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {myFeedback.map((feedback) => (
-                    <TableRow key={feedback.id}>
-                      <TableCell>{feedback.id}</TableCell>
-                      <TableCell>{feedback.anonymous ? "Anonymous" : feedback.employeeId}</TableCell>
-                      <TableCell>{feedback.recipientGroup || "—"}</TableCell>
-                      <TableCell>{feedback.category}</TableCell>
-                      <TableCell>{feedback.subject}</TableCell>
-                      <TableCell>{getRatingStars(feedback.rating)} ({feedback.rating}/5)</TableCell>
-                      <TableCell>{getStatusBadge(feedback.status)}</TableCell>
-                      <TableCell>
-                        {feedback.submittedDate
-                          ? new Date(feedback.submittedDate).toLocaleDateString()
-                          : ""}
-                      </TableCell>
-                      <TableCell>{feedback.womenOnly ? "Yes" : "No"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+            
+                {myFeedback
+  .filter((feedback) => (!feedback.isWomenOnly) || gender?.toUpperCase?.() === "F")
+  .flatMap((feedback) => {
+    const mainRow = (
+      <TableRow key={feedback.id}>
+        <TableCell>{feedback.id}</TableCell>
+        <TableCell>{feedback.anonymous ? "Anonymous" : feedback.employeeId}</TableCell>
+        <TableCell>{feedback.recipientGroup || "—"}</TableCell>
+        <TableCell>{feedback.category}</TableCell>
+        <TableCell>{feedback.subject}</TableCell>
+        <TableCell className="max-w-[360px] whitespace-pre-line break-words">
+          {feedback.message || "—"}
+        </TableCell>
+        <TableCell>{getRatingStars(feedback.rating)} ({feedback.rating}/5)</TableCell>
+        <TableCell>{getStatusBadge(feedback.status)}</TableCell>
+        <TableCell>
+          {feedback.submittedDate ? new Date(feedback.submittedDate).toLocaleDateString() : ""}
+        </TableCell>
+        <TableCell>{feedback.isWomenOnly ? "Yes" : "No"}</TableCell>
+      </TableRow>
+    );
+
+    const responseRow =
+      feedback.status === "Responded" && feedback.response ? (
+        <TableRow key={`resp-${feedback.id}`}>
+          <TableCell colSpan={10} className="bg-muted text-sm text-muted-foreground italic">
+            <strong>HR Response:</strong> {feedback.response}
+          </TableCell>
+        </TableRow>
+      ) : null;
+
+    // Return an array so we avoid React.Fragment entirely
+    return responseRow ? [mainRow, responseRow] : [mainRow];
+  })}
+
+                      
+    </TableBody>
+
               </Table>
             )}
           </CardContent>
@@ -355,9 +389,3 @@ export default function Feedback() {
     </DashboardLayout>
   );
 }
-
-
-
-
-
-

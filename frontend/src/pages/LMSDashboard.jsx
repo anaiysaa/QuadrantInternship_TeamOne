@@ -1,24 +1,36 @@
-// components/lms/LMSDashboard.js
-// Fully connected to OnboardingTraining.js, copy-paste ready
-
-
-import { useState, useEffect, useCallback } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { CourseBrowser } from '@/components/lms/CourseBrowser';
-import OnboardingTraining from '@/components/lms/OnboardingTraining';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, ChartBar, GraduationCap, BookOpen } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import OnboardingTraining from "@/components/lms/OnboardingTraining";
+import AzureCertificationTraining from "@/components/lms/AzureCertificationTraining";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { CourseBrowser } from "@/components/lms/CourseBrowser";
+import { useToast } from "@/hooks/use-toast";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { Eye, EyeOff, ChartBar, GraduationCap, BookOpen, Cloud, Trophy } from 'lucide-react';
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LMSDashboard() {
   const [showCourseBrowser, setShowCourseBrowser] = useState(false);
-  const [showOnboardingTraining, setShowOnboardingTraining] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showOnboardingTraining, setShowOnboardingTraining] = useState(false);
+  const [showAzureCertification, setShowAzureCertification] = useState(false);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [allCourses, setAllCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,10 +77,10 @@ export default function LMSDashboard() {
     },
     {
       id: 2,
-      title: 'Security Champion',
-      description: 'Completed cybersecurity training',
-      icon: '🛡',
-      date: '2024-02-10'
+      title: "Security Champion",
+      description: "Completed cybersecurity training",
+      icon: "🛡️",
+      date: "2024-02-10",
     },
     {
       id: 3,
@@ -160,13 +172,17 @@ export default function LMSDashboard() {
     },
   ];
 
-  // --------- UI Event Handlers ---------
+  // Handler for enrolled course actions
   const handleContinueLearning = (course) => {
-    toast({
-      title: "Continuing Course",
-      description: `Redirecting to ${course.title}...`,
-    });
-    // In a real app, this would navigate to the course content
+    if (course.link) {
+      window.open(course.link, "_blank", "noopener noreferrer");
+    } else {
+      toast({
+        title: "No Course Link",
+        description: "This course does not have a link yet.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadCertificate = (course) => {
@@ -174,33 +190,10 @@ export default function LMSDashboard() {
       title: "Certificate Downloaded",
       description: `Certificate for ${course.title} has been downloaded.`,
     });
-    // In a real app, this would trigger a file download
+    // TODO: Download logic
   };
 
-  const handleViewCertificate = (course) => {
-    toast({
-      title: "Viewing Certificate",
-      description: `Opening certificate for ${course.title}...`,
-    });
-    // In a real app, this would open the certificate in a new window/modal
-  };
-
-  const handleEnrollNow = (course) => {
-    setAvailableCourses(prev => prev.filter(c => c.id !== course.id));
-    setEnrolledCourses(prev => [
-      ...prev,
-      {
-        ...course,
-        progress: 0,
-        status: 'Not Started',
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 30 days from now
-      }
-    ]);
-    toast({
-      title: "Enrollment Successful",
-      description: `You have been enrolled in ${course.title}!`,
-    });
-  };
+  
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -292,6 +285,14 @@ export default function LMSDashboard() {
     );
   }
 
+  if (showAzureCertification) {
+    return (
+      <DashboardLayout>
+        <AzureCertificationTraining onBack={() => setShowAzureCertification(false)} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -302,9 +303,9 @@ export default function LMSDashboard() {
               Enhance your skills with our training programs
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
               onClick={() => setShowAnalytics(!showAnalytics)}
               className="flex items-center space-x-2"
             >
@@ -323,12 +324,28 @@ export default function LMSDashboard() {
               <GraduationCap className="w-4 h-4" />
               <span>Onboarding Training</span>
             </Button>
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowAzureCertification(true)}
+              className="flex items-center space-x-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900/30"
+            >
+              <Cloud className="w-4 h-4" />
+              <span>Azure Certification</span>
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={() => window.location.href = '/quiz-game'}
+              className="flex items-center space-x-2 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 dark:bg-purple-950/20 dark:text-purple-300 dark:border-purple-800 dark:hover:bg-purple-900/30"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Interactive Quiz</span>
+            </Button>
             <Button onClick={() => setShowCourseBrowser(true)}>
-              <BookOpen className="w-4 h-4 mr-2" />
               Browse All Courses
             </Button>
           </div>
         </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
@@ -345,6 +362,7 @@ export default function LMSDashboard() {
             </Card>
           ))}
         </div>
+
         {/* Analytics Section */}
         {showAnalytics && (
           <div className="space-y-6 animate-fade-in">
@@ -519,17 +537,29 @@ export default function LMSDashboard() {
                       <div className="flex justify-between text-sm">
                         <span>Overall Progress</span>
                         <span className="font-medium">
-                          {enrolledCourses.length > 0
-                            ? ((enrolledCourses.filter(c => c.status === 'Completed').length / enrolledCourses.length) * 100).toFixed(0)
-                            : 0
-                          }%
+                          {enrolledCourses.length === 0
+                            ? "0%"
+                            : (
+                                (enrolledCourses.filter(
+                                  (c) => c.status === "Completed"
+                                ).length /
+                                  enrolledCourses.length) *
+                                100
+                              ).toFixed(0) + "%"}
                         </span>
                       </div>
-                      <Progress value={
-                        enrolledCourses.length > 0
-                          ? (enrolledCourses.filter(c => c.status === 'Completed').length / enrolledCourses.length) * 100
-                          : 0
-                      } className="h-2" />
+                      <Progress
+                        value={
+                          enrolledCourses.length === 0
+                            ? 0
+                            : (enrolledCourses.filter(
+                                (c) => c.status === "Completed"
+                              ).length /
+                                enrolledCourses.length) *
+                              100
+                        }
+                        className="h-2"
+                      />
                     </div>
                   </div>
                   <div className="p-4 bg-primary/10 rounded-lg border">
@@ -561,6 +591,7 @@ export default function LMSDashboard() {
             </Card>
           </div>
         )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Enrolled Courses */}
           <Card>
@@ -641,6 +672,7 @@ export default function LMSDashboard() {
               )}
             </CardContent>
           </Card>
+
           {/* Available Courses */}
           <Card>
             <CardHeader>
@@ -697,6 +729,7 @@ export default function LMSDashboard() {
             </CardContent>
           </Card>
         </div>
+
         {/* Achievements */}
         <Card>
           <CardHeader>

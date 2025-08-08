@@ -190,9 +190,12 @@ export function UserManagement() {
     }
   };
 
-  const getStatusBadgeVariant = (status) => {
-    return status === 'active' ? 'default' : 'secondary';
-  };
+ const getStatusBadgeVariant = (status) => {
+  return status === 'active'
+    ? 'bg-green-600 text-white border-green-600'
+    : 'bg-transparent text-foreground border-border';
+};
+
 
   if (loading) {
     return (

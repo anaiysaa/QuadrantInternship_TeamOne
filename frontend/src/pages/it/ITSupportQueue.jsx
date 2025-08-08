@@ -207,18 +207,21 @@ export default function ITSupportQueue() {
       .slice(0, 6); // Top 6 departments
   };
 
-  const getSeverityBadge = (severity) => {
-    switch (severity) {
-      case 'Critical':
-        return <Badge variant="destructive">Critical</Badge>;
-      case 'High':
-        return <Badge variant="outline" className="text-destructive border-destructive">High</Badge>;
-      case 'Medium':
-        return <Badge variant="outline" className="text-warning border-warning">Medium</Badge>;
-      case 'Low':
-        return <Badge variant="outline" className="text-success border-success">Low</Badge>;
+  const getSeverityBadge = (priority) => {
+    console.log('Rendering priority badge for:', priority);
+    switch (priority) {
+      case 1:
+        return <Badge variant="destructive">1</Badge>;
+      case 2:
+        return <Badge variant= "outline" className = "text-yellow-600 border-yellow-600">2</Badge>;
+      case 3:
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600">3</Badge>;
+      case 4:
+        return <Badge variant="outline" className="text-green-600 border-green-600">4</Badge>;
+      case 5:
+        return <Badge variant="outline" className="text-green-600 border-green-600">5</Badge>;
       default:
-        return <Badge variant="secondary">{severity}</Badge>;
+        return <Badge variant="secondary">{priority}</Badge>;
     }
   };
 
@@ -273,7 +276,7 @@ export default function ITSupportQueue() {
 
   const stats = [
     { title: 'Active Tickets', value: activeTickets.length, color: 'bg-primary' },
-    { title: 'Open', value: activeTickets.filter(t => t.status === 'Open').length, color: 'bg-destructive' },
+    { title: 'Open', value: activeTickets.filter(t => t.status === 'Open').length, color: 'bg-green-600' },
     { title: 'Critical/High', value: activeTickets.filter(t => [1,2].includes(t.severity)).length, color: 'bg-destructive' },
     { title: 'Archived', value: archivedTickets.length, color: 'bg-secondary' },
   ];

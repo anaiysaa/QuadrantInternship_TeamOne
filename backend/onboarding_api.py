@@ -85,49 +85,64 @@ def get_new_hire(hire_id):
 
 @onboarding_api.route("/newhires", methods=["POST"])
 def add_new_hire():
-    data = request.json
-    print("Received data:", data)
+    try:
+        name = request.form.get("name")
+        email = request.form.get("email")
+        role = request.form.get("role")
+        date_joined = request.form.get("dateJoined")
+        manager_id = request.form.get("managerId")
+        phone_number = request.form.get("phoneNumber")
+        dob = request.form.get("dob")
+        gender = request.form.get("gender")
+        location = request.form.get("location")
+        employment_type = request.form.get("employmentType")
+        manager_email = request.form.get("managerEmail")
+        notes = request.form.get("notes")
+        system_access_list = request.form.get("systemAccessList")
 
-    name = data.get("name")
-    email = data.get("email")
-    role = data.get("role")
-    date_joined = data.get("dateJoined")
-    manager_id = data.get("managerId")  # optional
+        w4_file = request.files.get("w4")
+        i9_file = request.files.get("i9")
+        deposit_file = request.files.get("deposit")
 
-    # ✅ Only require basic fields
-    if not all([name, email, role, date_joined]):
-        return jsonify({"error": "Name, Email, Role, and DateJoined are required"}), 400
+        # You can save the uploaded files or process them here if needed
+        # Example:
+        # if w4_file:
+        #     w4_file.save(os.path.join(upload_folder, secure_filename(w4_file.filename)))
 
-    conn = get_connection()
-    cursor = conn.cursor()
+        # Basic validation
+        if not all([name, email, role, date_joined]):
+            return jsonify({"error": "Name, Email, Role, and DateJoined are required"}), 400
 
-    # Generate new ID
-    cursor.execute("SELECT ISNULL(MAX(ID), 0) + 1 FROM dbo.NewHires")
-    new_id = cursor.fetchone()[0]
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    # ✅ Insert new hire without department or checklist yet
-    cursor.execute("""
-        INSERT INTO dbo.NewHires
-        (ID, Name, Email, Role, DateJoined, ManagerID, OnboardingStatus, ChecklistAssigned, ChecklistTasksStatus, ChecklistStatus, Department)
-        VALUES (?, ?, ?, ?, ?, ?, 'Not Started', 0, '[]', 'Not Started', NULL)
-    """, (new_id, name, email, role, date_joined, manager_id))
+        cursor.execute("SELECT ISNULL(MAX(ID), 0) + 1 FROM dbo.NewHires")
+        new_id = cursor.fetchone()[0]
 
-    conn.commit()
-    conn.close()
+        cursor.execute("""
+            INSERT INTO dbo.NewHires
+            (ID, Name, Email, Role, DateJoined, ManagerID, OnboardingStatus, ChecklistAssigned, ChecklistTasksStatus, ChecklistStatus, Department)
+            VALUES (?, ?, ?, ?, ?, ?, 'Not Started', 0, '[]', 'Not Started', NULL)
+        """, (new_id, name, email, role, date_joined, manager_id))
 
-    return jsonify({
-        "id": new_id,
-        "name": name,
-        "email": email,
-        "role": role,
-        "department": None,
-        "dateJoined": date_joined,
-        "managerId": manager_id,
-        "onboardingStatus": "Not Started",
-        "checklistAssigned": False,
-        "checklistTasksStatus": []
-    }), 201
+        conn.commit()
+        conn.close()
 
+        return jsonify({
+            "id": new_id,
+            "name": name,
+            "email": email,
+            "role": role,
+            "department": None,
+            "dateJoined": date_joined,
+            "managerId": manager_id,
+            "onboardingStatus": "Not Started",
+            "checklistAssigned": False,
+            "checklistTasksStatus": []
+        }), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @onboarding_api.route('/newhires/<int:hire_id>', methods=['PUT'])
 def update_new_hire(hire_id):

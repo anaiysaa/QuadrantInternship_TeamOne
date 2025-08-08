@@ -246,15 +246,18 @@ export default function HRTickets() {
   };
 
   const getPriorityBadge = (priority) => {
+    console.log('Rendering priority badge for:', priority);
     switch (priority) {
-      case 'Critical':
-        return <Badge variant="destructive">Critical</Badge>;
-      case 'High':
-        return <Badge variant="outline" className="text-destructive border-destructive">High</Badge>;
-      case 'Medium':
-        return <Badge variant="outline" className="text-warning border-warning">Medium</Badge>;
-      case 'Low':
-        return <Badge variant="outline">Low</Badge>;
+      case 1:
+        return <Badge variant="destructive">1</Badge>;
+      case 2:
+        return <Badge variant= "outline" className = "text-yellow-600 border-yellow-600">2</Badge>;
+      case 3:
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600">3</Badge>;
+      case 4:
+        return <Badge variant="outline" className="text-green-600 border-green-600">4</Badge>;
+      case 5:
+        return <Badge variant="outline" className="text-green-600 border-green-600">5</Badge>;
       default:
         return <Badge variant="secondary">{priority}</Badge>;
     }
@@ -278,7 +281,7 @@ export default function HRTickets() {
 
   const stats = [
     { title: 'Active Tickets', value: activeTickets.length, color: 'bg-primary' },
-    { title: 'Critical', value: activeTickets.filter(t => t.severity === 1).length, color: 'bg-destructive' },
+    { title: 'Critical', value: activeTickets.filter(t => t.severity === 1).length, color: 'bg-green-600' },
     { title: 'In Progress', value: activeTickets.filter(t => t.status === 'In Progress').length, color: 'bg-warning' },
     { title: 'Archived', value: archivedTickets.length, color: 'bg-secondary' },
   ];
@@ -763,7 +766,6 @@ export default function HRTickets() {
                     <TableHead>Ticket ID</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Employee</TableHead>
-                    <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -785,12 +787,7 @@ export default function HRTickets() {
                           <p className="text-sm text-muted-foreground">ID: {ticket.employeeId}</p>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${getCategoryColor(ticket.category)}`}></div>
-                          <span>{ticket.category}</span>
-                        </div>
-                      </TableCell>
+                      
                       <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
                       <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                       <TableCell>

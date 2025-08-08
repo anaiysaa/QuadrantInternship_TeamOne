@@ -350,6 +350,7 @@ export default function Timesheet() {
                   variant="secondary"
                   disabled={isSaving || isDisabled}
                   onClick={saveDraft}
+                  className="text-white"
                 >
                   {isSaving ? "Saving…" : "Save as Draft"}
                 </Button>

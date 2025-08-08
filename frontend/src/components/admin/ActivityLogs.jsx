@@ -39,7 +39,7 @@ export function ActivityLogs() {
   const countByType = (type) =>
     logs.filter((log) => log.type === type).length;
 
-  const actionTypes = ["Admin", "HR", "IT", "User"];
+  const actionTypes = ["Admin", "HR", "IT", "Employee"];
 
   return (
     <div className="p-6">
