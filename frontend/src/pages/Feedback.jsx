@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from "react";
+
 import {
   Table,
   TableBody,
@@ -333,6 +334,7 @@ export default function Feedback() {
                     <TableHead>Recipient</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Rating</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Submitted</TableHead>
@@ -340,42 +342,44 @@ export default function Feedback() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {myFeedback
-                    .filter((feedback) => {
-                      // Show all non-womenOnly feedback
-                      // Only show womenOnly feedback to users whose gender is female
-                      if (!feedback.isWomenOnly) return true;
-                      return gender.toUpperCase() === "F";
-                    })
-                    .map((feedback) => (
-                      <>
-                        <TableRow key={feedback.id}>
-                          <TableCell>{feedback.id}</TableCell>
-                          <TableCell>{feedback.anonymous ? "Anonymous" : feedback.employeeId}</TableCell>
-                          <TableCell>{feedback.recipientGroup || "—"}</TableCell>
-                          <TableCell>{feedback.category}</TableCell>
-                          <TableCell>{feedback.subject}</TableCell>
-                          <TableCell>{getRatingStars(feedback.rating)} ({feedback.rating}/5)</TableCell>
-                          <TableCell>{getStatusBadge(feedback.status)}</TableCell>
-                          <TableCell>
-                            {feedback.submittedDate
-                              ? new Date(feedback.submittedDate).toLocaleDateString()
-                              : ""}
-                          </TableCell>
-                          <TableCell>{feedback.isWomenOnly ? "Yes" : "No"}</TableCell>
-                        </TableRow>
+            
+                {myFeedback
+  .filter((feedback) => (!feedback.isWomenOnly) || gender?.toUpperCase?.() === "F")
+  .flatMap((feedback) => {
+    const mainRow = (
+      <TableRow key={feedback.id}>
+        <TableCell>{feedback.id}</TableCell>
+        <TableCell>{feedback.anonymous ? "Anonymous" : feedback.employeeId}</TableCell>
+        <TableCell>{feedback.recipientGroup || "—"}</TableCell>
+        <TableCell>{feedback.category}</TableCell>
+        <TableCell>{feedback.subject}</TableCell>
+        <TableCell className="max-w-[360px] whitespace-pre-line break-words">
+          {feedback.message || "—"}
+        </TableCell>
+        <TableCell>{getRatingStars(feedback.rating)} ({feedback.rating}/5)</TableCell>
+        <TableCell>{getStatusBadge(feedback.status)}</TableCell>
+        <TableCell>
+          {feedback.submittedDate ? new Date(feedback.submittedDate).toLocaleDateString() : ""}
+        </TableCell>
+        <TableCell>{feedback.isWomenOnly ? "Yes" : "No"}</TableCell>
+      </TableRow>
+    );
 
-                        {/* ✅ Show response row only if responded */}
-                        {feedback.status === "Responded" && feedback.response && (
-          <TableRow>
-            <TableCell colSpan={9} className="bg-muted text-sm text-muted-foreground italic">
-              <strong>HR Response:</strong> {feedback.response}
-            </TableCell>
-          </TableRow>
-        )}
-      </>
-    ))}
-</TableBody>
+    const responseRow =
+      feedback.status === "Responded" && feedback.response ? (
+        <TableRow key={`resp-${feedback.id}`}>
+          <TableCell colSpan={10} className="bg-muted text-sm text-muted-foreground italic">
+            <strong>HR Response:</strong> {feedback.response}
+          </TableCell>
+        </TableRow>
+      ) : null;
+
+    // Return an array so we avoid React.Fragment entirely
+    return responseRow ? [mainRow, responseRow] : [mainRow];
+  })}
+
+                      
+    </TableBody>
 
               </Table>
             )}
