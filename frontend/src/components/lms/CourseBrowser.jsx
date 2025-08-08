@@ -35,7 +35,7 @@ function PreviewModal({ course, open, onClose }) {
           ×
         </Button>
         <div className="flex items-center space-x-4 mb-2">
-          <div className="text-4xl">{course.image || "📚"}</div>
+          <div className="text-4xl">{ "📖"}</div>
           <div>
             <h2 className="text-xl font-bold">{course.title}</h2>
             <div className="flex items-center space-x-2">
@@ -301,7 +301,7 @@ export function CourseBrowser({
             <Card key={course.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-3xl">{course.image || "📚"}</div>
+                  <div className="text-3xl">{"📖"}</div>
                   <Badge
                     className={getDifficultyColor(course.difficulty)}
                     variant="outline"

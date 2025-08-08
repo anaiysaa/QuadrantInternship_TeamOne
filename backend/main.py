@@ -2301,6 +2301,7 @@ def get_activity_logs():
 
     return jsonify(logs)
 
+<<<<<<< HEAD
 
 
 
@@ -2396,6 +2397,8 @@ def quiz_leaderboard():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+=======
+>>>>>>> bb7cbcf39d07acaad1512b3023d57e8ae4eb71de
 @app.route("/api/hello", methods=["GET"])
 def hello_world():
     return jsonify({"msg": "Hello, Flask is working!"})
