@@ -574,7 +574,6 @@ export default function LMSDashboard() {
                     <div key={course.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-semibold">{course.title}</h3>
-                        {getStatusBadge(course.status)}
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">
                         {course.description}
@@ -599,7 +598,8 @@ export default function LMSDashboard() {
                           </div>
                           <Progress
                             value={course.progress || 0}
-                            className="h-2"
+                            className="h-2 bg-white rounded-full border border-gray-400"
+
                           />
                           <p className="text-xs text-muted-foreground">
                             Due: {course.dueDate}
