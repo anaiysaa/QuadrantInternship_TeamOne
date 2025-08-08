@@ -35,38 +35,6 @@ export function FeedbackResponseDialog({
     }
 
     setLoading(true);
-<<<<<<< HEAD
-
-    try {
-      const res = await fetch('/api/feedback/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          feedbackId: feedback.id,
-          response,
-          responder: 'HR Admin' // Optional: replace with actual user if needed
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send response');
-      }
-
-      toast({
-        title: 'Response Sent',
-        description: `Response to feedback ${feedback.id} has been sent successfully.`,
-      });
-
-      setResponse('');
-      onOpenChange(false); // This will trigger refresh in parent
-    } catch (err) {
-      console.error('❌ Failed to respond:', err);
-      toast({
-        title: 'Error',
-        description: err.message || 'Could not send response.',
-=======
     try {
       const url = `/api/feedback/respond/${encodeURIComponent(id)}?t=${Date.now()}`;
       const res = await fetch(url, {
@@ -101,7 +69,6 @@ export function FeedbackResponseDialog({
       toast({
         title: 'Failed to send response',
         description: String(err?.message || err),
->>>>>>> bb7cbcf39d07acaad1512b3023d57e8ae4eb71de
         variant: 'destructive',
       });
     } finally {
