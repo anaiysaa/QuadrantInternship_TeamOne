@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FeedbackDetailsDialog } from '@/components/dialogs/FeedbackDetailsDialog';
 import { FeedbackResponseDialog } from '@/components/dialogs/FeedbackResponseDialog';
 import { SurveyDialog } from '@/components/dialogs/SurveyDialog';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Table,
   TableBody,
@@ -20,180 +19,63 @@ import {
 } from '@/components/ui/table';
 
 export default function HRFeedbackCenter() {
+  const { user } = useAuth();
+  const employeeId = user?.employeeId;
+  const isWoman = user?.gender?.toUpperCase?.() === 'F'; // ✅ Use "F" from DB
+
+  const [feedbackData, setFeedbackData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showFeedbackDetails, setShowFeedbackDetails] = useState(false);
   const [showFeedbackResponse, setShowFeedbackResponse] = useState(false);
   const [showSurveyDialog, setShowSurveyDialog] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const feedbackData = [
-    {
-      id: 'FB001',
-      type: 'Anonymous',
-      category: 'Management',
-      sentiment: 'Positive',
-      rating: 4,
-      submittedDate: '2024-02-10',
-      department: 'Engineering',
-      status: 'New',
-      summary: 'Great leadership and clear communication from the team leads.',
-      tags: ['leadership', 'communication']
-    },
-    {
-      id: 'FB002',
-      type: 'Named',
-      employee: 'John Doe',
-      category: 'Work Environment',
-      sentiment: 'Negative',
-      rating: 2,
-      submittedDate: '2024-02-08',
-      department: 'Marketing',
-      status: 'Under Review',
-      summary: 'Office noise levels are affecting productivity.',
-      tags: ['workspace', 'productivity']
-    },
-    {
-      id: 'FB003',
-      type: 'Anonymous',
-      category: 'Benefits',
-      sentiment: 'Neutral',
-      rating: 3,
-      submittedDate: '2024-02-12',
-      department: 'Sales',
-      status: 'New',
-      summary: 'Health insurance options could be improved.',
-      tags: ['benefits', 'health']
-    },
-    {
-      id: 'FB004',
-      type: 'Named',
-      employee: 'Sarah Johnson',
-      category: 'Career Development',
-      sentiment: 'Positive',
-      rating: 5,
-      submittedDate: '2024-02-05',
-      department: 'Engineering',
-      status: 'Addressed',
-      summary: 'Excellent training opportunities and mentorship programs.',
-      tags: ['training', 'mentorship', 'growth']
-    },
-    {
-      id: 'FB005',
-      type: 'Anonymous',
-      category: 'Compensation',
-      sentiment: 'Negative',
-      rating: 2,
-      submittedDate: '2024-02-09',
-      department: 'Design',
-      status: 'Under Review',
-      summary: 'Salary not competitive with market rates.',
-      tags: ['salary', 'compensation']
-    }
-  ];
+  const fetchFeedback = async () => {
+    try {
+      const res = await fetch(`/api/feedback/all`);
+      const data = await res.json();
 
-  // Analytics data
-  const feedbackTrendData = [
-    { month: 'Jan', total: 15, positive: 8, neutral: 4, negative: 3 },
-    { month: 'Feb', total: 22, positive: 12, neutral: 6, negative: 4 },
-    { month: 'Mar', total: 18, positive: 10, neutral: 5, negative: 3 },
-    { month: 'Apr', total: 25, positive: 14, neutral: 7, negative: 4 },
-    { month: 'May', total: 20, positive: 11, neutral: 6, negative: 3 },
-    { month: 'Jun', total: 28, positive: 16, neutral: 8, negative: 4 },
-  ];
+      // ✅ Show all feedback; women-only only to women
+      const visible = data.filter((f) => {
+        if (f.isWomenOnly) return isWoman;
+        return true;
+      });
 
-  const categoryDistributionData = [
-    { name: 'Management', value: 35, color: '#3b82f6' },
-    { name: 'Work Environment', value: 25, color: '#22c55e' },
-    { name: 'Benefits', value: 20, color: '#f59e0b' },
-    { name: 'Career Development', value: 15, color: '#ef4444' },
-    { name: 'Compensation', value: 5, color: '#8b5cf6' },
-  ];
-
-  const departmentFeedbackData = [
-    { department: 'Engineering', positive: 12, neutral: 6, negative: 3 },
-    { department: 'Marketing', positive: 8, neutral: 4, negative: 2 },
-    { department: 'Sales', positive: 10, neutral: 5, negative: 1 },
-    { department: 'Design', positive: 6, neutral: 3, negative: 2 },
-    { department: 'HR', positive: 4, neutral: 2, negative: 1 },
-  ];
-
-  const responseTimeData = [
-    { category: 'Management', avgDays: 2.1 },
-    { category: 'Work Environment', avgDays: 1.8 },
-    { category: 'Benefits', avgDays: 3.2 },
-    { category: 'Career Development', avgDays: 2.5 },
-    { category: 'Compensation', avgDays: 4.1 },
-  ];
-
-  const filteredFeedback = feedbackData.filter(feedback =>
-    feedback.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    feedback.sentiment.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    feedback.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    feedback.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    feedback.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const getSentimentBadge = (sentiment) => {
-    switch (sentiment) {
-      case 'Positive':
-        return <Badge variant="default" className="bg-success text-success-foreground">Positive</Badge>;
-      case 'Neutral':
-        return <Badge variant="outline" className="text-warning border-warning">Neutral</Badge>;
-      case 'Negative':
-        return <Badge variant="destructive">Negative</Badge>;
-      default:
-        return <Badge variant="secondary">{sentiment}</Badge>;
+      setFeedbackData(visible);
+    } catch (error) {
+      console.error('❌ Failed to load feedback:', error);
+      toast({ title: 'Error', description: 'Could not load feedback.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (employeeId) fetchFeedback();
+  }, [employeeId]);
+
+  const filteredFeedback = feedbackData.filter((feedback) =>
+    feedback.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    feedback.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    feedback.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    feedback.status?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'New':
-        return <Badge variant="outline" className="text-primary border-primary">New</Badge>;
       case 'Under Review':
-        return <Badge variant="outline" className="text-warning border-warning">Under Review</Badge>;
-      case 'Addressed':
-        return <Badge variant="default" className="bg-success text-success-foreground">Addressed</Badge>;
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Under Review</Badge>;
+      case 'Responded':
+        return <Badge variant="secondary">Responded</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{status || 'Unknown'}</Badge>;
     }
   };
 
-  const getCategoryColor = (category) => {
-    switch (category) {
-      case 'Management': return 'bg-primary';
-      case 'Work Environment': return 'bg-warning';
-      case 'Benefits': return 'bg-success';
-      case 'Career Development': return 'bg-accent';
-      case 'Compensation': return 'bg-destructive';
-      default: return 'bg-secondary';
-    }
-  };
-
-  const getRatingStars = (rating) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-  };
-
-  const stats = [
-    { title: 'Total Feedback', value: feedbackData.length, color: 'bg-primary' },
-    { title: 'Positive', value: feedbackData.filter(f => f.sentiment === 'Positive').length, color: 'bg-success' },
-    { title: 'Needs Attention', value: feedbackData.filter(f => f.sentiment === 'Negative').length, color: 'bg-destructive' },
-    { title: 'Avg Rating', value: (feedbackData.reduce((acc, f) => acc + f.rating, 0) / feedbackData.length).toFixed(1), color: 'bg-accent' },
-  ];
-
-  const handleExportReport = () => {
-    toast({
-      title: "Export Report",
-      description: "Feedback report is being exported...",
-    });
-  };
-
-  const handleSendSurvey = () => {
-    setShowSurveyDialog(true);
-  };
+  const getRatingStars = (rating) => '★'.repeat(rating) + '☆'.repeat(5 - rating);
 
   const handleView = (feedback) => {
     setSelectedFeedback(feedback);
@@ -205,35 +87,45 @@ export default function HRFeedbackCenter() {
     setShowFeedbackResponse(true);
   };
 
-  const handleFilter = () => {
-    toast({
-      title: "Filter Applied",
-      description: "Advanced filters have been applied to the feedback.",
-    });
-  };
+  const stats = [
+    { title: 'Total Feedback', value: feedbackData.length, color: 'bg-primary' },
+    {
+      title: 'Pending Review',
+      value: feedbackData.filter(f => f.status !== 'Responded').length,
+      color: 'bg-yellow-500',
+    },
+    {
+      title: 'Responded',
+      value: feedbackData.filter(f => f.status === 'Responded').length,
+      color: 'bg-green-600',
+    },
+    {
+      title: 'Avg Rating',
+      value: (feedbackData.reduce((acc, f) => acc + (f.rating || 0), 0) / (feedbackData.length || 1)).toFixed(1),
+      color: 'bg-accent',
+    },
+  ];
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Feedback Center</h1>
             <p className="text-muted-foreground">Review employee feedback</p>
           </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleExportReport}>Export Report</Button>
-            <Button onClick={handleSendSurvey}>Send Survey</Button>
-          </div>
+          <Button onClick={() => setShowSurveyDialog(true)}>Send Survey</Button>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {stats.map((stat, index) => (
-            <Card key={index}>
+          {stats.map((stat, i) => (
+            <Card key={i}>
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${stat.color}`}></div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{stat.title}</h3>
+                  <div className={`w-3 h-3 rounded-full ${stat.color}`} />
+                  <h3 className="text-sm text-muted-foreground">{stat.title}</h3>
                 </div>
                 <p className="text-2xl font-bold mt-1">{stat.value}</p>
               </CardContent>
@@ -241,133 +133,65 @@ export default function HRFeedbackCenter() {
           ))}
         </div>
 
-        {/* Analytics Toggle Button */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Feedback Analytics</CardTitle>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAnalytics(!showAnalytics)}
-            >
-              {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
-            </Button>
-          </CardHeader>
-          {showAnalytics && (
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Feedback Trends */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Feedback Trends</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={feedbackTrendData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="positive" stroke="#22c55e" name="Positive" />
-                        <Line type="monotone" dataKey="neutral" stroke="#f59e0b" name="Neutral" />
-                        <Line type="monotone" dataKey="negative" stroke="#ef4444" name="Negative" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Category Distribution */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Category Distribution</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={categoryDistributionData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {categoryDistributionData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Department Feedback */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Feedback by Department</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={departmentFeedbackData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="department" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="positive" fill="#22c55e" name="Positive" />
-                        <Bar dataKey="neutral" fill="#f59e0b" name="Neutral" />
-                        <Bar dataKey="negative" fill="#ef4444" name="Negative" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Response Time */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Avg Response Time by Category</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={responseTimeData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="category" />
-                        <YAxis />
-                        <Tooltip formatter={(value) => [`${value} days`, 'Avg Response Time']} />
-                        <Bar dataKey="avgDays" fill="#3b82f6" name="Days" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
         {/* Search */}
         <Card>
-          <CardHeader>
-            <CardTitle>Search Feedback</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Search Feedback</CardTitle></CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-4">
-              <Input
-                placeholder="Search by category, sentiment, department, or keywords..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={handleFilter}>Filter</Button>
-            </div>
+            <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </CardContent>
         </Card>
 
-        {/* Feedback Table */}
+        {/* Pending Feedback */}
         <Card>
-          <CardHeader>
-            <CardTitle>All Feedback ({filteredFeedback.length})</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Pending Feedback</CardTitle></CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-muted-foreground">Loading feedback...</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Feedback ID</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Rating</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Recipient Group</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredFeedback.filter(f => f.status !== 'Responded').map((feedback) => (
+                    <TableRow key={feedback.id}>
+                      <TableCell>{feedback.id}</TableCell>
+                      <TableCell>{feedback.anonymous ? 'Anonymous' : 'Named'}</TableCell>
+                      <TableCell>{feedback.category}</TableCell>
+                      <TableCell>{getRatingStars(feedback.rating)}</TableCell>
+                      <TableCell>{getStatusBadge(feedback.status)}</TableCell>
+                      <TableCell>{new Date(feedback.submittedDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {feedback.isWomenOnly
+                          ? <Badge variant="outline" className="text-pink-600 border-pink-600">Women-Only</Badge>
+                          : <Badge variant="secondary">All</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => handleView(feedback)}>View</Button>
+                          <Button size="sm" onClick={() => handleRespond(feedback)}>Respond</Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Responded Feedback */}
+        <Card>
+          <CardHeader><CardTitle>Responded Feedback</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
@@ -375,47 +199,29 @@ export default function HRFeedbackCenter() {
                   <TableHead>Feedback ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Sentiment</TableHead>
                   <TableHead>Rating</TableHead>
-                  <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Recipient Group</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredFeedback.map((feedback) => (
+                {filteredFeedback.filter(f => f.status === 'Responded').map((feedback) => (
                   <TableRow key={feedback.id}>
-                    <TableCell className="font-medium">{feedback.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{feedback.type}</p>
-                        {feedback.employee && (
-                          <p className="text-sm text-muted-foreground">{feedback.employee}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${getCategoryColor(feedback.category)}`}></div>
-                        <span>{feedback.category}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getSentimentBadge(feedback.sentiment)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-lg">{getRatingStars(feedback.rating)}</span>
-                        <span className="text-sm text-muted-foreground">({feedback.rating}/5)</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{feedback.department}</TableCell>
+                    <TableCell>{feedback.id}</TableCell>
+                    <TableCell>{feedback.anonymous ? 'Anonymous' : 'Named'}</TableCell>
+                    <TableCell>{feedback.category}</TableCell>
+                    <TableCell>{getRatingStars(feedback.rating)}</TableCell>
                     <TableCell>{getStatusBadge(feedback.status)}</TableCell>
+                    <TableCell>{new Date(feedback.submittedDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleView(feedback)}>View</Button>
-                        {feedback.status !== 'Addressed' && (
-                          <Button size="sm" variant="default" onClick={() => handleRespond(feedback)}>Respond</Button>
-                        )}
-                      </div>
+                      {feedback.isWomenOnly
+                        ? <Badge variant="outline" className="text-pink-600 border-pink-600">Women-Only</Badge>
+                        : <Badge variant="secondary">All</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" onClick={() => handleView(feedback)}>View</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -423,49 +229,6 @@ export default function HRFeedbackCenter() {
             </Table>
           </CardContent>
         </Card>
-
-        {/* Quick Insights */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Categories</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {['Management', 'Work Environment', 'Benefits', 'Career Development'].map((category, index) => {
-                const count = feedbackData.filter(f => f.category === category).length;
-                return (
-                  <div key={category} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${getCategoryColor(category)}`}></div>
-                      <span className="text-sm">{category}</span>
-                    </div>
-                    <span className="text-sm font-medium">{count}</span>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Trends</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">This Week</span>
-                <Badge variant="outline" className="text-success border-success">+15% Positive</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Response Rate</span>
-                <span className="text-sm font-medium">87%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Avg Response Time</span>
-                <span className="text-sm font-medium">2.3 days</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* Dialogs */}
@@ -477,12 +240,12 @@ export default function HRFeedbackCenter() {
       <FeedbackResponseDialog
         feedback={selectedFeedback}
         open={showFeedbackResponse}
-        onOpenChange={setShowFeedbackResponse}
+        onOpenChange={(open) => {
+          setShowFeedbackResponse(open);
+          if (!open) fetchFeedback(); // Refresh after responding
+        }}
       />
-      <SurveyDialog
-        open={showSurveyDialog}
-        onOpenChange={setShowSurveyDialog}
-      />
+      <SurveyDialog open={showSurveyDialog} onOpenChange={setShowSurveyDialog} />
     </DashboardLayout>
   );
 }

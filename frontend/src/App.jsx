@@ -35,6 +35,7 @@ import ITLiveChat from "./pages/it/ITLiveChat";
 import ITKnowledgeBase from "./pages/it/ITKnowledgeBase";
 import ITSoftwareCenter from "./pages/it/ITSoftwareCenter";
 import "./index.css";
+import Content from "./pages/hr/HRContentManagement";
 
 const queryClient = new QueryClient();
 
@@ -232,6 +233,15 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <HRLiveChat />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/hr/content"
+                element={
+                  <ProtectedRoute>
+                    <Content />
                   </ProtectedRoute>
                 }
               />

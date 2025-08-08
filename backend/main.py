@@ -2097,6 +2097,147 @@ def get_database_size():
     except Exception as e:
         return jsonify({ "error": str(e) }), 500
 
+#announcements
+@app.route("/api/hr-announcements", methods=["GET"])
+def list_hr_announcements():
+    department = request.args.get("department", "").strip().lower()  # get query param
+    active_only = request.args.get("active", "true").lower() == "true"  # default to active only
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Build the query dynamically based on filters
+    query = """
+        SELECT ID, Title, Message, CreatedBy, CreatedDate, ExpiryDate, Priority, Department, IsActive
+        FROM dbo.Announcements
+        WHERE 1=1
+    """
+    params = []
+
+    # Filter by active status
+    if active_only:
+        query += " AND IsActive = 1"
+
+    # Filter by department if provided
+    if department:
+        query += " AND (LOWER(Department) = ? OR LOWER(Department) = 'all')"
+        params.append(department)
+
+    # Filter out expired announcements
+    query += " AND (ExpiryDate IS NULL OR ExpiryDate >= GETDATE())"
+    
+    query += " ORDER BY Priority DESC, CreatedDate DESC"
+
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            "id": r.ID,
+            "title": r.Title,
+            "message": r.Message,
+            "createdBy": r.CreatedBy,
+            "createdDate": r.CreatedDate.isoformat() if r.CreatedDate else None,
+            "expiryDate": r.ExpiryDate.isoformat() if r.ExpiryDate else None,
+            "priority": r.Priority,
+            "department": r.Department,
+            "isActive": bool(r.IsActive)
+        }
+        for r in rows
+    ])
+
+@app.route("/api/hr-announcements", methods=["POST"])
+def create_hr_announcement():
+    data = request.get_json(force=True)
+    title = data.get("title")
+    message = data.get("message")
+    created_by = data.get("createdBy")
+    expiry_date = data.get("expiryDate")  # Optional, can be None
+    priority = data.get("priority", 1)  # Default priority 1 (low)
+    department = data.get("department", "all")  # Default to 'all'
+    is_active = data.get("isActive", True)  # Default to active
+
+    if not title or not message or not created_by:
+        return jsonify({"error": "title, message, and createdBy are required"}), 400
+
+    # Validate priority range (assuming 1=low, 2=medium, 3=high)
+    if priority not in [1, 2, 3]:
+        return jsonify({"error": "priority must be 1 (low), 2 (medium), or 3 (high)"}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO dbo.Announcements (Title, Message, CreatedBy, CreatedDate, ExpiryDate, Priority, Department, IsActive)
+        OUTPUT INSERTED.ID
+        VALUES (?, ?, ?, GETDATE(), ?, ?, ?, ?)
+    """, (title, message, created_by, expiry_date, priority, department, is_active))
+    row = cur.fetchone()
+    conn.commit()
+    conn.close()
+
+    if not row:
+        return jsonify({"error": "Insert succeeded but no ID returned"}), 500
+
+    return jsonify({"id": str(row[0])})
+
+@app.route("/api/hr-announcements/<int:announcement_id>", methods=["PUT"])
+def update_hr_announcement(announcement_id):
+    data = request.get_json(force=True)
+    title = data.get("title")
+    message = data.get("message")
+    created_by = data.get("createdBy")
+    expiry_date = data.get("expiryDate")
+    priority = data.get("priority", 1)
+    department = data.get("department", "all")
+    is_active = data.get("isActive", True)
+
+    if not title or not message or not created_by:
+        return jsonify({"error": "title, message, and createdBy are required"}), 400
+
+    # Validate priority range
+    if priority not in [1, 2, 3]:
+        return jsonify({"error": "priority must be 1 (low), 2 (medium), or 3 (high)"}), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE dbo.Announcements
+        SET Title = ?, Message = ?, CreatedBy = ?, ExpiryDate = ?, Priority = ?, Department = ?, IsActive = ?
+        WHERE ID = ?
+    """, (title, message, created_by, expiry_date, priority, department, is_active, announcement_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
+
+@app.route("/api/hr-announcements/<int:announcement_id>", methods=["DELETE"])
+def delete_hr_announcement(announcement_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM dbo.Announcements WHERE ID = ?", (announcement_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print("Error deleting announcement:", e)
+        return jsonify({"error": "Failed to delete announcement"}), 500
+
+# Additional endpoint to deactivate instead of delete
+@app.route("/api/hr-announcements/<int:announcement_id>/deactivate", methods=["PUT"])
+def deactivate_hr_announcement(announcement_id):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE dbo.Announcements SET IsActive = 0 WHERE ID = ?", (announcement_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print("Error deactivating announcement:", e)
+        return jsonify({"error": "Failed to deactivate announcement"}), 500
+
 @app.route("/api/hello", methods=["GET"])
 def hello_world():
     return jsonify({"msg": "Hello, Flask is working!"})
