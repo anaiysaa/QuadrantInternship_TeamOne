@@ -38,6 +38,7 @@ app.register_blueprint(onboarding_api, url_prefix='/onboarding')
 from feedback_api import feedback_api
 app.register_blueprint(feedback_api, url_prefix="/api")
 
+
 # -- DB connection
 def get_connection():
     return pyodbc.connect(
@@ -2107,7 +2108,32 @@ def toggle_maintenance_mode():
             UPDATE SystemSettings SET Value = ?
             WHERE Feature = 'Uptime'
         """, (now_iso,))
-    log_activity("Admin", "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
+    
+    # ❌ Remove this problematic line:
+    # log_activity("Admin", "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
+    
+    # ✅ Replace with one of these options:
+    
+    # Option A: Skip logging entirely
+    # (just comment out the log_activity line)
+    
+    # Option B: Use a valid employee ID (replace 1 with actual admin user ID)
+    # log_activity(1, "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
+    
+    # Option C: Create direct log entry without employee lookup
+    try:
+        log_conn = get_connection()
+        log_cursor = log_conn.cursor()
+        log_cursor.execute("""
+            INSERT INTO ActivityLog (timestamp, username, action, type, details)
+            VALUES (?, ?, ?, ?, ?)
+        """, (datetime.now(), "System Admin", "Toggled maintenance mode", "System", f"Status: {new_mode}"))
+        log_conn.commit()
+        log_conn.close()
+    except Exception as e:
+        print(f"Logging failed: {e}")
+        # Continue without failing the main operation
+    
     conn.commit()
     conn.close()
     return jsonify({"success": True, "maintenanceMode": new_mode})
