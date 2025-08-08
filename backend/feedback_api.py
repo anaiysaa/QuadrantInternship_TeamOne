@@ -536,44 +536,74 @@ def it_dashboard():
 # ---------------------- ADMIN DASHBOARD ----------------------
 @feedback_api.route("/admin-dashboard", methods=["GET"])
 def admin_dashboard():
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        today = datetime.today()
 
         # --- Metrics ---
         cursor.execute("SELECT COUNT(*) FROM dbo.Employees")
         total_employees = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM dbo.Feedback WHERE Status = 'Pending'")
+        # Pending Feedback (Under Review)
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM dbo.Feedback
+            WHERE LOWER(Status) = 'under review'
+        """)
         pending_feedback = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM dbo.LeaveRequests WHERE Status = 'Pending'")
+        # Pending Leave Requests (anything not Approved or Rejected)
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM dbo.LeaveRequests
+            WHERE LOWER(Status) NOT IN ('approved', 'rejected')
+        """)
         pending_leave = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM dbo.IT_Tickets WHERE Status = 'Open'")
+        # Open IT Tickets
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM dbo.IT_Tickets
+            WHERE LOWER(Status) = 'open'
+        """)
         open_it_tickets = cursor.fetchone()[0]
 
-        # --- Recent Logs ---
+        # --- Active Announcements (IsActive stored as NVARCHAR 'True') ---
+        # Count of active (unexpired) announcements
         cursor.execute("""
-            SELECT TOP 5 timestamp, username, action, type, severity 
-            FROM dbo.ActivityLog 
-            ORDER BY timestamp DESC
+            SELECT COUNT(*)
+            FROM dbo.Announcements
+            WHERE RTRIM(LTRIM(CAST(IsActive AS NVARCHAR(10)))) IN ('True','true','TRUE','1','Yes','yes')
+              AND (ExpiryDate IS NULL OR CAST(ExpiryDate AS DATE) >= CAST(GETDATE() AS DATE))
         """)
-        recent_logs = [
+        active_announcements_count = cursor.fetchone()[0]
+
+        # Top 3 most recent active announcements
+        cursor.execute("""
+            SELECT TOP 3 Title, Message, CreatedDate, ExpiryDate, Priority, Department
+            FROM dbo.Announcements
+            WHERE RTRIM(LTRIM(CAST(IsActive AS NVARCHAR(10)))) IN ('True','true','TRUE','1','Yes','yes')
+              AND (ExpiryDate IS NULL OR CAST(ExpiryDate AS DATE) >= CAST(GETDATE() AS DATE))
+            ORDER BY CreatedDate DESC
+        """)
+        announcements_rows = cursor.fetchall()
+        announcements = [
             {
-                "timestamp": row.timestamp.strftime('%Y-%m-%d %H:%M:%S') if row.timestamp else None,
-                "username": row.username,
-                "action": row.action,
-                "type": row.type,
-                "severity": row.severity
+                "title": row.Title,
+                "message": row.Message,
+                "createdDate": row.CreatedDate.strftime('%Y-%m-%d %H:%M:%S') if row.CreatedDate else None,
+                "expiryDate": row.ExpiryDate.strftime('%Y-%m-%d') if row.ExpiryDate else None,
+                "priority": row.Priority,
+                "department": row.Department,
             }
-            for row in cursor.fetchall()
+            for row in announcements_rows
         ]
 
-        # --- Continue with other admin dashboard logic ---
-        
-        conn.close()
+        # Optional debug
+        print(f"🟢 admin-dashboard: employees={total_employees}, pendFB={pending_feedback}, "
+              f"pendLeave={pending_leave}, openIT={open_it_tickets}, "
+              f"activeAnns={active_announcements_count}, annShown={len(announcements)}")
 
         return jsonify({
             "adminName": "Admin",
@@ -581,10 +611,16 @@ def admin_dashboard():
             "pendingFeedback": pending_feedback,
             "pendingLeaveRequests": pending_leave,
             "openItTickets": open_it_tickets,
-            "recentLogs": recent_logs,
-            # Add other fields as needed
+            "activeAnnouncementsCount": active_announcements_count,
+            "announcements": announcements,
         })
-        
+
     except Exception as e:
         print(f"❌ Error in admin dashboard: {e}")
         return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass

@@ -133,15 +133,7 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
                 <div className="text-2xl font-bold">{details.stats.activeUsers}</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Activity className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">Daily Logins</span>
-                </div>
-                <div className="text-2xl font-bold">{details.stats.dailyLogins}</div>
-              </CardContent>
-            </Card>
+            
           </div>
 
           {/* Features */}
@@ -156,25 +148,6 @@ export function PortalViewDialog({ open, onOpenChange, portal }) {
               <div className="flex flex-wrap gap-2">
                 {details.features.map((feature, index) => (
                   <Badge key={index} variant="outline">{feature}</Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {details.recentActivity.map((activity, index) => (
-                  <div key={index} className="text-sm p-2 bg-muted rounded">
-                    {activity}
-                  </div>
                 ))}
               </div>
             </CardContent>

@@ -49,6 +49,28 @@ def get_connection():
         "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
     )
 
+def log_activity(employee_id, action, type_, details):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get email and department from Employees table
+    cursor.execute("SELECT Email, Department FROM Employees WHERE ID = ?", (employee_id,))
+    row = cursor.fetchone()
+
+    email = row[0] if row else "Unknown"
+    department = row[1] if row else "Unknown"
+
+    # Use department as type_ if type_ is not provided
+    final_type = type_ if type_ else department
+
+    cursor.execute("""
+        INSERT INTO ActivityLog (timestamp, username, action, type, details)
+        VALUES (?, ?, ?, ?, ?)
+    """, (datetime.now(), email, action, final_type, details))
+
+    conn.commit()
+    conn.close()
+
 def get_employee_skills_and_jobs(employee_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -303,12 +325,20 @@ def get_leave_requests():
 
 @app.route("/api/leave-requests/<string:request_id>/approve", methods=["POST"])
 def approve_leave_request(request_id):
+    data = request.get_json()
+    approver_id = data.get("employee_id")
+    if not approver_id:
+        return jsonify({"error": "Missing employee_id"}), 400
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE LeaveRequests SET Status = 'Approved' WHERE RequestID = ?", (request_id,))
     conn.commit()
     conn.close()
-    return jsonify({"message": "Request approved"})
+
+    log_activity(approver_id, "Approved Leave Request", None, f"Approved request ID: {request_id}")
+    return jsonify({"message": "Request approved and logged."})
+
 
 @app.route("/api/leave-requests/<string:request_id>/reject", methods=["POST"])
 def reject_leave_request(request_id):
@@ -731,12 +761,11 @@ def login():
     """, (username, password))
     row = cursor.fetchone()
     conn.close()
-
     if not row:
         return jsonify({"error": "Invalid username or password"}), 401
-
+    employee_id = row[0] 
     department = row[3]
-
+    log_activity(employee_id, "Logged In", None, f"User {username} logged in")
     return jsonify({
         "employee_id": row[0],
         "username": row[1],
@@ -756,7 +785,16 @@ def approve_timesheet(ticket_id):
         SET Status='Approved', ApprovedBy=?, ApprovedDate=GETDATE()
         WHERE TicketID=?
     """, (approved_by, ticket_id))
+    
     conn.commit()
+    approver_id = data.get("employee_id")
+
+    log_activity(
+        approver_id,
+        "Approved Timesheet",
+        None,
+        f"Approved timesheet ID: {ticket_id}"
+    )
     conn.close()
     return jsonify({"success": True})
 
@@ -2069,10 +2107,9 @@ def toggle_maintenance_mode():
             UPDATE SystemSettings SET Value = ?
             WHERE Feature = 'Uptime'
         """, (now_iso,))
-
+    log_activity("Admin", "Toggled maintenance mode", "Admin", f"Status: {new_mode}")
     conn.commit()
     conn.close()
-
     return jsonify({"success": True, "maintenanceMode": new_mode})
 
 @app.route('/api/database-size', methods=['GET'])
@@ -2237,6 +2274,32 @@ def deactivate_hr_announcement(announcement_id):
     except Exception as e:
         print("Error deactivating announcement:", e)
         return jsonify({"error": "Failed to deactivate announcement"}), 500
+
+# --- FETCH LOGS ---
+@app.route('/api/logs', methods=['GET'])
+def get_activity_logs():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, timestamp, username, action, type, details
+        FROM ActivityLog
+        ORDER BY timestamp DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    logs = []
+    for row in rows:
+        logs.append({
+            "id": row[0],
+            "timestamp": row[1].strftime("%Y-%m-%d %H:%M:%S"),
+            "username": row[2],
+            "action": row[3],
+            "type": row[4],
+            "details": row[5]
+        })
+
+    return jsonify(logs)
 
 @app.route("/api/hello", methods=["GET"])
 def hello_world():

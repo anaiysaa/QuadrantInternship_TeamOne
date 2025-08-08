@@ -1,118 +1,79 @@
-
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Activity, Search, Download, Filter } from 'lucide-react';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 export function ActivityLogs() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [logs, setLogs] = useState([]);
+  const [filterType, setFilterType] = useState("All");
 
-  const logs = [
-    { id: '1', timestamp: '2024-01-15 14:30:25', user: 'admin@company.com', action: 'User Role Changed', details: 'Changed john.doe role to HR', type: 'admin', severity: 'medium' },
-    { id: '2', timestamp: '2024-01-15 14:25:12', user: 'sarah.hr@company.com', action: 'Leave Request Approved', details: 'Approved leave request #LR-2024-001', type: 'hr', severity: 'low' },
-    { id: '3', timestamp: '2024-01-15 14:20:45', user: 'admin@company.com', action: 'Portal Settings Updated', details: 'Modified Employee Portal theme', type: 'admin', severity: 'medium' },
-    { id: '4', timestamp: '2024-01-15 14:15:33', user: 'mike.it@company.com', action: 'Asset Assigned', details: 'Assigned laptop LP-001 to John Doe', type: 'it', severity: 'low' },
-    { id: '5', timestamp: '2024-01-15 14:10:18', user: 'john.employee@company.com', action: 'Login Attempt', details: 'Successful login from 192.168.1.100', type: 'user', severity: 'low' },
-    { id: '6', timestamp: '2024-01-15 14:05:42', user: 'admin@company.com', action: 'User Account Created', details: 'Created new user account for jane.smith@company.com', type: 'admin', severity: 'high' },
-    { id: '7', timestamp: '2024-01-15 14:00:15', user: 'sarah.hr@company.com', action: 'Employee Data Updated', details: 'Updated employee #EMP-001 contact information', type: 'hr', severity: 'medium' },
-  ];
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const res = await axios.get("/api/logs");
+        setLogs(res.data);
+      } catch (err) {
+        console.error("Failed to fetch activity logs", err);
+      }
+    };
+    fetchLogs();
+  }, []);
 
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.details.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || log.type === filterType;
-    return matchesSearch && matchesType;
-  });
+  const filteredLogs = filterType === "All"
+    ? logs
+    : logs.filter(log => log.type === filterType);
 
-  const getSeverityBadge = (severity) => {
-    switch (severity) {
-      case 'high': return <Badge className="bg-red-100 text-red-800">High</Badge>;
-      case 'medium': return <Badge className="bg-yellow-100 text-yellow-800">Medium</Badge>;
-      default: return <Badge className="bg-green-100 text-green-800">Low</Badge>;
-    }
-  };
+  const countByType = (type) =>
+    logs.filter((log) => log.type === type).length;
 
-  const getTypeBadge = (type) => {
-    switch (type) {
-      case 'admin': return <Badge className="bg-red-100 text-red-800">Admin</Badge>;
-      case 'hr': return <Badge className="bg-blue-100 text-blue-800">HR</Badge>;
-      case 'it': return <Badge className="bg-green-100 text-green-800">IT</Badge>;
-      default: return <Badge className="bg-purple-100 text-purple-800">User</Badge>;
-    }
-  };
+  const actionTypes = ["Admin", "HR", "IT", "Employee"];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="h-5 w-5" />
-          Activity Logs
-        </CardTitle>
-        <CardDescription>
-          Monitor and audit all system activities and user actions
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Search and Filter Bar */}
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
-            <Input
-              placeholder="Search logs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="admin">Admin Actions</SelectItem>
-              <SelectItem value="hr">HR Actions</SelectItem>
-              <SelectItem value="it">IT Actions</SelectItem>
-              <SelectItem value="user">User Actions</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Advanced Filter
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Activity Logs</h1>
 
-        {/* Activity Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="p-3 rounded-lg border text-center">
-            <div className="text-2xl font-bold text-red-600">12</div>
-            <div className="text-sm text-muted-foreground">Admin Actions</div>
-          </div>
-          <div className="p-3 rounded-lg border text-center">
-            <div className="text-2xl font-bold text-blue-600">8</div>
-            <div className="text-sm text-muted-foreground">HR Actions</div>
-          </div>
-          <div className="p-3 rounded-lg border text-center">
-            <div className="text-2xl font-bold text-green-600">5</div>
-            <div className="text-sm text-muted-foreground">IT Actions</div>
-          </div>
-          <div className="p-3 rounded-lg border text-center">
-            <div className="text-2xl font-bold text-purple-600">25</div>
-            <div className="text-sm text-muted-foreground">User Actions</div>
-          </div>
-        </div>
+      <div className="flex gap-4 mb-6 flex-wrap">
+        {actionTypes.map((type) => (
+          <Card
+            key={type}
+            className="w-48 cursor-pointer hover:shadow-md"
+            onClick={() => setFilterType(type)}
+          >
+            <CardHeader>
+              <CardTitle className="text-center text-sm">{type}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center text-xl font-semibold">{countByType(type)}</p>
+            </CardContent>
+          </Card>
+        ))}
+        <Card
+          className="w-48 cursor-pointer hover:shadow-md"
+          onClick={() => setFilterType("All")}
+        >
+          <CardHeader>
+            <CardTitle className="text-center text-sm">All</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-xl font-semibold">{logs.length}</p>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Logs Table */}
+      <div className="overflow-auto rounded border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -120,26 +81,31 @@ export function ActivityLogs() {
               <TableHead>User</TableHead>
               <TableHead>Action</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Severity</TableHead>
               <TableHead>Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLogs.map((log) => (
               <TableRow key={log.id}>
-                <TableCell className="font-mono text-xs">{log.timestamp}</TableCell>
-                <TableCell className="text-sm">{log.user}</TableCell>
-                <TableCell className="font-medium">{log.action}</TableCell>
-                <TableCell>{getTypeBadge(log.type)}</TableCell>
-                <TableCell>{getSeverityBadge(log.severity)}</TableCell>
-                <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                  {log.details}
+                <TableCell>{log.timestamp}</TableCell>
+                <TableCell>{log.username}</TableCell>
+                <TableCell>{log.action}</TableCell>
+                <TableCell>
+                  <Badge>{log.type}</Badge>
                 </TableCell>
+                <TableCell>{log.details}</TableCell>
               </TableRow>
             ))}
+            {filteredLogs.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
+                  No logs available
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
