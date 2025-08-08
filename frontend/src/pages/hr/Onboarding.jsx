@@ -188,6 +188,7 @@ export default function Onboarding() {
                             <Button
                               size="sm"
                               variant="secondary"
+                              className="text-white"
                               onClick={() => {
                                 setSelectedHireId(candidate.id);
                                 setAssignDialogOpen(true);

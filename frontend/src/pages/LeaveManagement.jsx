@@ -223,19 +223,22 @@ export default function LeaveManagement() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Calendar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-              />
-            </CardContent>
-          </Card>
+          <Card className="h-full">
+  <CardHeader>
+    <CardTitle>Calendar</CardTitle>
+  </CardHeader>
+  <CardContent className="flex-grow flex items-center justify-center">
+    <div className="space-x-2 space-y-2">
+      <Calendar
+        mode="single"
+        selected={date}
+        onSelect={setDate}
+        className="border rounded-md"
+      />
+    </div>
+  </CardContent>
+</Card>
+
 
 <Card>
   <CardHeader>

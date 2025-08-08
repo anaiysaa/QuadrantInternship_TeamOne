@@ -69,7 +69,7 @@ export default function HRFeedbackCenter() {
       case 'Under Review':
         return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Under Review</Badge>;
       case 'Responded':
-        return <Badge variant="secondary">Responded</Badge>;
+        return <Badge variant="secondary" className="text-white">Responded</Badge>;
       default:
         return <Badge variant="secondary">{status || 'Unknown'}</Badge>;
     }
@@ -173,7 +173,7 @@ export default function HRFeedbackCenter() {
                       <TableCell>
                         {feedback.isWomenOnly
                           ? <Badge variant="outline" className="text-pink-600 border-pink-600">Women-Only</Badge>
-                          : <Badge variant="secondary">All</Badge>}
+                          : <Badge variant="secondary" className="text-white">All</Badge>}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">

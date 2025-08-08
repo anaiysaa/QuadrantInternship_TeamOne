@@ -25,10 +25,10 @@ export function Header() {
   } = useAuth();
 
   const portals = [
-    { name: "Admin Dashboard", icon: Shield, color: "text-red-600" },
-    { name: "Employee Portal", icon: User, color: "text-purple-600" },
-    { name: "HR Portal", icon: Building2, color: "text-blue-600" },
-    { name: "IT Portal", icon: HardDrive, color: "text-green-600" },
+    { name: "Admin Dashboard", icon: Shield, color: "text-[#87b6c6]" },
+    { name: "Employee Portal", icon: User, color: "text-[#87b6c6]" },
+    { name: "HR Portal", icon: Building2, color: "text-[#87b6c6]" },
+    { name: "IT Portal", icon: HardDrive, color: "text-[#87b6c6]" },
   ];
 
   const handlePortalSwitch = (portalName) => {
@@ -66,15 +66,15 @@ export function Header() {
   const availablePortals = getAvailablePortals();
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
+    <header className="bg-gray-900 bg-[url('/top.jpg')] bg-cover bg-center border-b border-gray-700 px-6 py-4 text-white">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+          <div className="h-8 w-8 rounded-full flex items-center justify-center">
             <img
               src="/WorkWayveLogo.png"
             />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">WorkWayve</h1>
+          <img src="/WorkName.png" alt="WorkWayve" className="h-8 w-auto" />
         </div>
 
         <div className="flex items-center space-x-4">
@@ -84,12 +84,12 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="flex items-center space-x-2 px-4 py-2 h-10 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+                  className="flex items-center space-x-2 px-4 py-2 h-10 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 bg-[#0c100f] border-b border-[#0c100f] text-white"
                 >
                   <currentPortalData.icon
                     className={`h-4 w-4 ${currentPortalData.color}`}
                   />
-                  <span className="hidden sm:inline text-sm font-medium">
+                  <span className="hidden sm:inline text-sm font-medium text-blue-100">
                     {currentPortal}
                   </span>
                   <ChevronDown className="h-4 w-4" />
@@ -97,7 +97,8 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-48 rounded-lg shadow-lg border border-border bg-card"
+                className="w-48 rounded-lg shadow-lg border border-gray-700"
+                style={{ backgroundColor: "#0c100f", borderColor: "#0c100f" }}
               >
                 <DropdownMenuLabel className="text-sm font-medium text-muted-foreground">
                   Switch Portal
@@ -112,14 +113,14 @@ export function Header() {
                       onClick={() => handlePortalSwitch(portalName)}
                       className={`flex items-center space-x-2 cursor-pointer rounded-md transition-colors ${
                         currentPortal === portalName
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-accent hover:text-accent-foreground"
+                          ? "text-white bg-[#1d3243]"
+                          : "hover:text-white hover:bg-[#284a59]"
                       }`}
                     >
                       <Icon className={`h-4 w-4 ${portal.color}`} />
-                      <span className="text-sm">{portalName}</span>
+                      <span className="text-blue-100">{portalName}</span>
                       {portalName === "Admin Dashboard" && (
-                        <span className="text-xs bg-red-100 text-red-800 px-1 py-0.5 rounded ml-auto">
+                        <span className="text-xs bg-[#1d3243] text-blue-100 px-1 py-0.5 rounded ml-auto">
                           ADMIN
                         </span>
                       )}
@@ -131,15 +132,13 @@ export function Header() {
           )}
 
           {/* User Info */}
-          <div className="text-right hidden md:block">
-            <p className="text-sm font-medium text-foreground">{user?.name}</p>
-            <p className="text-xs text-muted-foreground">{user?.employeeId}</p>
+          <div className="text-right hidden md:block text-blue-100">
+            <p className="text-sm font-medium text-blue-100">{user?.name}</p>
+            <p className="text-xs text-muted-foreground text-blue-100">{user?.employeeId}</p>
           </div>
 
           <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(
-              user?.role || ""
-            )}`}
+            className={`px-2 py-1 rounded-full text-xs font-medium bg-[#1d3243] text-blue-100`}
           >
             {user?.role?.toUpperCase()}
           </span>
@@ -148,10 +147,9 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="ghost"
-                className="relative h-10 w-10 rounded-full"
+                className="relative h-10 w-10 rounded-full bg-[#0c100f]"
               >
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10 text-gray-900">
                   <AvatarImage src={user?.avatar} alt={user?.name} />
                   <AvatarFallback>
                     {user ? getInitials(user.name) : "U"}
@@ -159,13 +157,18 @@ export function Header() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent
+              className="w-56 text-blue-100"
+              align="end"
+              forceMount
+              style={{ backgroundColor: "#0c100f", borderColor: "#0c100f" }}
+            >
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
+                  <p className="text-sm font-medium leading-none text-blue-100">
                     {user?.name}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground">
+                  <p className="text-xs leading-none text-muted-foreground text-blue-100">
                     {user?.email}
                   </p>
                 </div>

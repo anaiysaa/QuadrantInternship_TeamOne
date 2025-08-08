@@ -268,7 +268,12 @@ export default function CareerPortal() {
                       <span className="text-sm font-bold">{matchPercentage}%</span>
                     </div>
 
-                    <Progress value={matchPercentage} className="h-2" />
+                    <Progress
+  value={matchPercentage}
+  className="h-2 bg-white rounded-full border border-gray-400" // white background for remaining, gray border
+  style={{backgroundColor: '#ffffffff' }} // green for the filled part
+/>
+
 
                     {recommendedCourses.length > 0 && (
                       <div>

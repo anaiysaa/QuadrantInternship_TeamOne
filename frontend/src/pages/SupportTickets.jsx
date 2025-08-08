@@ -230,12 +230,16 @@ export default function SupportTickets() {
   const getPriorityBadge = (priority) => {
     console.log('Rendering priority badge for:', priority);
     switch (priority) {
-      case 'High':
-        return <Badge variant="destructive">High</Badge>;
-      case 'Medium':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-600">Medium</Badge>;
-      case 'Low':
-        return <Badge variant="outline" className="text-green-600 border-green-600">Low</Badge>;
+      case 1:
+        return <Badge variant="destructive">1</Badge>;
+      case 2:
+        return <Badge variant= "outline" className = "text-yellow-600 border-yellow-600">2</Badge>;
+      case 3:
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600">3</Badge>;
+      case 4:
+        return <Badge variant="outline" className="text-green-600 border-green-600">4</Badge>;
+      case 5:
+        return <Badge variant="outline" className="text-green-600 border-green-600">5</Badge>;
       default:
         return <Badge variant="secondary">{priority}</Badge>;
     }
@@ -319,7 +323,7 @@ export default function SupportTickets() {
   const urgentTickets = allTicketsWithType.filter(ticket => 
     !isArchivedTicket(ticket) && 
     (ticket.Status === 'Open' || ticket.Status === 'In Progress') && 
-    ticket.Severity === 'High'
+    ticket.Severity === 1
   ).slice(0, 3);
 
   console.log('Rendering component with tickets:', filteredTickets);
@@ -399,77 +403,44 @@ export default function SupportTickets() {
         </div>
 
         {/* Quick Stats Cards */}
-        {!showArchived && (
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Urgent Tickets</p>
-                    <p className="text-2xl font-bold text-red-600">{urgentTickets.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {allTicketsWithType.filter(t => !isArchivedTicket(t) && t.Status === 'In Progress').length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <TicketCheck className="h-4 w-4 text-green-500" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Active</p>
-                    <p className="text-2xl font-bold text-green-600">{activeCount}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+{!showArchived && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {[
+      {
+        title: 'Critical Tickets',
+        value: urgentTickets.length,
+        color: 'bg-destructive',
+        textColor: 'text-gray-900',
+      },
+      {
+        title: 'In Progress',
+        value: allTicketsWithType.filter(t => !isArchivedTicket(t) && t.Status === 'In Progress').length,
+        color: 'bg-yellow-600',
+        textColor: 'text-gray-900',
+      },
+      {
+        title: 'Total Active',
+        value: activeCount,
+        color: 'bg-green-600',
+        textColor: 'text-gray-900',
+      },
+    ].map((stat, index) => (
+      <Card key={index}>
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${stat.color}`} />
+            <h3 className="text-sm font-medium">{stat.title}</h3>
           </div>
+          <p className={`text-2xl font-bold mt-1 ${stat.textColor}`}>{stat.value}</p>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+
         )}
 
         {/* Urgent Tickets Alert - Only show when not viewing archived */}
-        {!showArchived && urgentTickets.length > 0 && (
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-red-800 flex items-center space-x-2">
-                <AlertCircle className="h-5 w-5" />
-                <span>Urgent Tickets Requiring Attention</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {urgentTickets.map((ticket) => (
-                  <div key={`urgent-${ticket.TicketID}`} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                    <div>
-                      <p className="font-medium text-red-800">{ticket.Title}</p>
-                      <p className="text-sm text-red-600">{getTicketTypeBadge(ticket.ticketType)} • {ticket.Status}</p>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => handleViewTicket(ticket, ticket.ticketType)}
-                      className="border-red-300 text-red-700 hover:bg-red-100"
-                    >
-                      View
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        
 
         {/* Error Message */}
         {error && (

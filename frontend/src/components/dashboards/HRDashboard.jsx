@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   MessageSquare, Flag, CalendarDays, Users, UserPlus, Gift,
-  FolderOpen, Building2, Hourglass, Star
+  FolderOpen, Building2, Hourglass, Star, Cake, MessageCircle, ChartBar,
 } from "lucide-react";
 import {
   Card, CardContent
@@ -87,22 +87,19 @@ export function HRDashboard() {
     : [];
 
   return (
-    <div className="space-y-10 px-4 sm:px-6 lg:px-8 py-6">
+    <div >
       {/* Welcome */}
       <div>
-        <div className="bg-blue-50 border border-blue-500 rounded-lg p-4 mb-4">
-          <p className="text-blue-600 font-semibold text-lg">
-            👋 Welcome back, {firstName}!
-          </p>
-          <p className="text-muted-foreground text-sm">
-            Here's a quick look at your latest stats and updates.
-          </p>
-        </div>
-        <p className="text-muted-foreground mt-1">
-          Here’s what’s going on with your team this week.
+        <div className="bg-[#5a9cab]/25 border border-primary rounded-lg p-4 mb-4">
+        <p className="text-primary font-medium text-lg">
+          Welcome back, {firstName}!
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Here's a quick look at your latest HR stats and updates.
         </p>
       </div>
-
+      </div>
+      <h1 className="text-2xl font-bold">Human Resources Dashboard</h1>
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
         {isLoading
@@ -125,7 +122,7 @@ export function HRDashboard() {
       {/* Work Anniversaries */}
       {upcomingAnniversaries.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mt-8 mb-4">🎉 Work Anniversaries This Week</h2>
+          <h2 className="text-xl space-x-4 flex font-semibold mt-8 mb-4"><Cake /> Work Anniversaries This Week</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {upcomingAnniversaries.map((item, idx) => (
               <Card key={idx} className="border rounded-xl hover:shadow-sm transition">
@@ -142,7 +139,7 @@ export function HRDashboard() {
       {/* Recent Feedback */}
       {!isLoading && stats.recentFeedback?.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mt-8 mb-4">📝 Recent Feedback</h2>
+          <h2 className="text-xl space-x-4 flex font-semibold mt-8 mb-4"><MessageCircle /> Recent Feedback</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.recentFeedback.slice(0, 6).map((fb, idx) => (
               <Card key={idx} className="rounded-xl">
@@ -161,7 +158,7 @@ export function HRDashboard() {
       {/* Tenure Breakdown */}
       {!isLoading && stats.tenureBreakdown && (
         <div className="mt-10 space-y-2">
-          <h2 className="text-xl font-semibold">📊 Tenure Breakdown</h2>
+          <h2 className="flex space-x-4 text-xl font-semibold"><ChartBar /> Tenure Breakdown</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {Object.entries(stats.tenureBreakdown).map(([range, count]) => (
               <Card key={range} className="rounded-xl text-center py-4">

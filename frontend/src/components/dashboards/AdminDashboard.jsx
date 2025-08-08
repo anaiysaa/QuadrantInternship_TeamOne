@@ -216,15 +216,15 @@ export function AdminDashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Shield className="h-8 w-8 text-red-600" />
+            <Shield className="h-8 w-8 text-[#1d3243]" />
             Admin Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
             Welcome back, {user?.name || adminName}. Manage all portals and system settings from here.
           </p>
         </div>
-        <Badge variant="destructive" className="px-3 py-1">
-          <Shield className="h-3 w-3 mr-1" />
+        <Badge  className="px-3 py-1 [#1d3243]">
+          <Shield className="h-3 w-3 mr-1 " />
           ADMIN ACCESS
         </Badge>
         {renderActiveSection()}

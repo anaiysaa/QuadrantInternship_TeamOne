@@ -179,7 +179,7 @@ export default function HRTimesheets() {
       case 'Rejected':
         return <Badge variant="destructive">Rejected</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary" className = "text-white">{status}</Badge>;
     }
   };
 

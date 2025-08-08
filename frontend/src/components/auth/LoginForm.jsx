@@ -56,48 +56,67 @@ export function LoginForm() {
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center"
-      style={{
-        backgroundImage: "url('/images/login-bg.png')",
-      }}
     >
-      <Card className="w-full max-w-md backdrop-blur-md bg-white/80 shadow-xl border border-gray-200">
+      <video
+  autoPlay
+  loop
+  muted
+  playsInline
+  className="absolute inset-0 w-full h-full object-cover z-0"
+  style={{ objectFit: "cover" }}
+  ref={(video) => {
+    if (video) {
+      video.playbackRate = 0.75;
+    }
+  }}
+>
+  <source src="/public/ocean.mp4" type="video/mp4" />
+  Your browser does not support the video tag.
+</video>
+
+      <Card className="w-full max-w-md z-20 bg-black/70 backdrop-blur-md shadow-xl border border-gray-700 text-white">
+
         <CardHeader className="text-center">
           <img
-            src="/mentura-logo.png"
-            alt="Menture Logo"
+            src="/WorkName.png"
             className="h-16 mx-auto mb-4"
           />
-          <CardDescription>Sign in to access your dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-blue-100">Username</Label>
               <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                required
-                autoComplete="username"
-              />
+  id="username"
+  type="text"
+  value={username}
+  onChange={(e) => setUsername(e.target.value)}
+  placeholder="Enter your username"
+  required
+  autoComplete="username"
+  className="bg-gray-800 text-blue-400 placeholder-gray-400 border-gray-700"
+/>
+
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-blue-100">Password</Label >
               <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                autoComplete="current-password"
-              />
+  id="password"
+  type="password"
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  placeholder="Enter your password"
+  required
+  autoComplete="current-password"
+  className="bg-gray-800 text-blue-400 placeholder-gray-400 border-gray-700"
+/>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full text-blue-100 bg-[#5c8cb4]" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
+            <Label htmlFor="username" className="text-blue-100 mt-4 block cursor-pointer hover:underline">
+  Forgot Password?
+</Label>
           </form>
         </CardContent>
       </Card>

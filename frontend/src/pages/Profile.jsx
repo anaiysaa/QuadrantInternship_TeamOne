@@ -10,6 +10,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { EditProfessionalDialog } from "@/components/dialogs/EditProfessionalDialog";
 import { EditEducationDialog } from "@/components/dialogs/EditEducationDialog";
+import {
+  User,
+  Briefcase,
+  Target,
+  Award,
+  Book,
+  Laptop
+} from "lucide-react";
+
+
 
 export default function Profile() {
   const { user } = useAuth();
@@ -103,15 +113,15 @@ useEffect(() => {
 
 
   // Tabs
-  const tabs = [
-    { id: "personal", label: "Personal Info", icon: "👤" },
-    { id: "professional", label: "Professional Info", icon: "🎓" },
-    { id: "skills", label: "Skills", icon: "🎯" },
-    { id: "certifications", label: "Certifications", icon: "🏆" },
-    { id: "education", label: "Education", icon: "📚" }, 
-    { id: "assets", label: "Assigned Assets", icon: "💻" },
+const tabs = [
+  { id: "personal", label: "Personal Info", icon: <User size={16} /> },
+  { id: "professional", label: "Professional Info", icon: <Briefcase size={16} /> },
+  { id: "skills", label: "Skills", icon: <Target size={16} /> },
+  { id: "certifications", label: "Certifications", icon: <Award size={16} /> },
+  { id: "education", label: "Education", icon: <Book size={16} /> },
+  { id: "assets", label: "Assigned Assets", icon: <Laptop size={16} /> },
+];
 
-  ];
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -131,11 +141,20 @@ useEffect(() => {
       <div className="flex items-center justify-between">
   <h1 className="text-3xl font-bold">My Profile</h1>
   <div className="flex gap-4">
-    <label
-      htmlFor="resume-upload"
-      className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition"
-      style={{ marginBottom: 0 }}
-    >
+<label
+  htmlFor="resume-upload"
+  className="inline-block text-white px-4 py-2 rounded-lg cursor-pointer transition"
+  style={{
+    backgroundColor: 'hsl(195, 43%, 66%)', // aqua
+    marginBottom: 0,
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = 'hsl(192, 33%, 51%)'; // darker aqua
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = 'hsl(195, 43%, 66%)'; // back to aqua
+  }}
+>
       Upload Resume
       <input
         id="resume-upload"
@@ -163,7 +182,7 @@ useEffect(() => {
                 </Avatar>
                 <div className="text-center space-y-2">
                   <h3 className="text-xl font-semibold">{employee.name}</h3>
-                  <p className="text-muted-foreground">{employee.email}</p>
+                  <p>{employee.email}</p>
                   <div className="flex flex-wrap gap-2 justify-center">
                     <Badge>{employee.role}</Badge>
                     <Badge>{employee.status}</Badge>
@@ -202,7 +221,7 @@ useEffect(() => {
                     className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors ${
                       activeTab === tab.id
                         ? "border-b-2 border-primary text-primary"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "hover:text-foreground"
                     }`}
                   >
                     <span>{tab.icon}</span>

@@ -219,15 +219,7 @@ export default function ITLiveChat() {
             </CardContent>
           </Card>
 
-          {/* Troubleshooting Sidebar */}
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Troubleshooting</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* ... your static tips ... */}
-            </CardContent>
-          </Card>
+          
         </div>
       </div>
     </DashboardLayout>

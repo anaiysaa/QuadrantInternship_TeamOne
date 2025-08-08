@@ -85,7 +85,7 @@ export function EmployeeDashboard() {
   return (
     <div className="space-y-6">
       {/* 🔹 Welcome Banner */}
-      <div className="bg-primary/10 border border-primary rounded-lg p-4 mb-4">
+      <div className="bg-[#5a9cab]/25 border border-primary rounded-lg p-4 mb-4">
         <p className="text-primary font-medium text-lg">
           Welcome back, {name}!
         </p>

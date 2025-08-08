@@ -10,7 +10,7 @@
 @layer base {
   :root {
     /* Base Colors */
-    --background: 208 100% 97%; /* plain white for background */
+    --background:0 0% 100%; /* plain white for background */
     --foreground: 222.2 84% 4.9%; /* dark gray for text */
 
     --card: 0 0% 100%; /* plain white for cards */
@@ -20,12 +20,12 @@
     --popover-foreground: 222.2 84% 4.9%; /* dark gray for popover text */
 
     /* Corporate Blue Theme */
-    --primary: 205 100% 43%; /* ocean blue */
+    --primary: 192, 33%, 51%; /* ocean blue */
     --primary-foreground: 0 0% 100%; /* white text for primary */
-    --primary-hover: 205 100% 40%; /* slightly darker ocean blue for hover */
-    --primary-light: 205 100% 70%; /* lighter ocean blue for light hover states */
+    --primary-hover: 192, 33%, 51%; /* slightly darker ocean blue for hover */
+    --primary-light: 192, 33%, 51%; /* lighter ocean blue for light hover states */
 
-    --secondary: 210 40% 96.1%; /* light blue */
+    --secondary: 192, 33%, 51%; /* light blue */
     --secondary-foreground: 240 7.5% 26.1%; /* dark gray for secondary text */
 
     --muted: 210 40% 96.1%; /* light blue */
@@ -34,7 +34,7 @@
     /* Accent Colors */
     --accent: 205 100% 70%; /* light blue for accent */
     --accent-foreground: 205 100% 43%; /* ocean blue for accent text */
-    --accent-hover: 205 100% 50%; /* darker ocean blue for accent hover */
+    --accent-hover: 192, 33%, 51%; /* darker ocean blue for accent hover */
 
     /* Status Colors */
     --success: 142 71% 45%; /* greenish color for success */

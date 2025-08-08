@@ -26,13 +26,13 @@ export function ITDashboard() {
   return (
     <div className="space-y-6">
       {/* 🔹 Welcome */}
-      <div className="bg-primary/10 border border-primary rounded-lg p-4 mb-4">
-        <p className="text-primary font-medium text-lg">👋 Welcome back, {firstName}!</p>
+      <div className="bg-[#5a9cab]/25 border border-primary rounded-lg p-4 mb-4">
+        <p className="text-primary font-medium text-lg"> Welcome back, {firstName}!</p>
         <p className="text-muted-foreground text-sm">Here’s an overview of IT operations today.</p>
       </div>
 
       {/* 🔹 Metrics */}
-      <h1 className="text-2xl font-bold">IT Dashboard</h1>
+      <h1 className="text-2xl font-bold">Information Technology Dashboard</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-4"><p className="text-muted-foreground">Total Inventory Items</p><h2 className="text-2xl font-bold">{data.totalInventory}</h2></CardContent></Card>
         <Card><CardContent className="p-4"><p className="text-muted-foreground">Total Assigned</p><h2 className="text-2xl font-bold">{data.totalAssigned}</h2></CardContent></Card>

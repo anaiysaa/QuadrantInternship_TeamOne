@@ -72,11 +72,10 @@ export default function EmployeeDirectory() {
 
   const getDepartmentColor = (department) => {
     switch (department) {
-      case 'Engineering': return 'bg-primary text-primary-foreground';
-      case 'HR': return 'bg-success text-success-foreground';
-      case 'Marketing': return 'bg-warning text-warning-foreground';
-      case 'Sales': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-secondary text-secondary-foreground';
+      case 'Admin': return 'bg-red-100 text-red-800 border-red-200';
+      case 'HR': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'IT': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-secondary text-secondary-foreground text-white';
     }
   };
 
@@ -298,7 +297,7 @@ export default function EmployeeDirectory() {
                         : '-'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={employee.status === 'Active' ? 'default' : 'secondary'}>
+                      <Badge variant={employee.status === 'Active' ? 'default' : 'text-white'}>
                         {employee.status || '-'}
                       </Badge>
                     </TableCell>

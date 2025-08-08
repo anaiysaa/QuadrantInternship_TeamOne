@@ -260,7 +260,7 @@ useEffect(() => {
     }
   }
 
-  // ---------- Toggle Active Status ----------
+  /*// ---------- Toggle Active Status ----------
   async function toggleActiveStatus(id, currentStatus) {
     try {
       const endpoint = currentStatus ? 
@@ -299,7 +299,7 @@ useEffect(() => {
         variant: "destructive",
       });
     }
-  }
+  }*/
 
   return (
     <DashboardLayout>
@@ -490,7 +490,7 @@ useEffect(() => {
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
-                          <Button 
+                          {/*<Button 
                             size="sm" 
                             variant={item.isActive ? "secondary" : "outline"} 
                             onClick={() => toggleActiveStatus(item.id, item.isActive)}
@@ -499,7 +499,7 @@ useEffect(() => {
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => deleteAnnouncement(item.id)}>
                             <Trash2 className="h-3 w-3" />
-                          </Button>
+                          </Button>*/}
                         </div>
                       </div>
                     </div>
