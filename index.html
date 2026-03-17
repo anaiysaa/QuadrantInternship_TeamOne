@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quadrant Prototype — AI Feature Implementation Walkthrough</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --muted: #9fb0d6;
+      --text: #ecf2ff;
+      --accent: #6ea8fe;
+      --accent-2: #8ce3ff;
+      --ok: #6ee7b7;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --border: #2a3764;
+      --code: #0f1530;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 80% -10%, #21376f 0%, var(--bg) 45%) fixed;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1150px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    .hero {
+      border: 1px solid var(--border);
+      background: linear-gradient(160deg, #121b37 0%, #0f1530 100%);
+      border-radius: 18px;
+      padding: 26px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.35);
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      letter-spacing: .2px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .meta {
+      margin-top: 12px;
+      font-size: .9rem;
+      color: #b9c9ea;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: rgba(18, 26, 51, .92);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    @media (min-width: 960px) {
+      .col-6 { grid-column: span 6; }
+      .col-4 { grid-column: span 4; }
+      .col-8 { grid-column: span 8; }
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 1.25rem;
+      border-left: 3px solid var(--accent);
+      padding-left: 10px;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 1.05rem;
+      color: var(--accent-2);
+    }
+
+    p, li { color: #dfe8ff; }
+    .muted { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: .93rem;
+      table-layout: fixed;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    th {
+      background: #152145;
+      color: #dbe8ff;
+      font-weight: 600;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: .78rem;
+      border: 1px solid;
+      margin-right: 6px;
+      margin-bottom: 5px;
+      white-space: nowrap;
+    }
+
+    .ok { color: var(--ok); border-color: rgba(110,231,183,.45); background: rgba(16, 64, 52, .45); }
+    .warn { color: var(--warn); border-color: rgba(251,191,36,.45); background: rgba(82, 57, 8, .45); }
+    .danger { color: var(--danger); border-color: rgba(248,113,113,.45); background: rgba(82, 24, 24, .45); }
+
+    code {
+      background: var(--code);
+      border: 1px solid #20305f;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .86em;
+      color: #d8e7ff;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .flow {
+      margin: 10px 0 4px;
+      padding-left: 18px;
+    }
+
+    .feature {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 12px;
+      background: rgba(15, 22, 44, .85);
+    }
+
+    .kvs {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 8px 10px;
+      margin-top: 8px;
+    }
+
+    .k {
+      color: #b9c9ea;
+      font-weight: 600;
+      font-size: .92rem;
+    }
+
+    .v { color: #e8f0ff; font-size: .93rem; }
+
+    .footer-note {
+      margin-top: 18px;
+      font-size: .9rem;
+      color: #b9c9ea;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    @media (min-width: 960px) {
+      .diagram-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .diagram {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(11, 17, 38, .8);
+    }
+
+    .diagram h4 {
+      margin: 0 0 10px;
+      color: #cfe0ff;
+      font-size: .96rem;
+    }
+
+    .flowline {
+      margin: 6px 0;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: 1px solid #314277;
+      background: rgba(17, 27, 58, .8);
+      font-size: .9rem;
+      color: #e5edff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Quadrant Prototype — Complete AI Implementation Walkthrough</h1>
+      <p class="subtitle">End-to-end analysis of how every AI feature is implemented, wired, and consumed in the app.</p>
+      <p class="meta">Generated for project handoff and technical documentation • Date: March 17, 2026</p>
+    </section>
+
+    <section class="grid">
+      <article class="card col-8">
+        <h2>1) AI Feature Inventory (What Exists Today)</h2>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>AI Feature</th>
+              <th>Primary Backend Entry</th>
+              <th>Frontend Entry</th>
+              <th>AI Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Employee Handbook Assistant (RAG chat)</td>
+              <td><code>POST /api/ask</code> in <code>backend/main.py</code></td>
+              <td><code>frontend/src/components/chat/AIChatWidget.jsx</code></td>
+              <td>Retrieval + LLM generation</td>
+            </tr>
+            <tr>
+              <td>Resume Parsing + Normalization</td>
+              <td><code>POST /resume/upload</code> in <code>resume_api</code></td>
+              <td><code>frontend/src/pages/Profile.jsx</code></td>
+              <td>Document AI + LLM structured extraction</td>
+            </tr>
+            <tr>
+              <td>IT Ticket Severity Classification</td>
+              <td><code>POST /api/tickets/it</code> → <code>classify_it_ticket()</code></td>
+              <td><code>frontend/src/pages/SupportTickets.jsx</code></td>
+              <td>LLM classification with rubric prompt</td>
+            </tr>
+            <tr>
+              <td>HR Ticket Severity Classification</td>
+              <td><code>POST /api/tickets/hr</code> → <code>classify_hr_ticket()</code></td>
+              <td><code>frontend/src/pages/SupportTickets.jsx</code>, <code>hr/HRTickets.jsx</code></td>
+              <td>LLM classification with rubric prompt</td>
+            </tr>
+            <tr>
+              <td>HR Ticket Summarization</td>
+              <td><code>GET /summarize-hr-tickets</code> in <code>backend/main.py</code></td>
+              <td>Admin/HR backend-oriented endpoint</td>
+              <td>LLM summarization</td>
+            </tr>
+            <tr>
+              <td>Internal Transfer AI Course Recommendation</td>
+              <td><code>POST /apply-internal-transfer</code></td>
+              <td>Consumed by transfer workflow (backend API output)</td>
+              <td>LLM recommendation over DB candidate courses</td>
+            </tr>
+            <tr>
+              <td>Career Portal Job Matching + Course Suggestions</td>
+              <td><code>GET /job/job-matches/:employeeId</code></td>
+              <td><code>frontend/src/pages/CareerPortal.jsx</code></td>
+              <td>Rule-based matching + DB-driven recommendations (non-LLM)</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </article>
+
+      <article class="card col-4">
+        <h2>2) High-Level AI Stack</h2>
+        <p>
+          <span class="pill ok">Flask APIs</span>
+          <span class="pill ok">FastAPI module (alt chat impl)</span>
+          <span class="pill ok">Azure OpenAI</span>
+          <span class="pill ok">Azure AI Inference SDK</span>
+          <span class="pill ok">Azure AI Document Intelligence</span>
+          <span class="pill ok">Azure AI Search</span>
+          <span class="pill ok">Azure SQL via pyodbc</span>
+          <span class="pill ok">React + Vite UI</span>
+        </p>
+        <p class="muted">Core backend language: Python. Core frontend language: JavaScript (React).</p>
+
+        <h3>Primary Frameworks</h3>
+        <ul>
+          <li><strong>API runtime:</strong> Flask monolith + Flask Blueprints (<code>resume_api</code>, <code>job_match_api</code>, etc.)</li>
+          <li><strong>Auxiliary runtime:</strong> FastAPI module exists for alternate chatbot flow (<code>employee_chat_bot.py</code>)</li>
+          <li><strong>Frontend:</strong> React 18 + Vite + component primitives from Radix + Tailwind-based styling</li>
+        </ul>
+
+        <h3>Data + Integrations</h3>
+        <ul>
+          <li><strong>Database:</strong> Azure SQL Database accessed with <code>pyodbc</code> and ODBC Driver 18</li>
+          <li><strong>File processing:</strong> Resume upload and PDF handbook ingestion pipelines</li>
+          <li><strong>Knowledge retrieval:</strong> Azure AI Search index seeded from handbook chunk files</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>2.1) Detailed Tech Stack (By Layer)</h2>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Technologies Used</th>
+              <th>How It Is Used In This Project</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Frontend App</td>
+              <td>React 18, Vite, Axios, Fetch API, Radix UI components, Tailwind-style token system</td>
+              <td>Renders chat widget, profile upload, support ticket forms, career portal job-match views, and analytics dashboards that consume AI-powered endpoints.</td>
+            </tr>
+            <tr>
+              <td>Backend API</td>
+              <td>Python, Flask, Flask-CORS, Blueprint modularization, optional FastAPI module</td>
+              <td>Hosts AI routes (<code>/api/ask</code>, <code>/resume/upload</code>, <code>/api/tickets/hr</code>, <code>/api/tickets/it</code>, <code>/summarize-hr-tickets</code>) and orchestrates model + SQL calls.</td>
+            </tr>
+            <tr>
+              <td>LLM Service</td>
+              <td>Azure OpenAI via <code>openai.AzureOpenAI</code></td>
+              <td>Used for handbook Q&amp;A responses, resume normalization to structured JSON, HR ticket summarization, and internal transfer course recommendations.</td>
+            </tr>
+            <tr>
+              <td>Classifier Service</td>
+              <td>Azure AI Inference SDK (<code>azure-ai-inference</code>, <code>ChatCompletionsClient</code>)</td>
+              <td>Used for IT and HR severity classification using prompt templates generated from rubric JSON files.</td>
+            </tr>
+            <tr>
+              <td>Document AI</td>
+              <td>Azure AI Document Intelligence (<code>azure.ai.formrecognizer</code>)</td>
+              <td>Extracts raw text from uploaded resumes before LLM normalization and SQL upsert.</td>
+            </tr>
+            <tr>
+              <td>Retrieval / Search</td>
+              <td>Azure AI Search, LangChain text splitters/loaders</td>
+              <td>Indexes handbook chunks and retrieves relevant excerpts for constrained handbook chatbot responses.</td>
+            </tr>
+            <tr>
+              <td>Data Storage</td>
+              <td>Azure SQL Database, <code>pyodbc</code></td>
+              <td>Stores employee profiles, jobs, courses, tickets, applications, and AI-derived metadata (skills, classifications, summaries).</td>
+            </tr>
+            <tr>
+              <td>DevOps / Hosting</td>
+              <td>GitHub repository branches, static hosting via <code>gh-pages</code> branch artifacts</td>
+              <td>Publishes this walkthrough as a static website and supports long-term shareable documentation distribution.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>2.2) Tech Stack by AI Feature (Visual Diagrams)</h2>
+        <p class="muted">These diagrams map each AI feature to the exact frontend trigger, backend route/module, AI service, and data systems used.</p>
+
+        <div class="diagram-grid">
+          <div class="diagram">
+            <h4>Feature Flow: Handbook Assistant (RAG-style)</h4>
+            <div class="flowline">React Widget: <code>AIChatWidget.jsx</code></div>
+            <div class="flowline">→ Flask Route: <code>POST /api/ask</code> in <code>backend/main.py</code></div>
+            <div class="flowline">→ Retrieval: Azure AI Search (<code>search_employee_handbook()</code>)</div>
+            <div class="flowline">→ Generation: Azure OpenAI (<code>chat.completions</code>)</div>
+            <div class="flowline">→ Response JSON: <code>{"answer": ...}</code> to UI</div>
+          </div>
+
+          <div class="diagram">
+            <h4>Feature Flow: Resume AI Pipeline</h4>
+            <div class="flowline">React Page: <code>Profile.jsx</code> file upload</div>
+            <div class="flowline">→ Flask Blueprint: <code>POST /resume/upload</code></div>
+            <div class="flowline">→ Extraction: Azure Document Intelligence (<code>prebuilt-document</code>)</div>
+            <div class="flowline">→ Structuring: Azure OpenAI JSON normalization</div>
+            <div class="flowline">→ Persistence: Azure SQL via <code>pyodbc</code> upsert to <code>dbo.Employees</code></div>
+          </div>
+
+          <div class="diagram">
+            <h4>Feature Flow: IT / HR Severity Classification</h4>
+            <div class="flowline">React Forms: <code>SupportTickets.jsx</code>, <code>HRTickets.jsx</code></div>
+            <div class="flowline">→ Flask Routes: <code>POST /api/tickets/it</code>, <code>POST /api/tickets/hr</code></div>
+            <div class="flowline">→ Classifier Modules: <code>it_ticket_bot.py</code>, <code>hr_ticket_bot.py</code></div>
+            <div class="flowline">→ Model API: Azure AI Inference SDK (<code>ChatCompletionsClient</code>)</div>
+            <div class="flowline">→ Parse Severity 1–5 + store in SQL ticket tables</div>
+          </div>
+
+          <div class="diagram">
+            <h4>Feature Flow: Internal Transfer Recommendation</h4>
+            <div class="flowline">Backend Route: <code>POST /apply-internal-transfer</code></div>
+            <div class="flowline">→ SQL Reads: employee skills + applied jobs + LMS courses</div>
+            <div class="flowline">→ Skill-gap computation (deterministic)</div>
+            <div class="flowline">→ Azure OpenAI recommendation synthesis</div>
+            <div class="flowline">→ Return: missing skills + recommended courses + AI rationale</div>
+          </div>
+        </div>
+
+        <h3>System Interaction Sequence</h3>
+        <div class="diagram">
+          <div class="flowline">User (React UI) → Flask API Layer → AI Orchestration Module</div>
+          <div class="flowline">AI Orchestration → (Azure OpenAI / Azure Inference / Azure Document Intelligence / Azure Search)</div>
+          <div class="flowline">AI Orchestration ↔ Azure SQL (read profile/job/course/ticket data; write classifications/summaries/normalized resume fields)</div>
+          <div class="flowline">Flask API Layer → React UI response payloads for render + analytics</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>3) Architecture Layers</h2>
+        <div class="kvs">
+          <div class="k">Client layer</div>
+          <div class="v">React pages/components trigger AI endpoints (chat widget, profile upload, ticket creation, career portal).</div>
+
+          <div class="k">API layer</div>
+          <div class="v">Flask monolith in <code>backend/main.py</code> + Flask blueprints (<code>resume_api</code>, <code>job_match_api</code>).</div>
+
+          <div class="k">AI orchestration</div>
+          <div class="v">Utility modules construct prompts, invoke Azure model APIs, parse outputs, and merge with SQL data.</div>
+
+          <div class="k">Knowledge layer</div>
+          <div class="v">Employee handbook chunks generated by <code>chunker.py</code> then uploaded to Azure AI Search via <code>azure_search_setup.py</code>.</div>
+
+          <div class="k">Persistence</div>
+          <div class="v">Azure SQL tables for employees, jobs, courses, tickets, and applications. JSON columns used for skills/certifications.</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>4) Deep Dive — Each AI Feature</h2>
+
+        <section class="feature">
+          <h3>A. Employee Handbook AI Chat (RAG-like flow)</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/main.py</code> (<code>/api/ask</code>), <code>frontend/src/components/chat/AIChatWidget.jsx</code>, <code>backend/chunker.py</code>, <code>backend/azure_search_setup.py</code></div>
+            <div class="k">Model/API</div>
+            <div class="v">Azure OpenAI via <code>openai.AzureOpenAI</code>, chat completions API</div>
+            <div class="k">Retrieval engine</div>
+            <div class="v">Azure AI Search index queried via REST in <code>search_employee_handbook()</code></div>
+          </div>
+
+          <ol class="flow">
+            <li>User asks a question in chat widget (<code>AIChatWidget.jsx</code>) and sends to <code>POST /api/ask</code>.</li>
+            <li>Backend searches top handbook chunks from Azure Search (<code>top_k=2</code>).</li>
+            <li>Backend constructs constrained prompt: “answer using only official handbook excerpts”.</li>
+            <li>Azure OpenAI returns final response; backend returns <code>{"answer": ...}</code>.</li>
+            <li>Frontend appends AI reply into chat conversation.</li>
+          </ol>
+
+          <p><strong>How knowledge base is built:</strong> <code>chunker.py</code> uses LangChain <code>PyPDFLoader</code> + <code>RecursiveCharacterTextSplitter</code> (chunk 500, overlap 50), writes JSON/CSV chunk files; <code>azure_search_setup.py</code> uploads chunks to Azure Search index.</p>
+        </section>
+
+        <section class="feature">
+          <h3>B. Resume AI Pipeline (Upload → Parse → Normalize → Persist)</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/resume_ai/resume_api.py</code>, <code>backend/resume_ai/resume_nor.py</code>, <code>frontend/src/pages/Profile.jsx</code></div>
+            <div class="k">Document extraction</div>
+            <div class="v">Azure AI Document Intelligence (<code>DocumentAnalysisClient</code>, <code>prebuilt-document</code>)</div>
+            <div class="k">Normalization model</div>
+            <div class="v">Azure OpenAI (<code>AZURE_OPENAI_DEPLOYMENT</code>) returns strict JSON fields for employee profile + skills + certs</div>
+            <div class="k">Storage</div>
+            <div class="v">Upsert into <code>dbo.Employees</code> through <code>pyodbc</code>; skills/certifications stored as JSON strings</div>
+          </div>
+
+          <ol class="flow">
+            <li>Profile page uploads file to <code>POST /resume/upload</code>.</li>
+            <li><code>process_resume_file()</code> in <code>resume_nor.py</code> extracts full text via Document Intelligence.</li>
+            <li>Prompt asks Azure OpenAI to produce clean JSON schema for resume entities.</li>
+            <li>Code robustly extracts JSON (direct parse, then regex fallback block extraction).</li>
+            <li>Employee record is updated or inserted by email key.</li>
+            <li>API returns parsed result and lightweight regex sections for UI display.</li>
+          </ol>
+        </section>
+
+        <section class="feature">
+          <h3>C. Ticket Severity AI (IT + HR)</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/ticketAi/it_ticket_bot.py</code>, <code>backend/ticketAi/hr_ticket_bot.py</code>, <code>backend/main.py</code> ticket routes</div>
+            <div class="k">Model/API</div>
+            <div class="v">Azure AI Inference SDK <code>ChatCompletionsClient</code> with <code>SystemMessage</code>/<code>UserMessage</code></div>
+            <div class="k">Prompt strategy</div>
+            <div class="v">Severity rubric loaded from JSON (<code>it_severity.json</code>, <code>hr_severity.json</code>) with levels, examples, keywords, SLA expectations</div>
+          </div>
+
+          <ol class="flow">
+            <li>User submits ticket in Support Tickets UI.</li>
+            <li>Backend <code>POST /api/tickets/it</code> or <code>/api/tickets/hr</code> calls classifier function with description text.</li>
+            <li>Classifier builds large system prompt from severity schema and asks model for final severity line.</li>
+            <li>Regex extracts <code>Severity 1..5</code> from model output.</li>
+            <li>Severity integer stored into SQL ticket row and shown in HR/IT queues and analytics charts.</li>
+          </ol>
+
+          <p><strong>Important detail:</strong> this is not embedding/ML training in-app; it is prompt-based LLM classification with domain rubric grounding from JSON configuration.</p>
+        </section>
+
+        <section class="feature">
+          <h3>D. HR Ticket Summarization</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/ai_utils.py</code> (<code>summarize_ticket_description</code>), <code>backend/main.py</code> (<code>/summarize-hr-tickets</code>)</div>
+            <div class="k">Model/API</div>
+            <div class="v">Azure OpenAI chat completions</div>
+          </div>
+
+          <ol class="flow">
+            <li>Endpoint loads HR ticket descriptions from SQL.</li>
+            <li>For each ticket, utility prompts model to produce 1–2 sentence concise summary.</li>
+            <li>Endpoint returns original + summary payload for quick HR triage.</li>
+          </ol>
+        </section>
+
+        <section class="feature">
+          <h3>E. Internal Transfer AI Recommendations</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/main.py</code> (<code>/apply-internal-transfer</code>), <code>backend/ai_utils.py</code></div>
+            <div class="k">Model/API</div>
+            <div class="v">Azure OpenAI with deterministic prompt (<code>temperature=0.0</code>)</div>
+          </div>
+
+          <ol class="flow">
+            <li>System gets employee skills and applied jobs from SQL.</li>
+            <li>System derives missing skills per job and queries matching LMS courses from DB.</li>
+            <li>LLM receives: current skills, required skills, available courses+links.</li>
+            <li>LLM outputs structured recommendation list by missing skill.</li>
+            <li>Endpoint returns both raw course candidates and AI-generated recommendation rationale.</li>
+          </ol>
+        </section>
+
+        <section class="feature">
+          <h3>F. Career Portal Matching (AI-adjacent, mostly deterministic)</h3>
+          <div class="kvs">
+            <div class="k">Primary files</div>
+            <div class="v"><code>backend/resume_ai/job_match.py</code>, <code>backend/resume_ai/course_recommender_ai.py</code>, <code>frontend/src/pages/CareerPortal.jsx</code></div>
+            <div class="k">Computation type</div>
+            <div class="v">Rule-based skill overlap + SQL course lookup cache; no LLM in this specific flow</div>
+          </div>
+
+          <ol class="flow">
+            <li>Frontend requests <code>/job/job-matches/:employeeId</code>.</li>
+            <li>Backend loads employee skills and all internal jobs.</li>
+            <li>Computes intersection/missing sets and match percent.</li>
+            <li>Maps missing skills to LMS courses using cached DB course list.</li>
+            <li>Returns sorted match cards with recommended courses for UI rendering.</li>
+          </ol>
+        </section>
+      </article>
+
+      <article class="card col-6">
+        <h2>5) Feature-to-Tech Stack Matrix</h2>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>LLM / AI Service</th>
+              <th>Supporting Infra</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Handbook Chat</td>
+              <td>Azure OpenAI (<code>openai</code> SDK)</td>
+              <td>Azure AI Search, Flask route, React chat widget</td>
+            </tr>
+            <tr>
+              <td>Resume Parsing</td>
+              <td>Azure Document Intelligence + Azure OpenAI</td>
+              <td>Flask blueprint, pyodbc SQL upsert, Profile upload UI</td>
+            </tr>
+            <tr>
+              <td>IT/HR Ticket Severity</td>
+              <td>Azure AI Inference SDK chat model endpoint</td>
+              <td>Severity JSON rule packs, Flask ticket routes, SQL tickets tables</td>
+            </tr>
+            <tr>
+              <td>HR Summarization</td>
+              <td>Azure OpenAI</td>
+              <td>SQL ticket fetch, helper utility module</td>
+            </tr>
+            <tr>
+              <td>Internal Transfer Guidance</td>
+              <td>Azure OpenAI</td>
+              <td>SQL jobs/courses queries, deterministic missing-skill extraction</td>
+            </tr>
+            <tr>
+              <td>Job Match + Course Suggestion</td>
+              <td>None (rule-based)</td>
+              <td>Flask blueprint, SQL-backed course cache, React Career Portal</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </article>
+
+      <article class="card col-6">
+        <h2>6) Implementation Notes for Handoff</h2>
+        <ul>
+          <li><strong>Multiple implementations exist:</strong> there are both Flask and FastAPI-style chat/classifier modules in repo; the active integrated app path is Flask <code>backend/main.py</code> plus blueprints.</li>
+          <li><strong>Prompt-centric design:</strong> classification and recommendation rely heavily on prompt instructions + schema/rubric text; behavior updates can be made without model retraining.</li>
+          <li><strong>Structured output safety:</strong> resume parser includes JSON fallback extraction to survive imperfect model output.</li>
+          <li><strong>Knowledge grounding:</strong> handbook chat attempts grounding by retrieving chunks first and forcing “use only excerpts”.</li>
+          <li><strong>Data access layer:</strong> all AI outputs are persisted/combined with Azure SQL through <code>pyodbc</code>.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>7) End-to-End User Journeys (Readable in Plain English)</h2>
+        <h3>Journey 1 — Employee asks handbook question</h3>
+        <p>Employee opens dashboard chat, asks question, backend retrieves handbook chunks from Azure Search, LLM drafts answer constrained to retrieved text, UI displays final answer in chat stream.</p>
+
+        <h3>Journey 2 — Employee uploads resume</h3>
+        <p>Employee uploads PDF/DOC, Document Intelligence reads text, LLM normalizes into profile JSON, backend updates employee row, UI immediately reflects refreshed skills/education/certifications.</p>
+
+        <h3>Journey 3 — Employee submits support ticket</h3>
+        <p>Ticket description sent to backend, LLM classifier assigns severity 1–5 using IT/HR rubric, ticket saved with severity, support queues prioritize and display analytics by severity.</p>
+
+        <h3>Journey 4 — Employee explores internal career opportunities</h3>
+        <p>Backend compares employee skills with job mandatory skills, computes match %, identifies gaps, attaches recommended LMS courses, UI renders matched jobs and learning suggestions.</p>
+      </article>
+
+      <article class="card">
+        <h2>8) Quick File Map (for Developers)</h2>
+        <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Purpose</th>
+              <th>Key Files</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Main AI routes and app wiring</td>
+              <td><code>backend/main.py</code></td>
+            </tr>
+            <tr>
+              <td>LLM helpers (summarization, recommendations)</td>
+              <td><code>backend/ai_utils.py</code></td>
+            </tr>
+            <tr>
+              <td>Handbook chunk generation + search indexing</td>
+              <td><code>backend/chunker.py</code>, <code>backend/azure_search_setup.py</code></td>
+            </tr>
+            <tr>
+              <td>Resume ingestion AI pipeline</td>
+              <td><code>backend/resume_ai/resume_nor.py</code>, <code>backend/resume_ai/resume_api.py</code></td>
+            </tr>
+            <tr>
+              <td>Career matching and course recommendation engine</td>
+              <td><code>backend/resume_ai/job_match.py</code>, <code>backend/resume_ai/course_recommender_ai.py</code></td>
+            </tr>
+            <tr>
+              <td>Ticket AI severity engines</td>
+              <td><code>backend/ticketAi/it_ticket_bot.py</code>, <code>backend/ticketAi/hr_ticket_bot.py</code></td>
+            </tr>
+            <tr>
+              <td>Frontend AI consumers</td>
+              <td><code>frontend/src/components/chat/AIChatWidget.jsx</code>, <code>frontend/src/pages/Profile.jsx</code>, <code>frontend/src/pages/SupportTickets.jsx</code>, <code>frontend/src/pages/CareerPortal.jsx</code></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <p class="footer-note">This document is designed as a complete handoff artifact so a new engineer can trace each AI feature from UI trigger → backend route → model call → data storage/output.</p>
+      </article>
+    </section>
+  </div>
+</body>
+</html>
